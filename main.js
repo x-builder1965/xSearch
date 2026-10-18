@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.03.0';
+// version   = 'Ver1.04.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
@@ -90,6 +90,51 @@ ipcMain.handle('dialog:openDirectory', async () => {
     return filePaths[0];
 });
 
+// AniListデータ取得（アンマッチ時に「劇場版」「映画」を除外して再リクエスト）
+async function fetchAniListWithFallback(name) {
+    let genre = await fetchAniListData(name);
+    // アンマッチ（'-' または空）かつ、キーワードに「劇場版」または「映画」が含まれている場合
+    if ((!genre || genre === '-') && (name.includes('劇場版') || name.includes('映画'))) {
+        const cleanedName = name.replace(/劇場版|映画/g, '').trim();
+        if (cleanedName && cleanedName !== name) {
+            genre = await fetchAniListData(cleanedName);
+        }
+    }
+    return genre;
+}
+
+// しょぼカレンダーTID取得（アンマッチ時に「劇場版」「映画」を除外して再リクエスト）
+async function fetchSyobocalTidWithFallback(name) {
+    let tid = await fetchSyobocalTid(name);
+    // アンマッチ（'-' または空）かつ、キーワードに「劇場版」または「映画」が含まれている場合
+    if ((!tid || tid === '-') && (name.includes('劇場版') || name.includes('映画'))) {
+        const cleanedName = name.replace(/劇場版|映画/g, '').trim();
+        if (cleanedName && cleanedName !== name) {
+            tid = await fetchSyobocalTid(cleanedName);
+        }
+    }
+    return tid;
+}
+
+// プレイリスト内のパスを検証して状態を判定するヘルパー関数
+async function checkPlaylistStatus(folderPath, lines) {
+    if (lines.length === 0) {
+        return 'BLANK';
+    }
+
+    try {
+        for (const line of lines) {
+            const rawPath = line.trim();
+            // 絶対パスでなければフォルダからの相対パスとして解決
+            const targetPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(folderPath, rawPath);
+            await fs.access(targetPath);
+        }
+        return 'OK';
+    } catch (e) {
+        return 'NG';
+    }
+}
+
 // 再帰的にフォルダをスキャンし、データを構築する
 ipcMain.handle('scan:directory', async (event, rootDir) => {
     try {
@@ -125,7 +170,7 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
             const seriesRating = fParts[2] || '';
             const seriesName = fParts[3] || folderName;
 
-            const genre = await fetchAniListData(seriesName);
+            const genre = await fetchAniListWithFallback(seriesName);
 
             const subEntries = await fs.readdir(folderPath, { withFileTypes: true });
             for (const subEntry of subEntries) {
@@ -153,7 +198,10 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
                 const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
                 const episodeCount = lines.length;
 
-                const tid = await fetchSyobocalTid(titleName);
+                // パスの存在チェック
+                const playlistStatus = await checkPlaylistStatus(folderPath, lines);
+
+                const tid = await fetchSyobocalTidWithFallback(titleName);
 
                 results.push({
                     id: `${folderPath}__${filePath}`,
@@ -171,7 +219,8 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
                     titleDate,
                     titleRating,
                     titleName,
-                    episodeCount
+                    episodeCount,
+                    playlistStatus
                 });
             }
         }
@@ -389,9 +438,9 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
                 const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
                 const episodeCount = lines.length;
 
-                // --- 変更点: 更新日時が同じでも、ジャンルまたはTIDが "-" であれば再取得対象とする ---
                 let genre = cachedItem ? cachedItem.genre : null;
                 let tid = cachedItem ? cachedItem.tid : null;
+                let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
 
                 const isMtimeUnchanged = cachedItem && 
                                          cachedItem.folderMtime === folderMtime && 
@@ -399,17 +448,19 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
 
                 const needsFetchGenre = !cachedItem || !genre || genre === '-';
                 const needsFetchTid = !cachedItem || !tid || tid === '-';
+                const needsCheckStatus = !cachedItem || !playlistStatus;
 
-                if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid) {
-                    // 更新日時が変更されておらず、かつ値が正常に取得できている場合はキャッシュをそのまま流用
+                if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
                     results.push(cachedItem);
                 } else {
-                    // 更新日時が変更されている、または前回値が "-" のため再取得が必要
                     if (needsFetchGenre) {
-                        genre = await fetchAniListData(seriesName);
+                        genre = await fetchAniListWithFallback(seriesName);
                     }
                     if (needsFetchTid) {
-                        tid = await fetchSyobocalTid(titleName);
+                        tid = await fetchSyobocalTidWithFallback(titleName);
+                    }
+                    if (needsCheckStatus || !isMtimeUnchanged) {
+                        playlistStatus = await checkPlaylistStatus(folderPath, lines);
                     }
 
                     results.push({
@@ -429,6 +480,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
                         titleRating,
                         titleName,
                         episodeCount,
+                        playlistStatus,
                         isSave: cachedItem ? cachedItem.isSave : false
                     });
                 }

@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.01.0';
+// version   = 'Ver1.04.0';
 // ---------------------------------------------------------------------
 let appState = {
     selectedDir: '',
@@ -161,6 +161,15 @@ function loadFromLocalStorage() {
     }
 }
 
+// ステータスに応じたアイコンを返すヘルパー関数
+function getStatusIcon(status) {
+    switch (status) {
+        case 'OK': return '🟢';
+        case 'NG': return '🔴';
+        default: return '🟡'; // BLANK など
+    }
+}
+
 function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
@@ -179,7 +188,8 @@ function renderTable() {
             item.titleDate,
             item.titleRating,
             item.titleName,    // index 9: タイトル
-            item.episodeCount
+            item.episodeCount, // index 10: 話数
+            getStatusIcon(item.playlistStatus) // index 11: 状態
         ];
 
         // 6番目（ジャンル）までを描画
@@ -213,18 +223,21 @@ function renderTable() {
         saveTd.appendChild(checkbox);
         tr.appendChild(saveTd);
 
-        // 7番目以降（タイトル50音〜）を描画
+        // 7番目以降（タイトル50音〜話数・状態）を描画
         for (let i = 6; i < fields.length; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
+            if (i === 11) {
+                td.style.textAlign = 'center'; // 状態アイコンを中央寄せ
+            }
             tr.appendChild(td);
         }
         tbody.appendChild(tr);
     });
 
-    // 💡 ループの外で全選択チェックボックスの状態を同期
+    // ループの外で全選択チェックボックスの状態を同期
     updateSelectAllCheckbox();
 }
 
