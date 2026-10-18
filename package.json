@@ -1,0 +1,78 @@
+{
+    "name": "xsearch",
+    "version": "1.00.0",
+    "description": "xSearch medhia search tool",
+    "main": "main.js",
+    "author": "x-builder",
+    "license": "MIT",
+    "homepage": "https://github.com/x-builder1965/xSearch",
+    "scripts": {
+        "start": "chcp 65001 && electron .",
+        "build": "electron-builder --win",
+        "dist": "electron-builder --win --x64",
+        "dist:32": "electron-builder --win --ia32",
+        "dist:portable": "electron-builder --win --x64 --target portable",
+        "publish": "electron-builder --win --publish always",
+        "sign": "electron-builder --win --x64 --config.cscLink=authenticode.pfx --config.cscKeyPassword=%CSC_KEY_PASSWORD%"
+    },
+    "dependencies": {
+        "archiver": "^7.0.1",
+        "cheerio": "^1.2.0"
+    },
+    "devDependencies": {
+        "electron": "^30.5.1",
+        "electron-builder": "^26.0.12"
+    },
+    "build": {
+        "appId": "com.xsearch.app",
+        "productName": "xSearch",
+        "copyright": "Copyright © 2026- x-builder",
+        "asar": true,
+        "compression": "maximum",
+        "directories": {
+            "output": "dist-win"
+        },
+        "files": [
+            "package.json",
+            "main.js",
+            "preload.js",
+            "style.css",
+            "index.html",
+            "index_helpTable.html",
+            "index_changelog.html",
+            "renderer.js",
+            "xSearch.png",
+            "xSearch.ico"
+        ],
+        "win": {
+            "icon": "xSearch.ico",
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "verifyUpdateCodeSignature": true,
+            "forceCodeSigning": false
+        },
+        "nsis": {
+            "oneClick": false,
+            "perMachine": true,
+            "allowElevation": true,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "xSearch",
+            "menuCategory": "Multimedia",
+            "installerIcon": "xSearch.ico",
+            "uninstallerIcon": "xSearch.ico",
+            "installerHeaderIcon": "xSearch.ico",
+            "warningsAsErrors": false,
+            "installerLanguages": [
+                "ja_JP"
+            ]
+        }
+    }
+}
