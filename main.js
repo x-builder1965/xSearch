@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.06.0';
+// version   = 'Ver1.07.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -136,94 +136,127 @@ async function checkPlaylistStatus(folderPath, lines) {
     }
 }
 
-// 再帰的にフォルダをスキャンし、データを構築する
+// 再帰的にすべてのプレイリストファイルとシリーズ情報を事前に収集するヘルパー関数
+async function collectPlaylists(currentDir, parentSeriesInfo = null) {
+    let playlists = [];
+    try {
+        const entries = await fs.readdir(currentDir, { withFileTypes: true });
+        const dirEntries = entries.filter(e => e.isDirectory());
+        const fileEntries = entries.filter(e => e.isFile() && e.name.endsWith('.amppl'));
+
+        let folderStat;
+        try {
+            folderStat = await fs.stat(currentDir);
+        } catch (e) {
+            folderStat = { mtimeMs: 0 };
+        }
+        const folderMtime = folderStat.mtimeMs;
+
+        const folderName = path.basename(currentDir);
+        const fParts = folderName.split('_');
+        
+        let currentSeriesInfo = parentSeriesInfo;
+        if (fParts.length >= 2 || parentSeriesInfo === null) {
+            currentSeriesInfo = {
+                folderPath: currentDir,
+                folderMtime,
+                seriesKana: fParts[0] || '',
+                seriesPeriod: fParts[1] || '',
+                seriesRating: fParts[2] || '',
+                seriesName: fParts[3] || folderName
+            };
+        }
+
+        // この階層にあるプレイリストファイルをリストに追加
+        for (const fileEntry of fileEntries) {
+            const filePath = path.join(currentDir, fileEntry.name);
+            const seriesInfo = currentSeriesInfo || {
+                folderPath: currentDir,
+                folderMtime,
+                seriesKana: fParts[0] || '',
+                seriesPeriod: fParts[1] || '',
+                seriesRating: fParts[2] || '',
+                seriesName: fParts[3] || folderName
+            };
+            playlists.push({ filePath, seriesInfo });
+        }
+
+        // 子ディレクトリを再帰的に収集
+        for (const dirEntry of dirEntries) {
+            const subDirPath = path.join(currentDir, dirEntry.name);
+            const subPlaylists = await collectPlaylists(subDirPath, currentSeriesInfo);
+            playlists = playlists.concat(subPlaylists);
+        }
+    } catch (e) {
+        console.error('Error collecting playlists in:', currentDir, e);
+    }
+    return playlists;
+}
+
+
+// 1. 通常スキャン（進捗対応版）
 ipcMain.handle('scan:directory', async (event, rootDir) => {
     try {
+        // 事前に選択フォルダ内をすべて検索し、プレイリストファイル数を母数として確定
+        const playlistItems = await collectPlaylists(rootDir, null);
+        const total = playlistItems.length;
         const results = [];
-        const entries = await fs.readdir(rootDir, { withFileTypes: true });
-        
-        const dirEntries = entries.filter(e => e.isDirectory());
-        let currentFolderIndex = 0;
-        const totalFolders = dirEntries.length;
+        let current = 0;
 
-        for (const entry of dirEntries) {
-            currentFolderIndex++;
-            const folderName = entry.name;
-            const folderPath = path.join(rootDir, folderName);
-            
+        for (const item of playlistItems) {
+            current++;
+            const { filePath, seriesInfo } = item;
+            const fileName = path.basename(filePath);
+
+            // 1ファイル処理開始前（または完了毎）に進捗を報告
             event.sender.send('scan:progress', {
-                current: currentFolderIndex,
-                total: totalFolders,
-                message: `( ${currentFolderIndex} / ${totalFolders} ) ${folderName}`
+                current,
+                total,
+                message: `( ${current} / ${total} ) ${fileName}`
             });
 
-            let folderStat;
+            let fileStat;
             try {
-                folderStat = await fs.stat(folderPath);
+                fileStat = await fs.stat(filePath);
             } catch (e) {
                 continue;
             }
-            const folderMtime = folderStat.mtimeMs;
+            const fileMtime = fileStat.mtimeMs;
 
-            const fParts = folderName.split('_');
-            const seriesKana = fParts[0] || '';
-            const seriesPeriod = fParts[1] || '';
-            const seriesRating = fParts[2] || '';
-            const seriesName = fParts[3] || folderName;
+            const baseFileName = path.basename(filePath, '.amppl');
+            const tParts = baseFileName.split('_');
+            const titleKana = tParts[0] || '';
+            const titleDate = tParts[1] || '';
+            const titleRating = tParts[2] || '';
+            const titleName = tParts[3] || baseFileName;
 
-            const genre = await fetchAniListWithFallback(seriesName);
+            const ampplContent = await fs.readFile(filePath, 'utf-8');
+            const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
+            const episodeCount = lines.length;
 
-            const subEntries = await fs.readdir(folderPath, { withFileTypes: true });
-            for (const subEntry of subEntries) {
-                if (!subEntry.isFile() || !subEntry.name.endsWith('.amppl')) continue;
+            const genre = await fetchAniListWithFallback(seriesInfo.seriesName);
+            const playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
+            const tid = await fetchSyobocalTidWithFallback(titleName);
 
-                const fileName = subEntry.name;
-                const filePath = path.join(folderPath, fileName);
-                
-                let fileStat;
-                try {
-                    fileStat = await fs.stat(filePath);
-                } catch (e) {
-                    continue;
-                }
-                const fileMtime = fileStat.mtimeMs;
-
-                const baseFileName = path.basename(fileName, '.amppl');
-                const tParts = baseFileName.split('_');
-                const titleKana = tParts[0] || '';
-                const titleDate = tParts[1] || '';
-                const titleRating = tParts[2] || '';
-                const titleName = tParts[3] || baseFileName;
-
-                const ampplContent = await fs.readFile(filePath, 'utf-8');
-                const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
-                const episodeCount = lines.length;
-
-                // パスの存在チェック
-                const playlistStatus = await checkPlaylistStatus(folderPath, lines);
-
-                const tid = await fetchSyobocalTidWithFallback(titleName);
-
-                results.push({
-                    id: `${folderPath}__${filePath}`,
-                    folderPath,
-                    filePath,
-                    folderMtime,
-                    fileMtime,
-                    tid,
-                    seriesKana,
-                    seriesPeriod,
-                    seriesRating,
-                    seriesName,
-                    genre,
-                    titleKana,
-                    titleDate,
-                    titleRating,
-                    titleName,
-                    episodeCount,
-                    playlistStatus
-                });
-            }
+            results.push({
+                id: `${seriesInfo.folderPath}__${filePath}`,
+                folderPath: seriesInfo.folderPath,
+                filePath,
+                folderMtime: seriesInfo.folderMtime,
+                fileMtime,
+                tid,
+                seriesKana: seriesInfo.seriesKana,
+                seriesPeriod: seriesInfo.seriesPeriod,
+                seriesRating: seriesInfo.seriesRating,
+                seriesName: seriesInfo.seriesName,
+                genre,
+                titleKana,
+                titleDate,
+                titleRating,
+                titleName,
+                episodeCount,
+                playlistStatus
+            });
         }
         return results;
     } catch (error) {
@@ -365,7 +398,7 @@ async function fetchSyobocalTid(title) {
     return '-';
 }
 
-// 高速再検索（追加・変更・削除の同期）
+// 2. 高速再検索 / 同期（進捗対応版）
 ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
     try {
         const existingMap = new Map();
@@ -373,118 +406,90 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
             existingMap.set(item.filePath, item);
         });
 
+        // 事前に選択フォルダ内をすべて検索し、プレイリストファイル数を母数として確定
+        const playlistItems = await collectPlaylists(rootDir, null);
+        const total = playlistItems.length;
         const results = [];
-        const entries = await fs.readdir(rootDir, { withFileTypes: true });
-        const dirEntries = entries.filter(e => e.isDirectory());
-        
-        let currentFolderIndex = 0;
-        const totalFolders = dirEntries.length;
+        let current = 0;
 
-        for (const entry of dirEntries) {
-            currentFolderIndex++;
-            const folderName = entry.name;
-            const folderPath = path.join(rootDir, folderName);
+        for (const item of playlistItems) {
+            current++;
+            const { filePath, seriesInfo } = item;
+            const fileName = path.basename(filePath);
 
+            // 進捗を報告
             event.sender.send('scan:progress', {
-                current: currentFolderIndex,
-                total: totalFolders,
-                message: `( ${currentFolderIndex} / ${totalFolders} ) ${folderName}`
+                current,
+                total,
+                message: `( ${current} / ${total} ) ${fileName}`
             });
 
-            let folderStat;
+            let fileStat;
             try {
-                folderStat = await fs.stat(folderPath);
+                fileStat = await fs.stat(filePath);
             } catch (e) {
                 continue;
             }
-            const folderMtime = folderStat.mtimeMs;
+            const fileMtime = fileStat.mtimeMs;
 
-            const fParts = folderName.split('_');
-            const seriesKana = fParts[0] || '';
-            const seriesPeriod = fParts[1] || '';
-            const seriesRating = fParts[2] || '';
-            const seriesName = fParts[3] || folderName;
+            const cachedItem = existingMap.get(filePath);
 
-            let subEntries;
-            try {
-                subEntries = await fs.readdir(folderPath, { withFileTypes: true });
-            } catch (e) {
-                continue;
-            }
+            const baseFileName = path.basename(filePath, '.amppl');
+            const tParts = baseFileName.split('_');
+            const titleKana = tParts[0] || '';
+            const titleDate = tParts[1] || '';
+            const titleRating = tParts[2] || '';
+            const titleName = tParts[3] || baseFileName;
 
-            for (const subEntry of subEntries) {
-                if (!subEntry.isFile() || !subEntry.name.endsWith('.amppl')) continue;
+            const ampplContent = await fs.readFile(filePath, 'utf-8');
+            const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
+            const episodeCount = lines.length;
 
-                const fileName = subEntry.name;
-                const filePath = path.join(folderPath, fileName);
+            let genre = cachedItem ? cachedItem.genre : null;
+            let tid = cachedItem ? cachedItem.tid : null;
+            let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
 
-                let fileStat;
-                try {
-                    fileStat = await fs.stat(filePath);
-                } catch (e) {
-                    continue;
+            const isMtimeUnchanged = cachedItem && 
+                                     cachedItem.folderMtime === seriesInfo.folderMtime && 
+                                     cachedItem.fileMtime === fileMtime;
+
+            const needsFetchGenre = !cachedItem || !genre || genre === '-';
+            const needsFetchTid = !cachedItem || !tid || tid === '-';
+            const needsCheckStatus = !cachedItem || !playlistStatus;
+
+            if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
+                results.push(cachedItem);
+            } else {
+                if (needsFetchGenre) {
+                    genre = await fetchAniListWithFallback(seriesInfo.seriesName);
                 }
-                const fileMtime = fileStat.mtimeMs;
-
-                const cachedItem = existingMap.get(filePath);
-
-                const baseFileName = path.basename(fileName, '.amppl');
-                const tParts = baseFileName.split('_');
-                const titleKana = tParts[0] || '';
-                const titleDate = tParts[1] || '';
-                const titleRating = tParts[2] || '';
-                const titleName = tParts[3] || baseFileName;
-
-                const ampplContent = await fs.readFile(filePath, 'utf-8');
-                const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
-                const episodeCount = lines.length;
-
-                let genre = cachedItem ? cachedItem.genre : null;
-                let tid = cachedItem ? cachedItem.tid : null;
-                let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
-
-                const isMtimeUnchanged = cachedItem && 
-                                         cachedItem.folderMtime === folderMtime && 
-                                         cachedItem.fileMtime === fileMtime;
-
-                const needsFetchGenre = !cachedItem || !genre || genre === '-';
-                const needsFetchTid = !cachedItem || !tid || tid === '-';
-                const needsCheckStatus = !cachedItem || !playlistStatus;
-
-                if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
-                    results.push(cachedItem);
-                } else {
-                    if (needsFetchGenre) {
-                        genre = await fetchAniListWithFallback(seriesName);
-                    }
-                    if (needsFetchTid) {
-                        tid = await fetchSyobocalTidWithFallback(titleName);
-                    }
-                    if (needsCheckStatus || !isMtimeUnchanged) {
-                        playlistStatus = await checkPlaylistStatus(folderPath, lines);
-                    }
-
-                    results.push({
-                        id: `${folderPath}__${filePath}`,
-                        folderPath,
-                        filePath,
-                        folderMtime,
-                        fileMtime,
-                        tid,
-                        seriesKana,
-                        seriesPeriod,
-                        seriesRating,
-                        seriesName,
-                        genre,
-                        titleKana,
-                        titleDate,
-                        titleRating,
-                        titleName,
-                        episodeCount,
-                        playlistStatus,
-                        isSave: cachedItem ? cachedItem.isSave : false
-                    });
+                if (needsFetchTid) {
+                    tid = await fetchSyobocalTidWithFallback(titleName);
                 }
+                if (needsCheckStatus || !isMtimeUnchanged) {
+                    playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
+                }
+
+                results.push({
+                    id: `${seriesInfo.folderPath}__${filePath}`,
+                    folderPath: seriesInfo.folderPath,
+                    filePath,
+                    folderMtime: seriesInfo.folderMtime,
+                    fileMtime,
+                    tid,
+                    seriesKana: seriesInfo.seriesKana,
+                    seriesPeriod: seriesInfo.seriesPeriod,
+                    seriesRating: seriesInfo.seriesRating,
+                    seriesName: seriesInfo.seriesName,
+                    genre,
+                    titleKana,
+                    titleDate,
+                    titleRating,
+                    titleName,
+                    episodeCount,
+                    playlistStatus,
+                    isSave: cachedItem ? cachedItem.isSave : false
+                });
             }
         }
         return results;
