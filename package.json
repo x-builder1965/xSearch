@@ -1,6 +1,6 @@
 {
     "name": "xsearch",
-    "version": "1.05.0",
+    "version": "1.06.0",
     "description": "xSearch playlist search tool",
     "main": "main.js",
     "author": "x-builder",
@@ -73,6 +73,24 @@
             "installerLanguages": [
                 "ja_JP"
             ]
-        }
+        },
+        "protocols": [
+            {
+                "name": "xsearch",
+                "schemes": [
+                "xsearch"
+                ]
+            }
+        ],
+        "fileAssociations": [
+            {
+                "ext": "xsj",
+                "name": "xSearch Project File",
+                "description": "xSearch 設定ファイル",
+                "mimeType": "application/x-xsearch-project",
+                "icon": "xSearch.ico",
+                "role": "Editor"
+            }
+        ]
     }
 }

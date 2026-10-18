@@ -10,32 +10,22 @@
     - 保存ダイアログを表示。（デフォルトファイル名：xSearch_setting.xsj）
     - 「保存」クリック：localStorageの設定をファイルに保存
     - 「キャンセル」クリック：なにもしない。
-- 修正対象ロジック：
-<!-- -- index.html ---------------------------------------------------
-<!-- コントロールパネル -->
-<header class="toolbar">
-    <button id="select-dir-btn">🔎</button>
-    <button id="fast-search-btn">👁️</button>
-    <span id="current-dir-path" class="path-label">フォルダが選択されていません</span>
-    <button id="save-btn">💾</button>
-</header>
 
-/* -- styles.css --------------------------------------------------------
-button {
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    background-color: var(--accent-color);
-    color: #fff;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-}
+## 2026-10-XX Ver1.XX.0 リストのTID、シリーズ、タイトルのリンク起動機能の追加。
+- 保存（💾） と インポート（📤）の間にプレイヤーアプリ設定（⚙️）を配置
+    - プレイヤーアプリ設定（⚙️）クリックで選択ダイアログを表示
+    - 「開く」クリック：
+        - localStorageにプレイヤーアプリのパスを保存。
+        - ⚙️の背景色を赤色に設定。
+    - 「キャンセル」クリック：
+        -  localStorageにプレイヤーアプリのパスをクリア。
+        - ⚙️の背景色を元の色に戻す。
+- リストのTIDのクリック：
+    - URL：https://cal.syoboi.jp/tid/[TID]/subtitle
+    - Chrome または Edge でしょぼいカレンダーサイトをポップアップ表示
+- リストのシリーズのクリック：
+    - 対象行のフォルダパスをパラメータにしてプレイヤーアプリを実行
+- リストのタイトルのクリック：
+    - 対象行のプレイリストパスをパラメータにしてプレイヤーアプリを実行
+- プレイヤーアプリの実行処理をmain.jsに実装
 
-// -- renderer.js ------------------------------------------------------
-let appState = {
-    selectedDir: '',
-    items: [],
-    theme: 'dark',
-    isProcessing: false // 追加：処理中フラグ
-};

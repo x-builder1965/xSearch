@@ -2,13 +2,14 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.05.0';
+// version   = 'Ver1.06.0';
 // ---------------------------------------------------------------------
 let appState = {
     selectedDir: '',
     items: [],
     theme: 'dark',
-    isProcessing: false // 追加：処理中フラグ
+    isProcessing: false,    // 追加：処理中フラグ
+    playerAppPath: ''       // 追加：プレイヤーアプリのパス
 };
 let toastTimer = null;
 let toastStartTime = 0;
@@ -20,6 +21,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await setupHTMLLoad();
     // ローカルストレージから状態を復元
     await loadFromLocalStorage();
+    // プレイヤーアプリ設定の復元
+    await loadPlayerConfigState();
     // 初期表示
     await renderTable();
     // テーマの適用
@@ -36,6 +39,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerFastSearchBtnClick();
     // 💾保存ボタンイベントのリスナー登録
     registerSaveBtnClick();
+    // ⚙️ボタンクリック時の処理
+    registerPlayerConfigBtnClick();
     // 📤エクスポートボタンクリック時
     registerExportBtnClick();
     // 📤インポートボタンクリック時
@@ -141,6 +146,7 @@ async function setupHTMLLoad() {
     }
 }
 
+// 検索元フォルダ、検索結果リストの復元
 function loadFromLocalStorage() {
     const saved = localStorage.getItem('playlist_app_state');
     if (saved) {
@@ -165,6 +171,19 @@ function loadFromLocalStorage() {
     }
 }
 
+// プレイヤーアプリの復元
+function loadPlayerConfigState() {
+    const savedPath = localStorage.getItem('playerAppPath');
+    const btn = document.getElementById('player-config-btn');
+    if (savedPath) {
+        appState.playerAppPath = savedPath;
+        if (btn) btn.style.backgroundColor = 'red';
+    } else {
+        appState.playerAppPath = '';
+        if (btn) btn.style.backgroundColor = '';
+    }
+}
+
 // ステータスに応じたアイコンを返すヘルパー関数
 function getStatusIcon(status) {
     switch (status) {
@@ -174,6 +193,7 @@ function getStatusIcon(status) {
     }
 }
 
+// リストの編集
 function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
@@ -181,6 +201,9 @@ function renderTable() {
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
 
+        // 各フィールドの定義
+        // 0: tid, 1: seriesKana, 2: seriesPeriod, 3: seriesRating, 4: seriesName, 5: genre
+        // 6: titleKana, 7: titleDate, 8: titleRating, 9: titleName, 10: episodeCount, 11: playlistStatus
         const fields = [
             item.tid,
             item.seriesKana,
@@ -196,12 +219,39 @@ function renderTable() {
             getStatusIcon(item.playlistStatus) // index 11: 状態
         ];
 
-        // 6番目（ジャンル）までを描画
+        // --- 0〜5番目の描画（TIDは index 0） ---
         for (let i = 0; i <= 5; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
+
+            // TID列（index 0）のクリックイベント
+            if (i === 0 && textVal) {
+                td.style.cursor = 'pointer';
+                td.style.color = '#4da6ff'; // リンク風の色（必要に応じて）
+                td.addEventListener('click', () => {
+                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
+                    window.api.openExternalUrl(tidUrl);
+                });
+            }
+
+            // シリーズ列（index 4）のクリックイベント
+            if (i === 4) {
+                td.style.cursor = 'pointer';
+                td.addEventListener('click', () => {
+                    if (!appState.playerAppPath) {
+                        showToast('プレイヤーアプリが設定されていません。⚙️ボタンから設定してください。', 'warning');
+                        return;
+                    }
+                    // 対象行のフォルダパスをパラメータにしてプレイヤーアプリを実行
+                    window.api.launchPlayer({
+                        appPath: appState.playerAppPath,
+                        targetPath: item.folderPath
+                    });
+                });
+            }
+
             tr.appendChild(td);
         }
 
@@ -216,32 +266,45 @@ function renderTable() {
 
         checkbox.addEventListener('change', (e) => {
             item.isSave = e.target.checked;
-    
-            // 個別変更時も localStorage へ保存
             saveToLocalStorage();
-            
-            // 全選択チェックボックスの状態を再同期
             updateSelectAllCheckbox();
         });
-
         saveTd.appendChild(checkbox);
         tr.appendChild(saveTd);
 
-        // 7番目以降（タイトル50音〜話数・状態）を描画
+        // --- 6番目以降の描画（タイトルは index 9） ---
         for (let i = 6; i < fields.length; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
+
+            // タイトル列（index 9、fields配列上のインデックスに注意：i=9はタイトル名）
+            // fieldsのindexに対応させるため、iの値をチェック
+            if (i === 9) { // titleName
+                td.style.cursor = 'pointer';
+                td.addEventListener('click', () => {
+                    if (!appState.playerAppPath) {
+                        showToast('プレイヤーアプリが設定されていません。⚙️ボタンから設定してください。', 'warning');
+                        return;
+                    }
+                    // 対象行のプレイリストパスをパラメータにしてプレイヤーアプリを実行
+                    window.api.launchPlayer({
+                        appPath: appState.playerAppPath,
+                        targetPath: item.filePath
+                    });
+                });
+            }
+
             if (i === 11) {
-                td.style.textAlign = 'center'; // 状態アイコンを中央寄せ
+                td.style.textAlign = 'center';
             }
             tr.appendChild(td);
         }
+
         tbody.appendChild(tr);
     });
 
-    // ループの外で全選択チェックボックスの状態を同期
     updateSelectAllCheckbox();
 }
 
@@ -336,6 +399,29 @@ function registerSaveBtnClick() {
             showToast(`プレイリストを保存しました:\n${result.filePath}`, 'info');
         } else if (!result.canceled) {
             showToast(`保存に失敗しました:\n${result.message || '不明なエラー'}`, 'error');
+        }
+    });
+}
+
+// ⚙️ボタンクリック時の処理
+function registerPlayerConfigBtnClick() {
+    document.getElementById('player-config-btn').addEventListener('click', async () => {
+        // メインプロセス経由でファイル選択ダイアログを表示する例
+        const filePath = await window.api.selectPlayerApp();
+    
+        if (filePath) {
+            // 「開く」選択時
+            appState.playerAppPath = filePath;
+            localStorage.setItem('playerAppPath', filePath);
+            document.getElementById('player-config-btn').style.backgroundColor = 'red';
+            showToast('プレイヤーアプリを設定しました', 'info');
+        } else {
+            // 「キャンセル」選択時、または未選択の場合のクリア処理
+            // ※必要に応じて「解除しますか？」の確認などを挟んでも良いですが、要件に合わせてシンプルにクリア実装
+            appState.playerAppPath = '';
+            localStorage.removeItem('playerAppPath');
+            document.getElementById('player-config-btn').style.backgroundColor = '';
+            showToast('プレイヤーアプリの設定をクリアしました', 'info');
         }
     });
 }
@@ -541,7 +627,7 @@ function showProgress(current, total, message) {
     container.style.display = 'block';
     const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
     bar.style.width = `${percent}%`;
-    text.textContent = `${percent}% (${current} / ${total})`;
+    text.textContent = `${percent}% ( ${current} / ${total} )`;
     status.textContent = message;
 }
 

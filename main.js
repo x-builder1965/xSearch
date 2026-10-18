@@ -2,11 +2,12 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.05.0';
+// version   = 'Ver1.06.0';
 // ---------------------------------------------------------------------
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
+const { spawn } = require('child_process');
 
 // AniList의 英語ジャンル名から日本語への対応辞書
 const GENRE_MAP = {
@@ -153,7 +154,7 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
             event.sender.send('scan:progress', {
                 current: currentFolderIndex,
                 total: totalFolders,
-                message: `(${currentFolderIndex}/${totalFolders}) ${folderName}`
+                message: `( ${currentFolderIndex} / ${totalFolders} ) ${folderName}`
             });
 
             let folderStat;
@@ -387,7 +388,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
             event.sender.send('scan:progress', {
                 current: currentFolderIndex,
                 total: totalFolders,
-                message: `(${currentFolderIndex}/${totalFolders}) ${folderName}`
+                message: `( ${currentFolderIndex} / ${totalFolders} ) ${folderName}`
             });
 
             let folderStat;
@@ -598,6 +599,48 @@ ipcMain.handle('import-settings', async () => {
         return { success: true, data: settingsData };
     } catch (error) {
         console.error('Import error:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// 1. プレイヤーアプリ設定用のファイル選択ダイアログ
+ipcMain.handle('dialog:selectPlayerApp', async () => {
+    const result = await dialog.showOpenDialog({
+        title: 'プレイヤーアプリの選択',
+        properties: ['openFile'],
+        filters: [
+            { name: 'Executables', extensions: ['exe', 'app', 'bat', 'sh'] },
+            { name: 'All Files', extensions: ['*'] }
+        ]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+        return null;
+    }
+    return result.filePaths[0];
+});
+
+// 2. 外部URLを開く処理（しょぼいカレンダー用：既定のブラウザ、またはChrome/Edge指定起動）
+ipcMain.handle('shell:openExternalUrl', async (event, url) => {
+    // 単純にデフォルトブラウザで開く場合
+    await shell.openExternal(url);
+    
+    // ※もし「Chrome または Edge で強制的にポップアップ表示」を厳密に行いたい場合は、
+    //   インストールパスを指定して spawn で起動するカスタム処理に書き換えることも可能です。
+});
+
+// 3. プレイヤーアプリの実行処理
+ipcMain.handle('app:launchPlayer', async (event, { appPath, targetPath }) => {
+    try {
+        // 引数付きで外部プロセスを起動 (例: appPath "targetPath")
+        const child = spawn(appPath, [targetPath], {
+            detached: true,
+            stdio: 'ignore'
+        });
+        child.unref();
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to launch player app:', error);
         return { success: false, error: error.message };
     }
 });
