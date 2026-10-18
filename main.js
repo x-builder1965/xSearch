@@ -2,13 +2,13 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.01.0';
+// version   = 'Ver1.03.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 
-// AniListの英語ジャンル名から日本語への対応辞書
+// AniList의 英語ジャンル名から日本語への対応辞書
 const GENRE_MAP = {
     'Action': 'アクション',
     'Adventure': 'アドベンチャー',
@@ -30,6 +30,25 @@ const GENRE_MAP = {
     'Supernatural': '超自然・能力',
     'Thriller': 'スリラー'
 };
+
+// --- レートリミット管理用変数 ---
+let lastApiCallTime = 0;
+const MIN_API_INTERVAL = 500; // 最低500msの間隔を空けてサーバー負荷を抑制
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function throttleApiCall() {
+    const now = Date.now();
+    const elapsed = now - lastApiCallTime;
+    if (elapsed < MIN_API_INTERVAL) {
+        const waitTime = MIN_API_INTERVAL - elapsed;
+        await delay(waitTime);
+    }
+    lastApiCallTime = Date.now();
+}
+
+// --- リクエスト結果のキャッシュ（同一条件での重複リクエスト防止） ---
+const aniListCache = new Map();   // key: seriesName, value: genre
+const syobocalCache = new Map();  // key: titleName, value: tid
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
@@ -77,7 +96,6 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
         const results = [];
         const entries = await fs.readdir(rootDir, { withFileTypes: true });
         
-        // フォルダのみを抽出
         const dirEntries = entries.filter(e => e.isDirectory());
         let currentFolderIndex = 0;
         const totalFolders = dirEntries.length;
@@ -87,14 +105,18 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
             const folderName = entry.name;
             const folderPath = path.join(rootDir, folderName);
             
-            // レンダラーに進捗を通知
             event.sender.send('scan:progress', {
                 current: currentFolderIndex,
                 total: totalFolders,
                 message: `(${currentFolderIndex}/${totalFolders}) ${folderName}`
             });
 
-            const folderStat = await fs.stat(folderPath);
+            let folderStat;
+            try {
+                folderStat = await fs.stat(folderPath);
+            } catch (e) {
+                continue;
+            }
             const folderMtime = folderStat.mtimeMs;
 
             const fParts = folderName.split('_');
@@ -103,7 +125,7 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
             const seriesRating = fParts[2] || '';
             const seriesName = fParts[3] || folderName;
 
-            const aniListData = await fetchAniListData(seriesName);
+            const genre = await fetchAniListData(seriesName);
 
             const subEntries = await fs.readdir(folderPath, { withFileTypes: true });
             for (const subEntry of subEntries) {
@@ -112,7 +134,12 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
                 const fileName = subEntry.name;
                 const filePath = path.join(folderPath, fileName);
                 
-                const fileStat = await fs.stat(filePath);
+                let fileStat;
+                try {
+                    fileStat = await fs.stat(filePath);
+                } catch (e) {
+                    continue;
+                }
                 const fileMtime = fileStat.mtimeMs;
 
                 const baseFileName = path.basename(fileName, '.amppl');
@@ -139,7 +166,7 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
                     seriesPeriod,
                     seriesRating,
                     seriesName,
-                    genre: aniListData.genre,
+                    genre,
                     titleKana,
                     titleDate,
                     titleRating,
@@ -155,62 +182,136 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
     }
 });
 
-// AniList API からジャンルを取得し日本語に変換
+// AniList API からジャンルを取得し日本語に変換（リトライ・ルール適用版）
 async function fetchAniListData(query) {
-    try {
-        const graphqlQuery = `
-            query ($search: String) {
-                Media (search: $search, type: ANIME) {
-                    genres
+    if (!query) return '-';
+
+    // 1. 同一条件（同じ検索クエリ）ですでに成功した結果があればそれを利用
+    if (aniListCache.has(query)) {
+        return aniListCache.get(query);
+    }
+
+    const graphqlQuery = `
+        query ($search: String) {
+            Media (search: $search, type: ANIME) {
+                genres
+            }
+        }
+    `;
+
+    const maxRetries = 5;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await throttleApiCall();
+
+            const response = await fetch('https://graphql.anilist.co', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: graphqlQuery,
+                    variables: { search: query }
+                })
+            });
+
+            // 429 エラー (Rate Limit) の場合
+            if (response.status === 429) {
+                if (attempt < maxRetries) {
+                    console.warn(`AniList API Error: HTTP ${response.status} (attempt ${attempt}/${maxRetries}). Waiting 30s...`);
+                    await delay(30000);
+                    continue;
+                } else {
+                    console.error(`AniList API Error: HTTP ${response.status} ${query}`);
+                    break;
                 }
             }
-        `;
 
-        const response = await fetch('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-                query: graphqlQuery,
-                variables: { search: query }
-            })
-        });
+            // 429 以外のエラーレスポンスの場合、リトライせずに終了
+            if (!response.ok) {
+                console.warn(`AniList API Error: HTTP ${response.status} ${query}`);
+                return '-';
+            }
 
-        if (!response.ok) return { genre: '-' };
+            const result = await response.json();
+            const media = result?.data?.Media;
 
-        const result = await response.json();
-        const media = result?.data?.Media;
-
-        if (media && media.genres && media.genres.length > 0) {
-            // 英語のジャンル名を日本語にマッピング（マッピングにない場合は元の英語名を使用）
-            const translatedGenres = media.genres.map(g => GENRE_MAP[g] || g);
-            const genres = translatedGenres.join(', ');
-            return { genre: genres };
+            if (media && media.genres && media.genres.length > 0) {
+                const translatedGenres = media.genres.map(g => GENRE_MAP[g] || g);
+                const genres = translatedGenres.join(', ');
+                aniListCache.set(query, genres); // キャッシュに保存
+                return genres;
+            } else {
+                // 結果が見つからない場合もキャッシュして無駄な再リクエストを防ぐ
+                aniListCache.set(query, '-');
+                return '-';
+            }
+        } catch (e) {
+            console.error('AniList API network error:', e);
+            if (attempt === maxRetries) break;
+            await delay(3000);
         }
-    } catch (e) {
-        console.error('AniList API error:', e);
     }
-    return { genre: '-' };
+
+    return '-';
 }
 
-// しょぼいカレンダーAPIからTIDを取得
+// しょぼいカレンダーAPIからTIDを取得（リトライ・ルール適用版）
 async function fetchSyobocalTid(title) {
-    try {
-        const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodeURIComponent(title)}`;
-        const response = await fetch(url);
-        if (!response.ok) return '-';
-        const data = await response.json();
-        if (data.Titles) {
-            const keys = Object.keys(data.Titles);
-            if (keys.length > 0) {
-                return keys[0]; // 最初に見つかったTID
-            }
-        }
-    } catch (e) {
-        console.error('Syobocal API error:', e);
+    if (!title) return '-';
+
+    // 1. 同一条件のキャッシュがあれば利用
+    if (syobocalCache.has(title)) {
+        return syobocalCache.get(title);
     }
+
+    const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodeURIComponent(title)}`;
+    const maxRetries = 5;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await throttleApiCall();
+
+            const response = await fetch(url);
+
+            // 429 エラー (Rate Limit) の場合
+            if (response.status === 429) {
+                if (attempt < maxRetries) {
+                    console.warn(`Syobocal API Error: HTTP ${response.status} (attempt ${attempt}/${maxRetries}). Waiting 30s...`);
+                    await delay(30000);
+                    continue;
+                } else {
+                    console.error(`Syobocal API Error: HTTP ${response.status} ${title}`);
+                    break;
+                }
+            }
+
+            // 429 以外のエラーレスポンスの場合、リトライせずに終了
+            if (!response.ok) {
+                console.warn(`Syobocal API Error: HTTP ${response.status} ${title}`);
+                return '-';
+            }
+
+            const data = await response.json();
+            if (data.Titles) {
+                const keys = Object.keys(data.Titles);
+                if (keys.length > 0) {
+                    const tid = keys[0];
+                    syobocalCache.set(title, tid); // キャッシュに保存
+                    return tid;
+                }
+            }
+
+            syobocalCache.set(title, '-');
+            return '-';
+        } catch (e) {
+            console.error('Syobocal API network error:', e);
+            if (attempt === maxRetries) break;
+            await delay(3000);
+        }
+    }
+
     return '-';
 }
 
@@ -277,29 +378,37 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
 
                 const cachedItem = existingMap.get(filePath);
 
-                if (cachedItem && cachedItem.folderMtime === folderMtime && cachedItem.fileMtime === fileMtime) {
+                const baseFileName = path.basename(fileName, '.amppl');
+                const tParts = baseFileName.split('_');
+                const titleKana = tParts[0] || '';
+                const titleDate = tParts[1] || '';
+                const titleRating = tParts[2] || '';
+                const titleName = tParts[3] || baseFileName;
+
+                const ampplContent = await fs.readFile(filePath, 'utf-8');
+                const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
+                const episodeCount = lines.length;
+
+                // --- 変更点: 更新日時が同じでも、ジャンルまたはTIDが "-" であれば再取得対象とする ---
+                let genre = cachedItem ? cachedItem.genre : null;
+                let tid = cachedItem ? cachedItem.tid : null;
+
+                const isMtimeUnchanged = cachedItem && 
+                                         cachedItem.folderMtime === folderMtime && 
+                                         cachedItem.fileMtime === fileMtime;
+
+                const needsFetchGenre = !cachedItem || !genre || genre === '-';
+                const needsFetchTid = !cachedItem || !tid || tid === '-';
+
+                if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid) {
+                    // 更新日時が変更されておらず、かつ値が正常に取得できている場合はキャッシュをそのまま流用
                     results.push(cachedItem);
                 } else {
-                    const baseFileName = path.basename(fileName, '.amppl');
-                    const tParts = baseFileName.split('_');
-                    const titleKana = tParts[0] || '';
-                    const titleDate = tParts[1] || '';
-                    const titleRating = tParts[2] || '';
-                    const titleName = tParts[3] || baseFileName;
-
-                    const ampplContent = await fs.readFile(filePath, 'utf-8');
-                    const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
-                    const episodeCount = lines.length;
-
-                    let genre = cachedItem ? cachedItem.genre : null;
-                    let tid = cachedItem ? cachedItem.tid : null;
-
-                    if (!cachedItem || cachedItem.seriesName !== seriesName) {
-                        const aniListData = await fetchAniListData(seriesName);
-                        genre = aniListData.genre;
+                    // 更新日時が変更されている、または前回値が "-" のため再取得が必要
+                    if (needsFetchGenre) {
+                        genre = await fetchAniListData(seriesName);
                     }
-
-                    if (!cachedItem || cachedItem.titleName !== titleName) {
+                    if (needsFetchTid) {
                         tid = await fetchSyobocalTid(titleName);
                     }
 
@@ -319,7 +428,8 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
                         titleDate,
                         titleRating,
                         titleName,
-                        episodeCount
+                        episodeCount,
+                        isSave: cachedItem ? cachedItem.isSave : false
                     });
                 }
             }
@@ -334,13 +444,11 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
 // プレイリスト統合保存 IPC ハンドラー
 ipcMain.handle('save-playlist', async (event, items) => {
     try {
-        // 保存対象が選択されているか確認
         const saveTargets = items.filter(item => item.isSave);
         if (saveTargets.length === 0) {
             return { success: false, message: '保存対象が選択されていません。' };
         }
 
-        // 1. 名前を付けて保存ダイアログを表示
         const window = BrowserWindow.getFocusedWindow();
         const { canceled, filePath } = await dialog.showSaveDialog(window, {
             title: 'プレイリストファイルを保存',
@@ -355,15 +463,12 @@ ipcMain.handle('save-playlist', async (event, items) => {
             return { success: false, canceled: true };
         }
 
-        // 2. チェック対象の各 .amppl ファイルから内容を読み込んで統合
         let combinedLines = [];
         for (const item of saveTargets) {
-            // item.filePath または item.ampplPath など対象のファイルパスを指定
             const ampplFilePath = item.filePath || item.ampplPath;
             if (ampplFilePath) {
                 try {
                     const content = await fs.readFile(ampplFilePath, 'utf-8');
-                    // 改行で分割して空行を除外しながら追加
                     const lines = content.split(/\r?\n/).filter(line => line.trim() !== '');
                     combinedLines.push(...lines);
                 } catch (readErr) {
@@ -372,10 +477,8 @@ ipcMain.handle('save-playlist', async (event, items) => {
             }
         }
 
-        // 重複行を除外する場合（必要に応じてコメント解除）
         combinedLines = [...new Set(combinedLines)];
 
-        // 3. 統合したコンテンツを書き込み
         const playlistContent = combinedLines.join('\n');
         await fs.writeFile(filePath, playlistContent, 'utf-8');
 
