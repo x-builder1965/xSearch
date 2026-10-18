@@ -1,8 +1,8 @@
 // -- renderer.js ------------------------------------------------------
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
-// appName   = 'xSearch -メディア検索-';
-// version   = 'Ver1.00.0';
+// appName   = 'xSearch -プレイリスト検索-';
+// version   = 'Ver1.01.0';
 // ---------------------------------------------------------------------
 let appState = {
     selectedDir: '',
@@ -15,32 +15,46 @@ let toastStartTime = 0;
 let toastRemainingTime = 3000; // デフォルトの表示時間（3秒）
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 🔲初期処理🔲
     // HTMLロード
     await setupHTMLLoad();
     // ローカルストレージから状態を復元
-    loadFromLocalStorage();
-    // イベントリスナーの設定
-    setupEventListeners();
+    await loadFromLocalStorage();
     // 初期表示
-    renderTable();
+    await renderTable();
     // テーマの適用
-    applyTheme();
-    // トースターのクリックイベント
+    await applyTheme();
+
+    // 🔲イベント登録処理🔲
+    // テーマ切替
+    registerThemeToggleBtnClick();
+    // 進捗イベントのリスナー登録
+    registerWindowApiProgress();
+    // 🔎プレイリスト検索イベントのリスナー登録
+    registerSelectDirBtnClick();
+    // 👁️プレイリスト再建策イベントのリスナー登録
+    registerFastSearchBtnClick();
+    // 💾保存ボタンイベントのリスナー登録
+    registerSaveBtnClick();
+    // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
+    registerSelectAllSaveChange();
+    // トースタークリックイベントのリスナー登録
     registerToastMessageClick();
-    // トースターのマウスエンターイベント
+    // トースターマウスエンターイベントのリスナー登録
     registerToastMessageMouseenter();
-    // トースターのマウスリーヴイベント
+    // トースターマウスリーヴイベントのリスナー登録
     registerToastMessageMouseleave();
-    // アプリタイトルのクリックイベント
+    // アプリタイトルクリックイベントのリスナー登録
     registerAppTitleClick();
-    // バージョンのクリックイベント
+    // バージョンクリックイベントのリスナー登録
     registerVerTitleClick();
-    // ❌ヘルプのクローズのクリックイベント
+    // ❌ヘルプのクローズクリックイベントのリスナー登録
     registerHelpCloseBtnClick();
-    // ❌変更履歴のクローズのクリックイベント
+    // ❌変更履歴のクローズクリックイベントのリスナー登録
     registerChangelogCloseBtnClick();
 });
 
+// 🔲初期処理🔲
 // HTMLロード
 async function setupHTMLLoad() {
     // 初期化処理 (HTML読み込み & 設定値反映)
@@ -123,97 +137,8 @@ async function setupHTMLLoad() {
     }
 }
 
-function setupEventListeners() {
-    // テーマ切替
-    document.getElementById('theme-toggle-btn').addEventListener('click', () => {
-        appState.theme = appState.theme === 'dark' ? 'light' : 'dark';
-        document.getElementById('theme-toggle-btn').textContent = appState.theme === 'dark' ? '☀️' : '🌙';
-        applyTheme();
-        saveToLocalStorage();
-    });
-
-    // 進捗イベントのリスナー登録
-    window.api.onScanProgress((progress) => {
-        // 処理中でなければ進捗イベントを無視する
-        if (!appState.isProcessing) return;
-        showProgress(progress.current, progress.total, progress.message);
-    });
-
-    // 高速再検索（更新日時・不在チェック）
-    document.getElementById('fast-search-btn').addEventListener('click', async () => {
-        if (!appState.selectedDir) {
-            showToast('フォルダが選択されていません。', 'warning');
-            return;
-        }
-
-        appState.isProcessing = true; // 処理開始
-        showProgress(0, 100, '高速チェック中...');
-
-        try {
-            const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, appState.items);
-            appState.items = syncedItems;
-            saveToLocalStorage();
-            renderTable();
-        } catch (e) {
-            console.error(e);
-            showToast('高速チェック中にエラーが発生しました。', 'error');
-        } finally {
-            appState.isProcessing = false; // 処理終了フラグを立てる
-            hideProgress();
-        }
-    });
-
-    // フォルダ選択側も同様にフラグを挟むと安全です
-    document.getElementById('select-dir-btn').addEventListener('click', async () => {
-        const dirPath = await window.api.openDirectory();
-        if (!dirPath) return;
-
-        appState.selectedDir = dirPath;
-        document.getElementById('current-dir-path').textContent = dirPath;
-
-        appState.isProcessing = true;
-        showProgress(0, 100, 'スキャン準備中...');
-
-        try {
-            const scanResults = await window.api.scanDirectory(dirPath);
-            appState.items = scanResults;
-            saveToLocalStorage();
-            renderTable();
-        } finally {
-            appState.isProcessing = false;
-            hideProgress();
-        }
-    });
-}
-
-function showProgress(current, total, message) {
-    const container = document.getElementById('progress-container');
-    const bar = document.getElementById('progress-bar');
-    const text = document.getElementById('progress-text');
-    const status = document.getElementById('status-display');
-
-    container.style.display = 'block';
-    const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
-    bar.style.width = `${percent}%`;
-    text.textContent = `${percent}% (${current} / ${total})`;
-    status.textContent = message;
-}
-
-function hideProgress() {
-    const container = document.getElementById('progress-container');
-    container.style.display = 'none';
-}
-
-function applyTheme() {
-    document.documentElement.setAttribute('data-theme', appState.theme);
-}
-
-function saveToLocalStorage() {
-    localStorage.setItem('medhia_app_state', JSON.stringify(appState));
-}
-
 function loadFromLocalStorage() {
-    const saved = localStorage.getItem('medhia_app_state');
+    const saved = localStorage.getItem('playlist_app_state');
     if (saved) {
         try {
             const loadedState = JSON.parse(saved);
@@ -303,53 +228,127 @@ function renderTable() {
     updateSelectAllCheckbox();
 }
 
-// 「💾」保存ボタンのイベント登録
-document.getElementById('save-btn')?.addEventListener('click', async () => {
-    // 1. 保存対象（isSave === true）が存在するか事前チェック
-    const hasSaveTarget = appState.items.some(item => item.isSave);
-    if (!hasSaveTarget) {
-        showToast('保存対象の項目にチェックを入れてください。', 'warning');
-        return;
-    }
-
-    // 2. メインプロセスへ統合保存をリクエスト
-    const result = await window.api.savePlaylist(appState.items);
-
-    if (result.success) {
-        showToast(`プレイリストを保存しました:\n${result.filePath}`, 'info');
-    } else if (!result.canceled) {
-        showToast(`保存に失敗しました:\n${result.message || '不明なエラー'}`, 'error');
-    }
-});
-
-// ヘッダーの「全選択 / 全解除」チェックボックスのイベント登録（初期化処理等に配置）
-document.getElementById('select-all-save')?.addEventListener('change', (e) => {
-    const isChecked = e.target.checked;
-
-    // 全項目の isSave 状態を更新
-    appState.items.forEach(item => {
-        item.isSave = isChecked;
+// 🔲イベント登録処理🔲
+// ☀️／🌙テーマ切替イベントのリスナー登録
+function registerThemeToggleBtnClick() {
+    document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+        appState.theme = appState.theme === 'dark' ? 'light' : 'dark';
+        document.getElementById('theme-toggle-btn').textContent = appState.theme === 'dark' ? '☀️' : '🌙';
+        applyTheme();
+        saveToLocalStorage();
     });
-    
-    // 表示中のチェックボックス画面表示を一括更新
-    document.querySelectorAll('.save-checkbox').forEach(cb => {
-        cb.checked = isChecked;
+}
+
+// 進捗イベントのリスナー登録
+function registerWindowApiProgress() {
+    window.api.onScanProgress((progress) => {
+        // 処理中でなければ進捗イベントを無視する
+        if (!appState.isProcessing) return;
+        showProgress(progress.current, progress.total, progress.message);
     });
+}
 
-    // 変更後の状態を localStorage にまとめて保存
-    saveToLocalStorage();
+// 🔎プレイリスト検索イベントのリスナー登録
+function registerSelectDirBtnClick() {
+    document.getElementById('select-dir-btn').addEventListener('click', async () => {
+        const dirPath = await window.api.openDirectory();
+        if (!dirPath) return;
 
-    // 念のため同期関数を呼んで半透明状態などをリセット
-    updateSelectAllCheckbox();
-});
+        appState.selectedDir = dirPath;
+        document.getElementById('current-dir-path').textContent = dirPath;
 
-// トースターのクリックイベント
+        appState.isProcessing = true;
+        showProgress(0, 100, 'スキャン準備中...');
+
+        try {
+            const scanResults = await window.api.scanDirectory(dirPath);
+            appState.items = scanResults;
+            saveToLocalStorage();
+            renderTable();
+        } finally {
+            appState.isProcessing = false;
+            hideProgress();
+        }
+    });
+}
+
+// 👁️プレイリスト再建策イベントのリスナー登録
+function registerFastSearchBtnClick() {
+    document.getElementById('fast-search-btn').addEventListener('click', async () => {
+        if (!appState.selectedDir) {
+            showToast('フォルダが選択されていません。', 'warning');
+            return;
+        }
+
+        appState.isProcessing = true; // 処理開始
+        showProgress(0, 100, '高速チェック中...');
+
+        try {
+            const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, appState.items);
+            appState.items = syncedItems;
+            saveToLocalStorage();
+            renderTable();
+        } catch (e) {
+            console.error(e);
+            showToast('高速チェック中にエラーが発生しました。', 'error');
+        } finally {
+            appState.isProcessing = false; // 処理終了フラグを立てる
+            hideProgress();
+        }
+    });
+}
+
+// 💾保存ボタンイベントのリスナー登録
+function registerSaveBtnClick() {
+    document.getElementById('save-btn')?.addEventListener('click', async () => {
+        // 1. 保存対象（isSave === true）が存在するか事前チェック
+        const hasSaveTarget = appState.items.some(item => item.isSave);
+        if (!hasSaveTarget) {
+            showToast('保存対象の項目にチェックを入れてください。', 'warning');
+            return;
+        }
+
+        // 2. メインプロセスへ統合保存をリクエスト
+        const result = await window.api.savePlaylist(appState.items);
+
+        if (result.success) {
+            showToast(`プレイリストを保存しました:\n${result.filePath}`, 'info');
+        } else if (!result.canceled) {
+            showToast(`保存に失敗しました:\n${result.message || '不明なエラー'}`, 'error');
+        }
+    });
+}
+
+// リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
+function registerSelectAllSaveChange() {
+    document.getElementById('select-all-save')?.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+
+        // 全項目の isSave 状態を更新
+        appState.items.forEach(item => {
+            item.isSave = isChecked;
+        });
+        
+        // 表示中のチェックボックス画面表示を一括更新
+        document.querySelectorAll('.save-checkbox').forEach(cb => {
+            cb.checked = isChecked;
+        });
+
+        // 変更後の状態を localStorage にまとめて保存
+        saveToLocalStorage();
+
+        // 念のため同期関数を呼んで半透明状態などをリセット
+        updateSelectAllCheckbox();
+    });
+}
+
+// トースタークリックイベントのリスナー登録
 function registerToastMessageClick() {
     const toastMessage = document.getElementById('toast-message');
     toastMessage?.addEventListener('click', hideToast);
 }
 
-// トースターのマウスエンターイベント
+// トースターマウスエンターイベントのリスナー登録
 function registerToastMessageMouseenter() {
     const toastMessage = document.getElementById('toast-message');
     toastMessage?.addEventListener('mouseenter', () => {
@@ -363,7 +362,7 @@ function registerToastMessageMouseenter() {
     });
 }
 
-// トースターのマウスリーヴイベント
+// トースターマウスリーヴイベントのリスナー登録
 function registerToastMessageMouseleave() {
     const toastMessage = document.getElementById('toast-message');
     toastMessage?.addEventListener('mouseleave', () => {
@@ -374,6 +373,85 @@ function registerToastMessageMouseleave() {
             }, toastRemainingTime);
         }
     });
+}
+
+// アプリタイトルクリックイベントのリスナー登録
+function registerAppTitleClick() {
+    const appTitle = document.querySelector('.app-title');
+    appTitle?.addEventListener('click', () => {
+        const mainContainer = document.querySelector('.main-container');
+        const changelogContainer = document.querySelector('.changelog-container');
+        const helpContainer = document.querySelector('.help-container');
+        if (mainContainer) mainContainer.style.display = 'none';
+        if (changelogContainer) changelogContainer.style.display = 'none';
+        if (helpContainer) helpContainer.style.display = 'flex';
+    });
+}
+
+// バージョンクリックイベントのリスナー登録
+function registerVerTitleClick() {
+    const verTitle = document.querySelector('.ver-title');
+    verTitle?.addEventListener('click', () => {
+        const mainContainer = document.querySelector('.main-container');
+        const changelogContainer = document.querySelector('.changelog-container');
+        const helpContainer = document.querySelector('.help-container');
+        if (mainContainer) mainContainer.style.display = 'none';
+        if (helpContainer) helpContainer.style.display = 'none';
+        if (changelogContainer) changelogContainer.style.display = 'flex';
+    });
+}
+
+// ❌ヘルプのクローズクリックイベントのリスナー登録
+function registerHelpCloseBtnClick() {
+    const helpCloseBtn = document.getElementById('helpCloseBtn');
+    helpCloseBtn?.addEventListener('click', () => {
+        const mainContainer = document.querySelector('.main-container');
+        const helpContainer = document.querySelector('.help-container');
+        if (mainContainer) mainContainer.style.display = 'flex';
+        if (helpContainer) helpContainer.style.display = 'none';
+    });
+}
+
+// ❌変更履歴のクローズクリックイベントのリスナー登録
+function registerChangelogCloseBtnClick() {
+    const changelogCloseBtn = document.getElementById('changelogCloseBtn');
+    changelogCloseBtn?.addEventListener('click', () => {
+        const mainContainer = document.querySelector('.main-container');
+        const changelogContainer = document.querySelector('.changelog-container');
+        if (mainContainer) mainContainer.style.display = 'flex';
+        if (changelogContainer) changelogContainer.style.display = 'none';
+    });
+}
+
+// 🔲共通ヘルパー処理🔲
+// 進捗バー表示
+function showProgress(current, total, message) {
+    const container = document.getElementById('progress-container');
+    const bar = document.getElementById('progress-bar');
+    const text = document.getElementById('progress-text');
+    const status = document.getElementById('status-display');
+
+    container.style.display = 'block';
+    const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
+    bar.style.width = `${percent}%`;
+    text.textContent = `${percent}% (${current} / ${total})`;
+    status.textContent = message;
+}
+
+// 進捗バー非表示
+function hideProgress() {
+    const container = document.getElementById('progress-container');
+    container.style.display = 'none';
+}
+
+// テーマ適用
+function applyTheme() {
+    document.documentElement.setAttribute('data-theme', appState.theme);
+}
+
+// localStorage保存
+function saveToLocalStorage() {
+    localStorage.setItem('playlist_app_state', JSON.stringify(appState));
 }
 
 // トーストを非表示にする共通関数
@@ -423,54 +501,6 @@ function showToast(message, type = 'info', displayTime = 6000) {
     toastTimer = setTimeout(() => {
         hideToast();
     }, toastRemainingTime);
-}
-
-// アプリタイトルのクリックイベント
-function registerAppTitleClick() {
-    const appTitle = document.querySelector('.app-title');
-    appTitle?.addEventListener('click', () => {
-        const mainContainer = document.querySelector('.main-container');
-        const changelogContainer = document.querySelector('.changelog-container');
-        const helpContainer = document.querySelector('.help-container');
-        if (mainContainer) mainContainer.style.display = 'none';
-        if (changelogContainer) changelogContainer.style.display = 'none';
-        if (helpContainer) helpContainer.style.display = 'flex';
-    });
-}
-
-// バージョンのクリックイベント
-function registerVerTitleClick() {
-    const verTitle = document.querySelector('.ver-title');
-    verTitle?.addEventListener('click', () => {
-        const mainContainer = document.querySelector('.main-container');
-        const changelogContainer = document.querySelector('.changelog-container');
-        const helpContainer = document.querySelector('.help-container');
-        if (mainContainer) mainContainer.style.display = 'none';
-        if (helpContainer) helpContainer.style.display = 'none';
-        if (changelogContainer) changelogContainer.style.display = 'flex';
-    });
-}
-
-// ❌ヘルプのクローズのクリックイベント
-function registerHelpCloseBtnClick() {
-    const helpCloseBtn = document.getElementById('helpCloseBtn');
-    helpCloseBtn?.addEventListener('click', () => {
-        const mainContainer = document.querySelector('.main-container');
-        const helpContainer = document.querySelector('.help-container');
-        if (mainContainer) mainContainer.style.display = 'flex';
-        if (helpContainer) helpContainer.style.display = 'none';
-    });
-}
-
-// ❌変更履歴のクローズのクリックイベント
-function registerChangelogCloseBtnClick() {
-    const changelogCloseBtn = document.getElementById('changelogCloseBtn');
-    changelogCloseBtn?.addEventListener('click', () => {
-        const mainContainer = document.querySelector('.main-container');
-        const changelogContainer = document.querySelector('.changelog-container');
-        if (mainContainer) mainContainer.style.display = 'flex';
-        if (changelogContainer) changelogContainer.style.display = 'none';
-    });
 }
 
 // 全選択チェックボックスの状態を同期・更新するヘルパー関数

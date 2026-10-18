@@ -1,8 +1,8 @@
 // -- main.js ----------------------------------------------------------
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
-// appName   = 'xSearch -メディア検索-';
-// version   = 'Ver1.00.0';
+// appName   = 'xSearch -プレイリスト検索-';
+// version   = 'Ver1.01.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
@@ -35,7 +35,7 @@ function createWindow() {
     const mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
-        title: 'xSearch -メディア検索-',
+        title: 'xSearch -プレイリスト検索-',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,

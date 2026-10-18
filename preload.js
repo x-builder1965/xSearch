@@ -1,8 +1,8 @@
 // -- preload.js -------------------------------------------------------
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
-// appName   = 'xSearch -メディア検索-';
-// version   = 'Ver1.00.0';
+// appName   = 'xSearch -プレイリスト検索-';
+// version   = 'Ver1.01.0';
 // ---------------------------------------------------------------------
 const { contextBridge, ipcRenderer } = require('electron');
 
