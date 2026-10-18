@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.04.0';
+// version   = 'Ver1.05.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
@@ -538,5 +538,66 @@ ipcMain.handle('save-playlist', async (event, items) => {
     } catch (error) {
         console.error('プレイリスト保存エラー:', error);
         return { success: false, message: error.message };
+    }
+});
+
+// 設定のエクスポート処理
+ipcMain.handle('export-settings', async (event, settingsData) => {
+    // 現在日時を YYYYMMDDHHmmss 形式で生成
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timestamp = `${year}${month}${day}${hours}${minutes}${seconds}`;
+
+    const defaultFileName = `xSearchSettings_${timestamp}.xsj`;
+
+    const { filePath, canceled } = await dialog.showSaveDialog({
+        title: '設定のエクスポート',
+        defaultPath: defaultFileName,
+        filters: [
+            { name: 'Setting Files (*.xsj; *.json)', extensions: ['xsj', 'json'] },
+            { name: 'All Files (*.*)', extensions: ['*'] }
+        ]
+    });
+
+    if (canceled || !filePath) {
+        return { success: false, canceled: true };
+    }
+
+    try {
+        await fs.writeFile(filePath, JSON.stringify(settingsData, null, 4), 'utf-8');
+        return { success: true, filePath };
+    } catch (error) {
+        console.error('Export error:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// 設定のインポート処理
+ipcMain.handle('import-settings', async () => {
+    const { filePaths, canceled } = await dialog.showOpenDialog({
+        title: '設定のインポート',
+        filters: [
+            { name: 'Setting Files (*.xsj; *.json)', extensions: ['xsj', 'json'] },
+            { name: 'All Files (*.*)', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+    });
+
+    if (canceled || filePaths.length === 0) {
+        return { success: false, canceled: true };
+    }
+
+    try {
+        const fileContent = await fs.readFile(filePaths[0], 'utf-8');
+        const settingsData = JSON.parse(fileContent);
+        return { success: true, data: settingsData };
+    } catch (error) {
+        console.error('Import error:', error);
+        return { success: false, error: error.message };
     }
 });

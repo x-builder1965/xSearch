@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.04.0';
+// version   = 'Ver1.05.0';
 // ---------------------------------------------------------------------
 let appState = {
     selectedDir: '',
@@ -36,6 +36,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerFastSearchBtnClick();
     // 💾保存ボタンイベントのリスナー登録
     registerSaveBtnClick();
+    // 📤エクスポートボタンクリック時
+    registerExportBtnClick();
+    // 📤インポートボタンクリック時
+    registerImportBtnClick();
     // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
     registerSelectAllSaveChange();
     // トースタークリックイベントのリスナー登録
@@ -281,6 +285,8 @@ function registerSelectDirBtnClick() {
         } finally {
             appState.isProcessing = false;
             hideProgress();
+
+            showToast('検索が完了しました。');
         }
     });
 }
@@ -307,6 +313,8 @@ function registerFastSearchBtnClick() {
         } finally {
             appState.isProcessing = false; // 処理終了フラグを立てる
             hideProgress();
+
+            showToast('再検索が完了しました。');
         }
     });
 }
@@ -328,6 +336,92 @@ function registerSaveBtnClick() {
             showToast(`プレイリストを保存しました:\n${result.filePath}`, 'info');
         } else if (!result.canceled) {
             showToast(`保存に失敗しました:\n${result.message || '不明なエラー'}`, 'error');
+        }
+    });
+}
+
+// 📤エクスポートボタンクリック時
+function registerExportBtnClick() {
+    document.getElementById('export-btn').addEventListener('click', async () => {
+        try {
+            // localStorage の内容をすべて収集・展開
+            const settings = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const rawValue = localStorage.getItem(key);
+
+                // JSON文字列としてパースできる値はオブジェクト/配列として展開して保存
+                try {
+                    settings[key] = JSON.parse(rawValue);
+                } catch {
+                    // 通常の文字列の場合はそのまま保持
+                    settings[key] = rawValue;
+                }
+            }
+
+            // appState の状態も含める
+            settings._appState = {
+                selectedDir: appState.selectedDir,
+                theme: appState.theme
+            };
+
+            const result = await window.api.exportSettings(settings);
+            if (result.success) {
+                console.log('設定をエクスポートしました:', result.filePath);
+                showToast(`設定をエクスポートしました:\n${result.filePath}`);
+            } else if (!result.canceled) {
+                showToast('設定のエクスポートに失敗しました。', 'error');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            showToast(`設定のエクスポートに失敗しました。\n${error}`, 'error');
+        }
+    });
+}
+
+// 📤インポートボタンクリック時
+function registerImportBtnClick() {
+    document.getElementById('import-btn').addEventListener('click', async () => {
+        try {
+            const result = await window.api.importSettings();
+            if (result.success && result.data) {
+                const settings = result.data;
+
+                // 読み込んだデータを localStorage と appState に反映
+                for (const [key, value] of Object.entries(settings)) {
+                    if (key === '_appState') {
+                        if (value.selectedDir) {
+                            appState.selectedDir = value.selectedDir;
+                            const pathLabel = document.getElementById('current-dir-path');
+                            if (pathLabel) {
+                                pathLabel.textContent = appState.selectedDir;
+                            }
+                        }
+                        if (value.theme) {
+                            appState.theme = value.theme;
+                            // 必要に応じてテーマ変更処理を呼び出し
+                        }
+                    } else {
+                        // オブジェクトや配列構造の場合は文字列化して localStorage に保存
+                        const storageValue = (typeof value === 'object' && value !== null)
+                            ? JSON.stringify(value)
+                            : value;
+                        
+                        localStorage.setItem(key, storageValue);
+                    }
+                }
+
+                showToast('設定ファイルをインポートしました。');
+                
+                // インポート後に画面をリロードして反映
+                location.reload();
+
+            } else if (!result.canceled && result.error) {
+                showToast(`設定のインポートに失敗しました。\n${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            showToast(`設定のインポートに失敗しました。\n${error}`, 'error');
         }
     });
 }
@@ -502,12 +596,18 @@ function showToast(message, type = 'info', displayTime = 6000) {
 
     toastMessage.classList.remove('toast-info', 'toast-warning', 'toast-error');
     toastMessage.classList.add(`toast-${type}`);
+    
+    // 改行コード（\n）を反映させるため white-space を指定
+    toastMessage.style.whiteSpace = 'pre-line';
     toastMessage.textContent = `${icon} ${message}`;
     toastMessage.classList.remove('hidden');
 
-    if (statusDisplay) statusDisplay.textContent = `${icon} ${message}`;
+    if (statusDisplay) {
+        statusDisplay.style.whiteSpace = 'pre-line';
+        statusDisplay.textContent = `${icon} ${message}`;
+    }
 
-    // 修正ポイント: 新しい表示に合わせて残時間と開始時間をリセット
+    // 新しい表示に合わせて残時間と開始時間をリセット
     toastRemainingTime = displayTime;
     toastStartTime = Date.now();
 
