@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.11.0';
+// version   = 'Ver1.12.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -266,10 +266,8 @@ async function collectPlaylists(currentDir) {
     return playlists;
 }
 
-// 通常スキャン
-// 通常スキャン（進捗・キャンセル対応版）
+// 通常スキャン（進捗・キャンセル・ファイル単位送信対応版）
 ipcMain.handle('scan:directory', async (event, rootDir) => {
-    // 新しいスキャン開始時にキャンセル用のトークン/オブジェクトを作成
     const cancelToken = { canceled: false };
     currentCancelToken = cancelToken;
 
@@ -280,7 +278,6 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
         let current = 0;
 
         for (const item of playlistItems) {
-            // キャンセルされていたら中断
             if (cancelToken.canceled) {
                 throw new Error('Canceled');
             }
@@ -317,7 +314,7 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
             const tid = isAnimePath ? await fetchSyobocalTidWithFallback(parsedTitle.titleName) : '-';
             const playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
 
-            results.push({
+            const newItem = {
                 id: `${seriesInfo.folderPath}__${filePath}`,
                 folderPath: seriesInfo.folderPath,
                 filePath,
@@ -334,8 +331,14 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
                 titleRating: parsedTitle.titleRating,
                 titleName: parsedTitle.titleName,
                 episodeCount,
-                playlistStatus
-            });
+                playlistStatus,
+                isSave: false
+            };
+
+            results.push(newItem);
+            
+            // ★ 1件処理するごとにレンダラーへ送信
+            event.sender.send('scan:item', newItem);
         }
         return results;
     } catch (error) {
@@ -352,7 +355,7 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
     }
 });
 
-// 高速再検索 / 同期（進捗・キャンセル対応版）
+// 高速再検索 / 同期（進捗・キャンセル・ファイル単位送信対応版）
 ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
     const cancelToken = { canceled: false };
     currentCancelToken = cancelToken;
@@ -415,8 +418,9 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
             const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
             const needsCheckStatus = !cachedItem || !playlistStatus;
 
+            let resultItem;
             if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
-                results.push(cachedItem);
+                resultItem = cachedItem;
             } else {
                 if (!isAnimePath) {
                     genre = '-';
@@ -434,7 +438,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
                     playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
                 }
 
-                results.push({
+                resultItem = {
                     id: `${seriesInfo.folderPath}__${filePath}`,
                     folderPath: seriesInfo.folderPath,
                     filePath,
@@ -453,8 +457,13 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
                     episodeCount,
                     playlistStatus,
                     isSave: cachedItem ? cachedItem.isSave : false
-                });
+                };
             }
+
+            results.push(resultItem);
+            
+            // ★ 1件処理するごとにレンダラーへ送信
+            event.sender.send('scan:item', resultItem);
         }
         return results;
     } catch (error) {

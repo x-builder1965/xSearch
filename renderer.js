@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.11.0';
+// version   = 'Ver1.12.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
@@ -384,7 +384,7 @@ function registerThemeToggleBtnClick() {
     });
 }
 
-// 進捗イベントのリスナー登録
+// 進捗・アイテム受信イベントのリスナー登録
 function registerWindowApiProgress() {
     window.api.onScanProgress((progress) => {
         if (!appState.isProcessing) return;
@@ -395,7 +395,20 @@ function registerWindowApiProgress() {
         }
         showProgress(progress.current, progress.total, progress.message, now);
     });
+
+    // ★ 1件ずつ追加されるアイテムのリスナー登録
+    window.api.onScanItem((item) => {
+        if (!appState.isProcessing) return;
+        
+        // 配列に追加してリアルタイムにフィルタ・再描画
+        appState.rawItems.push(item);
+        applyFilter();
+
+        // ★ 1行追加されるごとに即時ローカルストレージへ保存
+        saveToLocalStorage();
+    });
 }
+
 // 🔎プレイリスト検索イベントのリスナー登録
 function registerSelectDirBtnClick() {
     document.getElementById('select-dir-btn').addEventListener('click', async () => {
@@ -406,23 +419,28 @@ function registerSelectDirBtnClick() {
         document.getElementById('current-dir-path').textContent = dirPath;
 
         appState.isProcessing = true;
+        
+        // ★ 検索開始時に既存のデータをクリアして空のテーブルを表示
+        appState.rawItems = [];
+        appState.items = [];
+        applyFilter();
+
         showProgress(0, 100, 'スキャン準備中...');
 
-        let isCanceled = false; // キャンセル判定用フラグ
+        let isCanceled = false;
         try {
             const scanResults = await window.api.scanDirectory(dirPath);
             
-            // キャンセルされた場合のチェック
             if (scanResults && scanResults.canceled) {
                 isCanceled = true;
                 return;
             }
 
+            // 念のため最終結果でも確定させておく
             appState.items = scanResults;
-            appState.rawItems = [...scanResults]; // ★ 全件データを保持するrawItemsを更新
+            appState.rawItems = [...scanResults];
             saveToLocalStorage();
-            
-            applyFilter(); // ★ renderTableの代わりにapplyFilterを呼び出すことでフィルタ件数も連動更新
+            applyFilter();
         } catch (e) {
             console.error(e);
             showToast('スキャン中にエラーが発生しました。', 'error');
@@ -430,7 +448,6 @@ function registerSelectDirBtnClick() {
             appState.isProcessing = false;
             hideProgress();
 
-            // キャンセルされていない場合のみトーストを表示
             if (!isCanceled) {
                 showToast('検索が完了しました。');
             }
@@ -438,7 +455,7 @@ function registerSelectDirBtnClick() {
     });
 }
 
-// 👁️プレイリスト再建策イベントのリスナー登録
+// 👁️プレイリスト再検索イベントのリスナー登録
 function registerFastSearchBtnClick() {
     document.getElementById('fast-search-btn').addEventListener('click', async () => {
         if (!appState.selectedDir) {
@@ -447,11 +464,21 @@ function registerFastSearchBtnClick() {
         }
 
         appState.isProcessing = true; // 処理開始
+
+        // ★【重要】クリアする前に、キャッシュ照合用の既存アイテムデータを待避しておく
+        const existingItems = [...appState.rawItems]; // または appState.items
+
+        // 画面表示用データおよび全体データをクリアしてテーブルを初期化
+        appState.rawItems = [];
+        appState.items = [];
+        applyFilter();
+
         showProgress(0, 100, '高速チェック中...');
 
         let isCanceled = false; // キャンセル判定用フラグ
         try {
-            const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, appState.items);
+            // ★ 第二引数には待避しておいた existingItems を渡す！
+            const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, existingItems);
             
             // キャンセルされた場合のチェック
             if (syncedItems && syncedItems.canceled) {
@@ -459,16 +486,16 @@ function registerFastSearchBtnClick() {
                 return;
             }
 
+            // 最終結果で確定
             appState.items = syncedItems;
-            appState.rawItems = [...syncedItems]; // ★ 全件データを保持するrawItemsを更新
+            appState.rawItems = [...syncedItems];
             saveToLocalStorage();
-            
-            applyFilter(); // ★ renderTableの代わりにapplyFilterを呼び出すことでフィルタ件数も連動更新
+            applyFilter();
         } catch (e) {
             console.error(e);
             showToast('高速チェック中にエラーが発生しました。', 'error');
         } finally {
-            appState.isProcessing = false; // 処理終了フラグを立てる
+            appState.isProcessing = false; // 処理終了フラグ
             hideProgress();
 
             // キャンセルされていない場合のみトーストを表示
