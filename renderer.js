@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.10.0';
+// version   = 'Ver1.11.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
@@ -38,17 +38,19 @@ const thSymbols = [
     '[状態]'
 ];
 
-let appState = {
-    selectedDir: '',
-    rawItems: [],            
-    items: [],
-    theme: 'dark',
-    isProcessing: false,    // 追加：処理中フラグ
-    playerAppPath: ''       // 追加：プレイヤーアプリのパス
+let appState = {                // localStorage管理情報
+    selectedDir: '',            // 検索フォルダパス
+    rawItems: [],               // ベースリスト管理
+    items: [],                  // リスト管理
+    theme: 'dark',              // テーマ管理
+    isProcessing: false,        // 処理中フラグ
+    playerAppPath: ''           // プレイヤーアプリのパス
 };
-let toastTimer = null;
-let toastStartTime = 0;
-let toastRemainingTime = 3000; // デフォルトの表示時間（3秒）
+let toastTimer = null;          // トースター表示タイマー
+let toastStartTime = 0;         // トースター表示開始時間
+let toastRemainingTime = 3000;  // デフォルトの表示時間（3秒）
+let startTime = null;           // 処理開始時刻
+let lastProgressTime = null;    // 1ファイルあたりの平均処理時間
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 🔲初期処理🔲
@@ -84,7 +86,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerExportBtnClick();
     // 📤インポートボタンクリックベントのリスナー登録
     registerImportBtnClick();
-    // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
+    // ❌検索・再検索のキャンセルクリックイベントのリスナー登録
+    registerScanCancelBtnClick();
+    // ESCキー押下によるキャンセル処理のリスナー登録
+    registerWindowKeydown();
+     // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
     registerSelectAllSaveChange();
     // リアルタイムフィルタリングベントのリスナー登録
     registerFilterInputInput();
@@ -381,12 +387,15 @@ function registerThemeToggleBtnClick() {
 // 進捗イベントのリスナー登録
 function registerWindowApiProgress() {
     window.api.onScanProgress((progress) => {
-        // 処理中でなければ進捗イベントを無視する
         if (!appState.isProcessing) return;
-        showProgress(progress.current, progress.total, progress.message);
+        
+        const now = Date.now();
+        if (!startTime) {
+            startTime = now;
+        }
+        showProgress(progress.current, progress.total, progress.message, now);
     });
 }
-
 // 🔎プレイリスト検索イベントのリスナー登録
 function registerSelectDirBtnClick() {
     document.getElementById('select-dir-btn').addEventListener('click', async () => {
@@ -399,18 +408,32 @@ function registerSelectDirBtnClick() {
         appState.isProcessing = true;
         showProgress(0, 100, 'スキャン準備中...');
 
+        let isCanceled = false; // キャンセル判定用フラグ
         try {
             const scanResults = await window.api.scanDirectory(dirPath);
+            
+            // キャンセルされた場合のチェック
+            if (scanResults && scanResults.canceled) {
+                isCanceled = true;
+                return;
+            }
+
             appState.items = scanResults;
             appState.rawItems = [...scanResults]; // ★ 全件データを保持するrawItemsを更新
             saveToLocalStorage();
             
             applyFilter(); // ★ renderTableの代わりにapplyFilterを呼び出すことでフィルタ件数も連動更新
+        } catch (e) {
+            console.error(e);
+            showToast('スキャン中にエラーが発生しました。', 'error');
         } finally {
             appState.isProcessing = false;
             hideProgress();
 
-            showToast('検索が完了しました。');
+            // キャンセルされていない場合のみトーストを表示
+            if (!isCanceled) {
+                showToast('検索が完了しました。');
+            }
         }
     });
 }
@@ -426,8 +449,16 @@ function registerFastSearchBtnClick() {
         appState.isProcessing = true; // 処理開始
         showProgress(0, 100, '高速チェック中...');
 
+        let isCanceled = false; // キャンセル判定用フラグ
         try {
             const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, appState.items);
+            
+            // キャンセルされた場合のチェック
+            if (syncedItems && syncedItems.canceled) {
+                isCanceled = true;
+                return;
+            }
+
             appState.items = syncedItems;
             appState.rawItems = [...syncedItems]; // ★ 全件データを保持するrawItemsを更新
             saveToLocalStorage();
@@ -440,7 +471,10 @@ function registerFastSearchBtnClick() {
             appState.isProcessing = false; // 処理終了フラグを立てる
             hideProgress();
 
-            showToast('再検索が完了しました。');
+            // キャンセルされていない場合のみトーストを表示
+            if (!isCanceled) {
+                showToast('再検索が完了しました。');
+            }
         }
     });
 }
@@ -459,7 +493,7 @@ function registerSaveBtnClick() {
         const result = await window.api.savePlaylist(appState.items);
 
         if (result.success) {
-            showToast(`プレイリストを保存しました:\n${result.filePath}`, 'info');
+            showToast(`プレイリストを保存しました:\n${result.filePath}`);
         } else if (!result.canceled) {
             showToast(`保存に失敗しました:\n${result.message || '不明なエラー'}`, 'error');
         }
@@ -477,14 +511,14 @@ function registerPlayerConfigBtnClick() {
             appState.playerAppPath = filePath;
             localStorage.setItem('playerAppPath', filePath);
             document.getElementById('player-config-btn').style.backgroundColor = 'red';
-            showToast('プレイヤーアプリを設定しました', 'info');
+            showToast('プレイヤーアプリを設定しました');
         } else {
             // 「キャンセル」選択時、または未選択の場合のクリア処理
             // ※必要に応じて「解除しますか？」の確認などを挟んでも良いですが、要件に合わせてシンプルにクリア実装
             appState.playerAppPath = '';
             localStorage.removeItem('playerAppPath');
             document.getElementById('player-config-btn').style.backgroundColor = '';
-            showToast('プレイヤーアプリの設定をクリアしました', 'info');
+            showToast('プレイヤーアプリの設定をクリアしました');
         }
     });
 }
@@ -571,6 +605,25 @@ function registerImportBtnClick() {
         } catch (error) {
             console.error('Import error:', error);
             showToast(`設定のインポートに失敗しました。\n${error}`, 'error');
+        }
+    });
+}
+
+// ❌検索・再検索のキャンセルクリックイベントのリスナー登録
+function registerScanCancelBtnClick() {
+    const cancelBtn = document.getElementById('scan-cancel-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            handleCancelAction();
+        });
+    }
+}
+
+// ESCキー押下によるキャンセル処理のリスナー登録
+function registerWindowKeydown() {
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && appState.isProcessing) {
+            handleCancelAction();
         }
     });
 }
@@ -806,8 +859,8 @@ function registerChangelogCloseBtnClick() {
 }
 
 // 🔲共通ヘルパー処理🔲
-// 進捗バー表示
-function showProgress(current, total, message) {
+// 進捗バー表示（完了予定日時の計算を含む）
+function showProgress(current, total, message, now) {
     const container = document.getElementById('progress-container');
     const bar = document.getElementById('progress-bar');
     const text = document.getElementById('progress-text');
@@ -816,7 +869,25 @@ function showProgress(current, total, message) {
     container.style.display = 'block';
     const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
     bar.style.width = `${percent}%`;
-    text.textContent = `${percent}% ( ${current} / ${total} )`;
+
+    // 完了予定時間の計算
+    let etaString = '';
+    if (current > 0 && current < total && startTime && now) {
+        const elapsed = now - startTime;
+        const avgTimePerFile = elapsed / current;
+        const remainingFiles = total - current;
+        const etaMs = avgTimePerFile * remainingFiles;
+        const etaDate = new Date(now + etaMs);
+
+        const month = etaDate.getMonth() + 1;
+        const day = etaDate.getDate();
+        const hours = String(etaDate.getHours()).padStart(2, '0');
+        const minutes = String(etaDate.getMinutes()).padStart(2, '0');
+
+        etaString = `　　完了予定：${month}/${day} ${hours}:${minutes}`;
+    }
+
+    text.textContent = `${percent}% ( ${current} / ${total} )${etaString}`;
     status.textContent = message;
 }
 
@@ -824,6 +895,7 @@ function showProgress(current, total, message) {
 function hideProgress() {
     const container = document.getElementById('progress-container');
     container.style.display = 'none';
+    startTime = null;
 }
 
 // テーマ適用
@@ -1078,4 +1150,22 @@ function applyFilter() {
     const totalCount = sourceItems.length;
     const filteredCount = filteredItems.length;
     countElem.textContent = `${filteredCount} / ${totalCount}`;
+}
+
+// キャンセル実行処理
+async function handleCancelAction() {
+    await window.api.cancelScan();
+    appState.isProcessing = false;
+    hideProgress();
+
+    showToast('検索を中断しました。', 'warning')
+}
+
+// 進捗バー非表示時の一連のリセット処理
+function hideProgress() {
+    const container = document.getElementById('progress-container');
+    container.style.display = 'none';
+    startTime = null;
+    const cancelBtn = document.getElementById('scan-cancel-btn');
+    if (cancelBtn) cancelBtn.remove();
 }

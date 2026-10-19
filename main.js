@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.09.0';
+// version   = 'Ver1.11.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -32,9 +32,9 @@ const GENRE_MAP = {
     'Thriller': 'スリラー'
 };
 
-// --- レートリミット管理用変数 ---
-let lastApiCallTime = 0;
-const MIN_API_INTERVAL = 500; // 最低500msの間隔を空けてサーバー負荷を抑制
+let currentCancelToken = null;          // キャンセル状態を管理するマップまたは変数
+let lastApiCallTime = 0;                // レートリミット管理用変数
+const MIN_API_INTERVAL = 500;           // 最低500msの間隔を空けてサーバー負荷を抑制
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function throttleApiCall() {
@@ -266,9 +266,13 @@ async function collectPlaylists(currentDir) {
     return playlists;
 }
 
-
-// 1. 通常スキャン（進捗対応版）
+// 通常スキャン
+// 通常スキャン（進捗・キャンセル対応版）
 ipcMain.handle('scan:directory', async (event, rootDir) => {
+    // 新しいスキャン開始時にキャンセル用のトークン/オブジェクトを作成
+    const cancelToken = { canceled: false };
+    currentCancelToken = cancelToken;
+
     try {
         const playlistItems = await collectPlaylists(rootDir);
         const total = playlistItems.length;
@@ -276,6 +280,11 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
         let current = 0;
 
         for (const item of playlistItems) {
+            // キャンセルされていたら中断
+            if (cancelToken.canceled) {
+                throw new Error('Canceled');
+            }
+
             current++;
             const { filePath, seriesInfo } = item;
             const fileName = path.basename(filePath);
@@ -330,14 +339,24 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
         }
         return results;
     } catch (error) {
+        if (error.message === 'Canceled') {
+            console.log('Scan canceled by user.');
+            return { canceled: true };
+        }
         console.error('Scan error:', error);
         throw error;
+    } finally {
+        if (currentCancelToken === cancelToken) {
+            currentCancelToken = null;
+        }
     }
 });
 
-
-// 2. 高速再検索 / 同期（進捗対応版）
+// 高速再検索 / 同期（進捗・キャンセル対応版）
 ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
+    const cancelToken = { canceled: false };
+    currentCancelToken = cancelToken;
+
     try {
         const existingMap = new Map();
         existingItems.forEach(item => {
@@ -350,6 +369,10 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
         let current = 0;
 
         for (const item of playlistItems) {
+            if (cancelToken.canceled) {
+                throw new Error('Canceled');
+            }
+
             current++;
             const { filePath, seriesInfo } = item;
             const fileName = path.basename(filePath);
@@ -385,8 +408,8 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
             let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
 
             const isMtimeUnchanged = cachedItem && 
-                                     cachedItem.folderMtime === seriesInfo.folderMtime && 
-                                     cachedItem.fileMtime === fileMtime;
+                                   cachedItem.folderMtime === seriesInfo.folderMtime && 
+                                   cachedItem.fileMtime === fileMtime;
 
             const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
             const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
@@ -435,8 +458,23 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
         }
         return results;
     } catch (error) {
+        if (error.message === 'Canceled') {
+            console.log('Fast sync canceled by user.');
+            return { canceled: true };
+        }
         console.error('Fast sync error:', error);
         throw error;
+    } finally {
+        if (currentCancelToken === cancelToken) {
+            currentCancelToken = null;
+        }
+    }
+});
+
+// キャンセル受信用IPCハンドラーの追加
+ipcMain.handle('scan:cancel', () => {
+    if (currentCancelToken) {
+        currentCancelToken.canceled = true;
     }
 });
 

@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.10.0';
+ * version   = 'Ver1.11.0';
  * --------------------------------------------------------------------- */
 :root {
     --app-color: #be98ce; /* 紫色 */
@@ -240,7 +240,6 @@ th {
 tr:hover {
     background-color: var(--hover-color);
 }
-
 .progress-container {
     position: relative;
     height: 24px;
@@ -271,6 +270,28 @@ tr:hover {
     font-weight: bold;
     color: #fff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    pointer-events: none; /* テキストがボタンのクリックを邪魔しないように */
+}
+
+.scan-cancel-btn {
+    position: absolute;
+    top: 5px;
+    right: 20px;
+    height: 100%;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    gap: 8px;
+    z-index: 2;
+}
+
+.scan-cancel-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
 .copyright-container {
