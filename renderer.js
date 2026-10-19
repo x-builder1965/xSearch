@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.12.0';
+// version   = 'Ver1.13.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
@@ -48,9 +48,10 @@ let appState = {                // localStorage管理情報
 };
 let toastTimer = null;          // トースター表示タイマー
 let toastStartTime = 0;         // トースター表示開始時間
-let toastRemainingTime = 3000;  // デフォルトの表示時間（3秒）
+let toastRemainingTime = 3000;  // デフォルトのトースター表示時間（3秒）
 let startTime = null;           // 処理開始時刻
-let lastProgressTime = null;    // 1ファイルあたりの平均処理時間
+let recentFileTimes = [];       // 直近の処理時間を保持する配列
+let lastItemTime = null;        // 前回のアイテム受信時刻
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 🔲初期処理🔲
@@ -396,16 +397,29 @@ function registerWindowApiProgress() {
         showProgress(progress.current, progress.total, progress.message, now);
     });
 
-    // ★ 1件ずつ追加されるアイテムのリスナー登録
+    // ★ 1件ずつアイテムを受信したタイミングで処理時間を計測
     window.api.onScanItem((item) => {
         if (!appState.isProcessing) return;
         
-        // 配列に追加してリアルタイムにフィルタ・再描画
-        appState.rawItems.push(item);
-        applyFilter();
+        const now = Date.now();
+        if (lastItemTime) {
+            const duration = now - lastItemTime;
+            recentFileTimes.push(duration);
+            // 最大10件を維持（超えたら古いものを削除）
+            if (recentFileTimes.length > 10) {
+                recentFileTimes.shift();
+            }
+        }
+        lastItemTime = now;
 
-        // ★ 1行追加されるごとに即時ローカルストレージへ保存
-        saveToLocalStorage();
+        // 配列に追加
+        appState.rawItems.push(item);
+
+        // 100件に達するごとに再描画とストレージ保存を実行
+        if (appState.rawItems.length % 100 === 0) {
+            applyFilter();
+            saveToLocalStorage();
+        }
     });
 }
 
@@ -897,11 +911,20 @@ function showProgress(current, total, message, now) {
     const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
     bar.style.width = `${percent}%`;
 
-    // 完了予定時間の計算
+    // 完了予定時間の計算（直近の処理平均を使用）
     let etaString = '';
-    if (current > 0 && current < total && startTime && now) {
-        const elapsed = now - startTime;
-        const avgTimePerFile = elapsed / current;
+    if (current > 0 && current < total && now) {
+        let avgTimePerFile = 0;
+        
+        if (recentFileTimes.length > 0) {
+            // 直近の履歴の平均を計算
+            const sum = recentFileTimes.reduce((a, b) => a + b, 0);
+            avgTimePerFile = sum / recentFileTimes.length;
+        } else if (startTime) {
+            // 履歴が溜まるまでは全体平均でフォールバック
+            avgTimePerFile = (now - startTime) / current;
+        }
+
         const remainingFiles = total - current;
         const etaMs = avgTimePerFile * remainingFiles;
         const etaDate = new Date(now + etaMs);
@@ -911,7 +934,7 @@ function showProgress(current, total, message, now) {
         const hours = String(etaDate.getHours()).padStart(2, '0');
         const minutes = String(etaDate.getMinutes()).padStart(2, '0');
 
-        etaString = `　　完了予定：${month}/${day} ${hours}:${minutes}`;
+        etaString = `  完了予定：${month}/${day} ${hours}:${minutes}`;
     }
 
     text.textContent = `${percent}% ( ${current} / ${total} )${etaString}`;

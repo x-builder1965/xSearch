@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.12.0';
+// version   = 'Ver1.13.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -68,6 +68,13 @@ function createWindow() {
     });
 
     mainWindow.loadFile('index.html');
+
+    // ▼ 【追加】レンダラーのクラッシュ（白画面）を検知して自動リロードする
+    mainWindow.webContents.on('render-process-gone', (event, details) => {
+        console.error('Renderer process crashed or killed:', details);
+        // 必要に応じてログやアラートを出力しつつ、再読み込みする
+        mainWindow.reload();
+    });
 }
 
 app.whenReady().then(() => {
@@ -414,8 +421,10 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
                                    cachedItem.folderMtime === seriesInfo.folderMtime && 
                                    cachedItem.fileMtime === fileMtime;
 
-            const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
-            const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
+            // const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
+            // const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
+            const needsFetchGenre = isAnimePath && (!cachedItem || !genre);
+            const needsFetchTid = isAnimePath && (!cachedItem || !tid);
             const needsCheckStatus = !cachedItem || !playlistStatus;
 
             let resultItem;
