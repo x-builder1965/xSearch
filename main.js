@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.07.0';
+// version   = 'Ver1.08.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -136,6 +136,90 @@ async function checkPlaylistStatus(folderPath, lines) {
     }
 }
 
+// シリーズ情報の動的パース関数
+function parseSeriesInfo(folderName) {
+    const parts = folderName.split('_');
+    let kana = '';
+    let period = '';
+    let rating = '';
+    const remainingParts = [];
+
+    const kanaRegex = /^[あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん]$/;
+    const periodRegex = /^\d{4}(?:00|0[1-9]|1[0-2])～\d{4}(?:00|0[1-9]|1[0-2])$/;
+    const ratingRegex = /^[★☆]{5}$/;
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = (i === parts.length - 1);
+
+        // 最後の要素以外をメタデータ候補として判定
+        if (!isLast) {
+            if (!kana && kanaRegex.test(part)) {
+                kana = part;
+                continue;
+            }
+            if (!period && periodRegex.test(part)) {
+                period = part;
+                continue;
+            }
+            if (!rating && ratingRegex.test(part)) {
+                rating = part;
+                continue;
+            }
+        }
+        remainingParts.push(part);
+    }
+
+    return {
+        seriesKana: kana || '-',
+        seriesPeriod: period || '-',
+        seriesRating: rating || '-',
+        seriesName: remainingParts.join('_') || folderName
+    };
+}
+
+// タイトル情報の動的パース関数
+function parseTitleInfo(baseFileName) {
+    const parts = baseFileName.split('_');
+    let kana = '';
+    let date = '';
+    let rating = '';
+    const remainingParts = [];
+
+    const kanaRegex = /^[あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん]$/;
+    const dateRegex = /^\d{4}(?:00|0[1-9]|1[0-2])$/;
+    const ratingRegex = /^[★☆]{5}$/;
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isLast = (i === parts.length - 1);
+
+        if (!isLast) {
+            if (!kana && kanaRegex.test(part)) {
+                kana = part;
+                continue;
+            }
+            if (!date && dateRegex.test(part)) {
+                date = part;
+                continue;
+            }
+            if (!rating && ratingRegex.test(part)) {
+                rating = part;
+                continue;
+            }
+        }
+        remainingParts.push(part);
+    }
+
+    return {
+        titleKana: kana || '-',
+        titleDate: date || '-',
+        titleRating: rating || '-',
+        titleName: remainingParts.join('_') || baseFileName
+    };
+}
+
+
 // 再帰的にすべてのプレイリストファイルとシリーズ情報を事前に収集するヘルパー関数
 async function collectPlaylists(currentDir) {
     let playlists = [];
@@ -152,17 +236,16 @@ async function collectPlaylists(currentDir) {
         }
         const folderMtime = folderStat.mtimeMs;
 
-        // プレイリストファイルを直接格納しているフォルダ自身の情報をシリーズ情報とする
         const folderName = path.basename(currentDir);
-        const fParts = folderName.split('_');
+        const parsedSeries = parseSeriesInfo(folderName);
         
         const seriesInfo = {
             folderPath: currentDir,
             folderMtime,
-            seriesKana: fParts[0] || '',
-            seriesPeriod: fParts[1] || '',
-            seriesRating: fParts[2] || '',
-            seriesName: fParts[3] || folderName
+            seriesKana: parsedSeries.seriesKana,
+            seriesPeriod: parsedSeries.seriesPeriod,
+            seriesRating: parsedSeries.seriesRating,
+            seriesName: parsedSeries.seriesName
         };
 
         // この階層にあるプレイリストファイルをリストに追加
@@ -212,22 +295,17 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
             const fileMtime = fileStat.mtimeMs;
 
             const baseFileName = path.basename(filePath, '.amppl');
-            const tParts = baseFileName.split('_');
-            const titleKana = tParts[0] || '';
-            const titleDate = tParts[1] || '';
-            const titleRating = tParts[2] || '';
-            const titleName = tParts[3] || baseFileName;
+            const parsedTitle = parseTitleInfo(baseFileName);
 
             const ampplContent = await fs.readFile(filePath, 'utf-8');
             const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
             const episodeCount = lines.length;
 
-            // パスに "アニメ" または "anime"（大文字小文字同一視）が含まれているか判定
             const lowerPath = filePath.toLowerCase();
             const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
 
             const genre = isAnimePath ? await fetchAniListWithFallback(seriesInfo.seriesName) : '-';
-            const tid = isAnimePath ? await fetchSyobocalTidWithFallback(titleName) : '-';
+            const tid = isAnimePath ? await fetchSyobocalTidWithFallback(parsedTitle.titleName) : '-';
             const playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
 
             results.push({
@@ -242,10 +320,10 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
                 seriesRating: seriesInfo.seriesRating,
                 seriesName: seriesInfo.seriesName,
                 genre,
-                titleKana,
-                titleDate,
-                titleRating,
-                titleName,
+                titleKana: parsedTitle.titleKana,
+                titleDate: parsedTitle.titleDate,
+                titleRating: parsedTitle.titleRating,
+                titleName: parsedTitle.titleName,
                 episodeCount,
                 playlistStatus
             });
@@ -253,6 +331,111 @@ ipcMain.handle('scan:directory', async (event, rootDir) => {
         return results;
     } catch (error) {
         console.error('Scan error:', error);
+        throw error;
+    }
+});
+
+
+// 2. 高速再検索 / 同期（進捗対応版）
+ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
+    try {
+        const existingMap = new Map();
+        existingItems.forEach(item => {
+            existingMap.set(item.filePath, item);
+        });
+
+        const playlistItems = await collectPlaylists(rootDir);
+        const total = playlistItems.length;
+        const results = [];
+        let current = 0;
+
+        for (const item of playlistItems) {
+            current++;
+            const { filePath, seriesInfo } = item;
+            const fileName = path.basename(filePath);
+
+            event.sender.send('scan:progress', {
+                current,
+                total,
+                message: `( ${current} / ${total} ) ${fileName}`
+            });
+
+            let fileStat;
+            try {
+                fileStat = await fs.stat(filePath);
+            } catch (e) {
+                continue;
+            }
+            const fileMtime = fileStat.mtimeMs;
+
+            const cachedItem = existingMap.get(filePath);
+
+            const baseFileName = path.basename(filePath, '.amppl');
+            const parsedTitle = parseTitleInfo(baseFileName);
+
+            const ampplContent = await fs.readFile(filePath, 'utf-8');
+            const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
+            const episodeCount = lines.length;
+
+            const lowerPath = filePath.toLowerCase();
+            const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
+
+            let genre = cachedItem ? cachedItem.genre : null;
+            let tid = cachedItem ? cachedItem.tid : null;
+            let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
+
+            const isMtimeUnchanged = cachedItem && 
+                                     cachedItem.folderMtime === seriesInfo.folderMtime && 
+                                     cachedItem.fileMtime === fileMtime;
+
+            const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
+            const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
+            const needsCheckStatus = !cachedItem || !playlistStatus;
+
+            if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
+                results.push(cachedItem);
+            } else {
+                if (!isAnimePath) {
+                    genre = '-';
+                    tid = '-';
+                } else {
+                    if (needsFetchGenre) {
+                        genre = await fetchAniListWithFallback(seriesInfo.seriesName);
+                    }
+                    if (needsFetchTid) {
+                        tid = await fetchSyobocalTidWithFallback(parsedTitle.titleName);
+                    }
+                }
+
+                if (needsCheckStatus || !isMtimeUnchanged) {
+                    playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
+                }
+
+                results.push({
+                    id: `${seriesInfo.folderPath}__${filePath}`,
+                    folderPath: seriesInfo.folderPath,
+                    filePath,
+                    folderMtime: seriesInfo.folderMtime,
+                    fileMtime,
+                    tid,
+                    seriesKana: seriesInfo.seriesKana,
+                    seriesPeriod: seriesInfo.seriesPeriod,
+                    seriesRating: seriesInfo.seriesRating,
+                    seriesName: seriesInfo.seriesName,
+                    genre,
+                    titleKana: parsedTitle.titleKana,
+                    titleDate: parsedTitle.titleDate,
+                    titleRating: parsedTitle.titleRating,
+                    titleName: parsedTitle.titleName,
+                    episodeCount,
+                    playlistStatus,
+                    isSave: cachedItem ? cachedItem.isSave : false
+                });
+            }
+        }
+        return results;
+    } catch (error) {
+        console.error('Fast sync error:', error);
         throw error;
     }
 });
@@ -389,115 +572,6 @@ async function fetchSyobocalTid(title) {
 
     return '-';
 }
-
-// 2. 高速再検索 / 同期（進捗対応版）
-ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
-    try {
-        const existingMap = new Map();
-        existingItems.forEach(item => {
-            existingMap.set(item.filePath, item);
-        });
-
-        const playlistItems = await collectPlaylists(rootDir);
-        const total = playlistItems.length;
-        const results = [];
-        let current = 0;
-
-        for (const item of playlistItems) {
-            current++;
-            const { filePath, seriesInfo } = item;
-            const fileName = path.basename(filePath);
-
-            event.sender.send('scan:progress', {
-                current,
-                total,
-                message: `( ${current} / ${total} ) ${fileName}`
-            });
-
-            let fileStat;
-            try {
-                fileStat = await fs.stat(filePath);
-            } catch (e) {
-                continue;
-            }
-            const fileMtime = fileStat.mtimeMs;
-
-            const cachedItem = existingMap.get(filePath);
-
-            const baseFileName = path.basename(filePath, '.amppl');
-            const tParts = baseFileName.split('_');
-            const titleKana = tParts[0] || '';
-            const titleDate = tParts[1] || '';
-            const titleRating = tParts[2] || '';
-            const titleName = tParts[3] || baseFileName;
-
-            const ampplContent = await fs.readFile(filePath, 'utf-8');
-            const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
-            const episodeCount = lines.length;
-
-            // パスに "アニメ" または "anime"（大文字小文字同一視）が含まれているか判定
-            const lowerPath = filePath.toLowerCase();
-            const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
-
-            let genre = cachedItem ? cachedItem.genre : null;
-            let tid = cachedItem ? cachedItem.tid : null;
-            let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
-
-            const isMtimeUnchanged = cachedItem && 
-                                     cachedItem.folderMtime === seriesInfo.folderMtime && 
-                                     cachedItem.fileMtime === fileMtime;
-
-            const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
-            const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
-            const needsCheckStatus = !cachedItem || !playlistStatus;
-
-            if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
-                results.push(cachedItem);
-            } else {
-                if (!isAnimePath) {
-                    genre = '-';
-                    tid = '-';
-                } else {
-                    if (needsFetchGenre) {
-                        genre = await fetchAniListWithFallback(seriesInfo.seriesName);
-                    }
-                    if (needsFetchTid) {
-                        tid = await fetchSyobocalTidWithFallback(titleName);
-                    }
-                }
-
-                if (needsCheckStatus || !isMtimeUnchanged) {
-                    playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
-                }
-
-                results.push({
-                    id: `${seriesInfo.folderPath}__${filePath}`,
-                    folderPath: seriesInfo.folderPath,
-                    filePath,
-                    folderMtime: seriesInfo.folderMtime,
-                    fileMtime,
-                    tid,
-                    seriesKana: seriesInfo.seriesKana,
-                    seriesPeriod: seriesInfo.seriesPeriod,
-                    seriesRating: seriesInfo.seriesRating,
-                    seriesName: seriesInfo.seriesName,
-                    genre,
-                    titleKana,
-                    titleDate,
-                    titleRating,
-                    titleName,
-                    episodeCount,
-                    playlistStatus,
-                    isSave: cachedItem ? cachedItem.isSave : false
-                });
-            }
-        }
-        return results;
-    } catch (error) {
-        console.error('Fast sync error:', error);
-        throw error;
-    }
-});
 
 // プレイリスト統合保存 IPC ハンドラー
 ipcMain.handle('save-playlist', async (event, items) => {
