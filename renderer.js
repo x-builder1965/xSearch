@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.06.0';
+// version   = 'Ver1.09.0';
 // ---------------------------------------------------------------------
 let appState = {
     selectedDir: '',
@@ -202,8 +202,6 @@ function renderTable() {
         const tr = document.createElement('tr');
 
         // 各フィールドの定義
-        // 0: tid, 1: seriesKana, 2: seriesPeriod, 3: seriesRating, 4: seriesName, 5: genre
-        // 6: titleKana, 7: titleDate, 8: titleRating, 9: titleName, 10: episodeCount, 11: playlistStatus
         const fields = [
             item.tid,
             item.seriesKana,
@@ -229,7 +227,7 @@ function renderTable() {
             // TID列（index 0）のクリックイベント
             if (i === 0 && textVal) {
                 td.style.cursor = 'pointer';
-                td.style.color = '#4da6ff'; // リンク風の色（必要に応じて）
+                td.style.color = '#4da6ff';
                 td.addEventListener('click', () => {
                     const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
                     window.api.openExternalUrl(tidUrl);
@@ -239,16 +237,20 @@ function renderTable() {
             // シリーズ列（index 4）のクリックイベント
             if (i === 4) {
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', () => {
+                td.addEventListener('click', async () => { // async を追加
                     if (!appState.playerAppPath) {
-                        showToast('プレイヤーアプリが設定されていません。⚙️ボタンから設定してください。', 'warning');
+                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
                         return;
                     }
-                    // 対象行のフォルダパスをパラメータにしてプレイヤーアプリを実行
-                    window.api.launchPlayer({
+                    // プレイヤーアプリを実行し、結果を待つ
+                    const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.folderPath
                     });
+                    // エラーがあればトースト表示
+                    if (result && !result.success && result.error) {
+                        showToast(result.error, 'error');
+                    }
                 });
             }
 
@@ -279,20 +281,23 @@ function renderTable() {
             td.textContent = textVal;
             td.title = textVal;
 
-            // タイトル列（index 9、fields配列上のインデックスに注意：i=9はタイトル名）
-            // fieldsのindexに対応させるため、iの値をチェック
-            if (i === 9) { // titleName
+            // タイトル列（index 9）のクリックイベント
+            if (i === 9) { 
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', () => {
+                td.addEventListener('click', async () => { // async を追加
                     if (!appState.playerAppPath) {
-                        showToast('プレイヤーアプリが設定されていません。⚙️ボタンから設定してください。', 'warning');
+                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
                         return;
                     }
-                    // 対象行のプレイリストパスをパラメータにしてプレイヤーアプリを実行
-                    window.api.launchPlayer({
+                    // プレイヤーアプリを実行し、結果を待つ
+                    const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.filePath
                     });
+                    // エラーがあればトースト表示
+                    if (result && !result.success && result.error) {
+                        showToast(result.error, 'error');
+                    }
                 });
             }
 

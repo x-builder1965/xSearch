@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.08.0';
+// version   = 'Ver1.09.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -711,11 +711,28 @@ ipcMain.handle('shell:openExternalUrl', async (event, url) => {
 // 3. プレイヤーアプリの実行処理
 ipcMain.handle('app:launchPlayer', async (event, { appPath, targetPath }) => {
     try {
-        // 引数付きで外部プロセスを起動 (例: appPath "targetPath")
+        // 1. プレイヤーアプリ（exe等）の存在確認
+        try {
+            await fs.access(appPath);
+        } catch {
+            return { success: false, error: `プレイヤーアプリが見つかりません: ${appPath}` };
+        }
+
+        // 2. 引数パスのプレイリストファイルの存在確認
+        try {
+            await fs.access(targetPath);
+        } catch {
+            return { success: false, error: `プレイリストファイルが存在しません: ${targetPath}` };
+        }
+
+        // 3. プレイリストが存在する場合に外部プロセスを起動
+        const targetDir = path.dirname(targetPath);
         const child = spawn(appPath, [targetPath], {
+            cwd: targetDir, // 念のためプレイリストのフォルダを作業ディレクトリに指定
             detached: true,
             stdio: 'ignore'
         });
+        
         child.unref();
         return { success: true };
     } catch (error) {
