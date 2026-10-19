@@ -2,10 +2,45 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.09.0';
+// version   = 'Ver1.10.0';
 // ---------------------------------------------------------------------
+// 項目指定記号と内部プロパティのマッピング定義
+const fieldMappings = {
+    '[全]': 'all',
+    '[TID]': 'tid',
+    '[S音]': 'seriesKana',
+    '[放映期間]': 'seriesPeriod',
+    '[S評価]': 'seriesRating',
+    '[シリーズ]': 'seriesName',
+    '[ジャンル]': 'genre',
+    '[保存]': 'isSave',
+    '[T音]': 'titleKana',
+    '[放映年月]': 'titleDate',
+    '[T評価]': 'titleRating',
+    '[タイトル]': 'titleName',
+    '[話数]': 'episodeCount',
+    '[状態]': 'playlistStatus'
+};
+// thに対応する項目指定記号のマッピング（テーブルの列順に対応）
+const thSymbols = [
+    '[TID]', 
+    '[S音]', 
+    '[放映期間]', 
+    '[S評価]', 
+    '[シリーズ]', 
+    '[ジャンル]', 
+    '[保存]',
+    '[T音]', 
+    '[放映年月]', 
+    '[T評価]', 
+    '[タイトル]', 
+    '[話数]', 
+    '[状態]'
+];
+
 let appState = {
     selectedDir: '',
+    rawItems: [],            
     items: [],
     theme: 'dark',
     isProcessing: false,    // 追加：処理中フラグ
@@ -25,6 +60,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadPlayerConfigState();
     // 初期表示
     await renderTable();
+    // 初回保持（もし未定義なら現在のitemsを保持）
+    await setupRawItem();
+    // 起動時に一度フィルタ（または全件表示）を適用して件数を正しく表示させる
+    applyFilter();
     // テーマの適用
     await applyTheme();
 
@@ -39,14 +78,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerFastSearchBtnClick();
     // 💾保存ボタンイベントのリスナー登録
     registerSaveBtnClick();
-    // ⚙️ボタンクリック時の処理
+    // ⚙️ボタンクリックベントのリスナー登録
     registerPlayerConfigBtnClick();
-    // 📤エクスポートボタンクリック時
+    // 📤エクスポートボタンクリックベントのリスナー登録
     registerExportBtnClick();
-    // 📤インポートボタンクリック時
+    // 📤インポートボタンクリックベントのリスナー登録
     registerImportBtnClick();
     // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
     registerSelectAllSaveChange();
+    // リアルタイムフィルタリングベントのリスナー登録
+    registerFilterInputInput();
+    // フィルタ条件のキー入力イベントのリスナー登録
+    registerFilterInputKeydown();
+    // 🆑（クリアボタン）ベントのリスナー登録
+    registerFilterClearBtnClick();
+    // リストの各見出し項目（th）の右クリックベントのリスナー登録
+    registerPlaylistTableThContextmenu();
     // トースタークリックイベントのリスナー登録
     registerToastMessageClick();
     // トースターマウスエンターイベントのリスナー登録
@@ -313,6 +360,13 @@ function renderTable() {
     updateSelectAllCheckbox();
 }
 
+// 初回保持（もし未定義なら現在のitemsを保持）
+function setupRawItem() {
+    if (!appState.rawItems) {
+        appState.rawItems = [...appState.items];
+    }
+}
+
 // 🔲イベント登録処理🔲
 // ☀️／🌙テーマ切替イベントのリスナー登録
 function registerThemeToggleBtnClick() {
@@ -348,8 +402,10 @@ function registerSelectDirBtnClick() {
         try {
             const scanResults = await window.api.scanDirectory(dirPath);
             appState.items = scanResults;
+            appState.rawItems = [...scanResults]; // ★ 全件データを保持するrawItemsを更新
             saveToLocalStorage();
-            renderTable();
+            
+            applyFilter(); // ★ renderTableの代わりにapplyFilterを呼び出すことでフィルタ件数も連動更新
         } finally {
             appState.isProcessing = false;
             hideProgress();
@@ -373,8 +429,10 @@ function registerFastSearchBtnClick() {
         try {
             const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, appState.items);
             appState.items = syncedItems;
+            appState.rawItems = [...syncedItems]; // ★ 全件データを保持するrawItemsを更新
             saveToLocalStorage();
-            renderTable();
+            
+            applyFilter(); // ★ renderTableの代わりにapplyFilterを呼び出すことでフィルタ件数も連動更新
         } catch (e) {
             console.error(e);
             showToast('高速チェック中にエラーが発生しました。', 'error');
@@ -408,7 +466,7 @@ function registerSaveBtnClick() {
     });
 }
 
-// ⚙️ボタンクリック時の処理
+// ⚙️ボタンクリックベントのリスナー登録
 function registerPlayerConfigBtnClick() {
     document.getElementById('player-config-btn').addEventListener('click', async () => {
         // メインプロセス経由でファイル選択ダイアログを表示する例
@@ -431,7 +489,7 @@ function registerPlayerConfigBtnClick() {
     });
 }
 
-// 📤エクスポートボタンクリック時
+// 📤エクスポートボタンクリックベントのリスナー登録
 function registerExportBtnClick() {
     document.getElementById('export-btn').addEventListener('click', async () => {
         try {
@@ -470,7 +528,7 @@ function registerExportBtnClick() {
     });
 }
 
-// 📤インポートボタンクリック時
+// 📤インポートボタンクリックベントのリスナー登録
 function registerImportBtnClick() {
     document.getElementById('import-btn').addEventListener('click', async () => {
         try {
@@ -537,6 +595,132 @@ function registerSelectAllSaveChange() {
 
         // 念のため同期関数を呼んで半透明状態などをリセット
         updateSelectAllCheckbox();
+    });
+}
+
+// リアルタイムフィルタリングベントのリスナー登録
+function registerFilterInputInput() {
+    const filterInput = document.getElementById('filter-input');
+    filterInput.addEventListener('input', () => {
+        applyFilter();
+    });
+}
+
+// フィルタ条件のキー入力イベントのリスナー登録
+function registerFilterInputKeydown() {
+    const filterInput = document.getElementById('filter-input');
+    filterInput.addEventListener('keydown', (e) => {
+        const start = filterInput.selectionStart;
+        const end = filterInput.selectionEnd;
+        const value = filterInput.value;
+
+        // 1. 文字列を選択して "(" または "（" を入力した時
+        if (e.key === '(' || e.key === '（') {
+            if (start !== end) {
+                e.preventDefault();
+                const openChar = e.key;
+                const closeChar = openChar === '(' ? ')' : '）';
+                const selectedText = value.slice(start, end);
+                
+                const newValue = value.slice(0, start) + openChar + selectedText + closeChar + value.slice(end);
+                filterInput.value = newValue;
+                
+                const newCursorPos = end + 2;
+                filterInput.setSelectionRange(newCursorPos, newCursorPos);
+                
+                applyFilter();
+                return;
+            }
+        }
+
+        // 2. Backspace または Delete で "(" または "（" を削除時、対応する ")" または "）" を探して削除
+        if ((e.key === 'Backspace' || e.key === 'Delete') && start === end) {
+            let targetIndex = -1;
+            let charToDelete = '';
+
+            if (e.key === 'Backspace' && start > 0) {
+                charToDelete = value[start - 1];
+                if (charToDelete === '(' || charToDelete === '（') {
+                    targetIndex = start - 1;
+                }
+            } else if (e.key === 'Delete' && start < value.length) {
+                charToDelete = value[start];
+                if (charToDelete === '(' || charToDelete === '（') {
+                    targetIndex = start;
+                }
+            }
+
+            if (targetIndex !== -1 && charToDelete) {
+                const openChar = charToDelete;
+                const closeChar = openChar === '(' ? ')' : '）';
+                
+                // 対応する閉じ括弧の位置をネストを考慮して探す
+                let depth = 1;
+                let closeIndex = -1;
+                for (let i = targetIndex + 1; i < value.length; i++) {
+                    const c = value[i];
+                    if (c === openChar) {
+                        depth++;
+                    } else if (c === closeChar) {
+                        depth--;
+                        if (depth === 0) {
+                            closeIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                if (closeIndex !== -1) {
+                    e.preventDefault();
+                    // 開き括弧(targetIndex)と対応する閉じ括弧(closeIndex)の両方を削除
+                    const newValue = value.slice(0, targetIndex) + value.slice(targetIndex + 1, closeIndex) + value.slice(closeIndex + 1);
+                    filterInput.value = newValue;
+                    
+                    // カーソル位置を削除位置に調整
+                    filterInput.setSelectionRange(targetIndex, targetIndex);
+                    applyFilter();
+                    return;
+                }
+            }
+        }
+    });
+}
+
+// 🆑（クリアボタン）ベントのリスナー登録
+function registerFilterClearBtnClick() {
+    const clearBtn = document.getElementById('filter-clear-btn');
+    const filterInput = document.getElementById('filter-input');
+    clearBtn.addEventListener('click', () => {
+        filterInput.value = '';
+        applyFilter();
+    });
+}
+
+    // リストの各見出し項目（th）の右クリックベントのリスナー登録
+function registerPlaylistTableThContextmenu() {
+    const headers = document.querySelectorAll('#playlist-table th');
+    const filterInput = document.getElementById('filter-input');
+    headers.forEach((th, index) => {
+        const symbol = thSymbols[index];
+        if (!symbol) return;
+
+        th.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); // コンテキストメニューを抑制
+            
+            const cursorPos = filterInput.selectionStart;
+            const text = filterInput.value;
+            let newInput = symbol + ' ';
+            if (cursorPos > 0) {
+                newInput = ' ' + newInput;
+            }
+            const newText = text.slice(0, cursorPos) + newInput + text.slice(cursorPos);
+            
+            filterInput.value = newText;
+            filterInput.focus();
+            filterInput.setSelectionRange(cursorPos + newInput.length, cursorPos + newInput.length);
+            
+            applyFilter();
+        });
     });
 }
 
@@ -724,4 +908,174 @@ function updateSelectAllCheckbox() {
     selectAllCb.checked = allChecked;
     // 一部だけチェックされている場合は半透明（indeterminate）にすると直感的です
     selectAllCb.indeterminate = someChecked && !allChecked;
+}
+
+// フィルタリング処理のメインロジック
+function filterItems(items, query) {
+    if (!query || query.trim() === '') {
+        return items;
+    }
+
+    // 括弧を考慮してOR条件（","、"，"、"、"、"||"、"｜｜"）で分割
+    const orGroups = splitByOr(query);
+
+    return items.filter(item => {
+        // いずれかのORグループにマッチすればtrue
+        return orGroups.some(orGroup => {
+            const trimmedGroup = orGroup.trim();
+            if (!trimmedGroup) return false;
+
+            // グループ全体を囲む括弧 "()" または "（）" があれば外す
+            let content = trimmedGroup;
+            if ((content.startsWith('(') && content.endsWith(')')) || 
+                (content.startsWith('（') && content.endsWith('）'))) {
+                content = content.slice(1, -1).trim();
+            }
+
+            // AND条件で分割
+            const conditions = parseAndConditions(content);
+
+            // すべてのAND条件を満たすか
+            return conditions.every(cond => evaluateCondition(item, cond));
+        });
+    });
+}
+
+// 括弧内のカンマやOR演算子を無視して分割するヘルパー関数
+function splitByOr(query) {
+    const result = [];
+    let current = '';
+    let parenDepth = 0;
+    
+    for (let i = 0; i < query.length; i++) {
+        const char = query[i];
+        if (char === '(' || char === '（') {
+            parenDepth++;
+            current += char;
+        } else if (char === ')' || char === '）') {
+            parenDepth = Math.max(0, parenDepth - 1);
+            current += char;
+        } else if (parenDepth === 0 && (char === ',' || char === '，' || char === '、')) {
+            result.push(current);
+            current = '';
+        } else if (parenDepth === 0 && query.substr(i, 2) === '||') {
+            result.push(current);
+            current = '';
+            i++; 
+        } else if (parenDepth === 0 && query.substr(i, 2) === '｜｜') {
+            result.push(current);
+            current = '';
+            i++; 
+        } else {
+            current += char;
+        }
+    }
+    result.push(current);
+    return result;
+}
+
+// AND条件グループをパースする簡易パーサー
+function parseAndConditions(groupStr) {
+    // ざっくり正規表現やスペース区切りで分解しつつ、[項目記号] 比較演算子 値 のペアを抽出
+    // 例: "[S音]>あ <お" や "[シリーズ]ああああ"
+    const regex = /(\[[\s\S]*?\])?\s*([><!=]?)([^\[\s]+)/g;
+    let match;
+    const conditions = [];
+
+    // もし上記正規表現でパースしきれないシンプルな文字列（スペース区切りの単語など）の場合のフォールバック
+    // ここでは簡易的にスペースやAND演算子で分割して処理する構造にします
+    const tokens = groupStr.split(/[\s ]+|&&|＆＆/).filter(Boolean);
+    
+    let currentField = '[全]';
+    let subConditions = [];
+
+    for (let token of tokens) {
+        if (token.startsWith('[') && token.endsWith(']')) {
+            currentField = token;
+        } else {
+            subConditions.push({ field: currentField, expression: token });
+        }
+    }
+    return subConditions;
+}
+
+// 個別の条件評価
+function evaluateCondition(item, cond) {
+    const internalField = fieldMappings[cond.field] || 'all';
+    const expr = cond.expression;
+
+    // 比較式の抽出 (>値, <値, =値 or 値, !値)
+    let op = '=';
+    let val = expr;
+    if (expr.startsWith('>')) {
+        op = '>';
+        val = expr.slice(1);
+    } else if (expr.startsWith('<')) {
+        op = '<';
+        val = expr.slice(1);
+    } else if (expr.startsWith('=')) {
+        op = '=';
+        val = expr.slice(1);
+    } else if (expr.startsWith('!')) {
+        op = '!';
+        val = expr.slice(1);
+    }
+
+    // ★ 保存対象（[保存] / isSave）の特殊判定
+    if (internalField === 'isSave') {
+        const upperVal = val.toUpperCase();
+        if (upperVal === 'ON' || upperVal === 'OFF') {
+            const expectedBool = (upperVal === 'ON');
+            const actualBool = Boolean(item.isSave);
+            return op === '!' ? (actualBool !== expectedBool) : (actualBool === expectedBool);
+        }
+        // 誤った指定可能値（ON/OFF以外）が指定された場合は条件無効（falseを返す）
+        return false;
+    }
+
+    // ターゲットの値を取得
+    const targetValues = internalField === 'all' 
+        ? Object.values(item) 
+        : [item[internalField]];
+
+    return targetValues.some(itemVal => {
+        if (itemVal === undefined || itemVal === null) return false;
+        const strVal = String(itemVal);
+        const numVal = Number(itemVal);
+        const targetNum = Number(val);
+        const isNumeric = !isNaN(numVal) && !isNaN(targetNum) && val !== '';
+
+        switch (op) {
+            case '>':
+                return isNumeric ? numVal >= targetNum : strVal >= val;
+            case '<':
+                return isNumeric ? numVal <= targetNum : strVal <= val;
+            case '!':
+                return !strVal.includes(val);
+            case '=':
+            default:
+                return strVal.includes(val);
+        }
+    });
+}
+
+// リアルタイムフィルタリングと件数表示の更新
+function applyFilter() {
+    const inputElem = document.getElementById('filter-input');
+    const query = inputElem.value;
+    
+    // 全データ（appState.rawItems または元のリスト）からフィルタリング
+    // ※ appState.rawItems に全件保持されている想定
+    const sourceItems = appState.rawItems || appState.items;
+    const filteredItems = filterItems(sourceItems, query);
+
+    // 表示用リストを更新
+    appState.items = filteredItems;
+    renderTable();
+
+    // フィルタ件数の更新 ("表示行数 / 全行数")
+    const countElem = document.getElementById('filter-count');
+    const totalCount = sourceItems.length;
+    const filteredCount = filteredItems.length;
+    countElem.textContent = `${filteredCount} / ${totalCount}`;
 }

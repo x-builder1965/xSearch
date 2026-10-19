@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-;
- version   = 'Ver1.06.0';
+ version   = 'Ver1.10.0';
  --------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja" data-theme="dark">
@@ -42,6 +42,12 @@
             <div id="progress-container" class="progress-container" style="display: none;">
                 <div id="progress-bar" class="progress-bar"></div>
                 <span id="progress-text" class="progress-text">(0/0)</span>
+            </div>
+            <!-- フィルタパネル -->
+            <div id="filter-container" class="filter-container">
+                <div id="filter-count" class="filter-count">(0/0)</div>
+                <input type="text" id="filter-input" class="filter-input" placeholder="フィルタ条件を入力... (例: [シリーズ]ああああ, [話数]>10)">
+                <button id="filter-clear-btn" class="filter-clear-btn" title="入力クリア">🆑</button>
             </div>
             <!-- リストパネル -->
             <main class="table-container">

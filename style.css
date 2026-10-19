@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.09.0';
+ * version   = 'Ver1.10.0';
  * --------------------------------------------------------------------- */
 :root {
     --app-color: #be98ce; /* 紫色 */
@@ -581,4 +581,59 @@ caption {
 #save-btn,
 #player-config-btn {
     margin-right: 10px; /* お好みの広さに調整してください (例: 10px, 15px など) */
+}
+
+/* フィルタパネル用スタイル */
+.filter-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: var(--panel-bg);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+}
+
+.filter-count {
+    flex: 0 0 160px; /* 固定幅 160px */
+    width: 160px;
+    text-align: center;
+    font-weight: bold;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 0;
+    font-size: 18px;
+}
+
+.filter-input {
+    flex: 1; /* 可変幅 */
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 10px;
+    outline: none;
+    font-size: 18px;
+}
+
+.filter-input:focus {
+    border-color: var(--accent-color);
+}
+
+.filter-clear-btn {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.filter-clear-btn:hover {
+    background-color: var(--hover-color);
+    border-color: var(--accent-color);
 }
