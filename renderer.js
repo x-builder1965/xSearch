@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.13.0';
+// version   = 'Ver1.14.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
@@ -405,8 +405,8 @@ function registerWindowApiProgress() {
         if (lastItemTime) {
             const duration = now - lastItemTime;
             recentFileTimes.push(duration);
-            // 最大10件を維持（超えたら古いものを削除）
-            if (recentFileTimes.length > 10) {
+            // 最大12件を維持（超えたら古いものを削除）
+            if (recentFileTimes.length > 12) {
                 recentFileTimes.shift();
             }
         }
@@ -911,15 +911,22 @@ function showProgress(current, total, message, now) {
     const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
     bar.style.width = `${percent}%`;
 
-    // 完了予定時間の計算（直近の処理平均を使用）
+    // 完了予定時間の計算（直近12件から最速・最遅を除いた10件の平均を使用）
     let etaString = '';
     if (current > 0 && current < total && now) {
         let avgTimePerFile = 0;
         
         if (recentFileTimes.length > 0) {
-            // 直近の履歴の平均を計算
-            const sum = recentFileTimes.reduce((a, b) => a + b, 0);
-            avgTimePerFile = sum / recentFileTimes.length;
+            let timesToUse = [...recentFileTimes];
+            
+            // 12件溜まっている場合は、最も早い時間と最も遅い時間を除外して10ファイルにする
+            if (timesToUse.length >= 12) {
+                timesToUse.sort((a, b) => a - b); // 昇順ソート
+                timesToUse = timesToUse.slice(1, timesToUse.length - 1); // 最小と最大をカット
+            }
+            
+            const sum = timesToUse.reduce((a, b) => a + b, 0);
+            avgTimePerFile = sum / timesToUse.length;
         } else if (startTime) {
             // 履歴が溜まるまでは全体平均でフォールバック
             avgTimePerFile = (now - startTime) / current;
