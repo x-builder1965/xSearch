@@ -2,12 +2,13 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.14.0';
+// version   = 'Ver1.15.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
     '[全]': 'all',
     '[TID]': 'tid',
+    '[分類]': 'category',
     '[S音]': 'seriesKana',
     '[放映期間]': 'seriesPeriod',
     '[S評価]': 'seriesRating',
@@ -21,9 +22,11 @@ const fieldMappings = {
     '[話数]': 'episodeCount',
     '[状態]': 'playlistStatus'
 };
+
 // thに対応する項目指定記号のマッピング（テーブルの列順に対応）
 const thSymbols = [
     '[TID]', 
+    '[分類]',
     '[S音]', 
     '[放映期間]', 
     '[S評価]', 
@@ -247,7 +250,7 @@ function getStatusIcon(status) {
     }
 }
 
-// リストの編集
+// リストの描画
 function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
@@ -255,31 +258,32 @@ function renderTable() {
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
 
-        // 各フィールドの定義
+        // 各フィールドの定義（列順に合わせて調整）
         const fields = [
-            item.tid,
-            item.seriesKana,
-            item.seriesPeriod,
-            item.seriesRating,
-            item.seriesName,   // index 4: シリーズ
-            item.genre,        // index 5: ジャンル
-            item.titleKana,
-            item.titleDate,
-            item.titleRating,
-            item.titleName,    // index 9: タイトル
-            item.episodeCount, // index 10: 話数
-            getStatusIcon(item.playlistStatus) // index 11: 状態
+            item.tid,           // index 0: TID
+            item.category,      // index 1: 分類
+            item.seriesKana,    // index 2: S音
+            item.seriesPeriod,  // index 3: 放映期間
+            item.seriesRating,  // index 4: 評価
+            item.seriesName,    // index 5: シリーズ
+            item.genre,         // index 6: ジャンル
+            item.titleKana,     // index 7: T音
+            item.titleDate,     // index 8: 放映年月
+            item.titleRating,   // index 9: T評価
+            item.titleName,     // index 10: タイトル
+            item.episodeCount,  // index 11: 話数
+            getStatusIcon(item.playlistStatus) // index 12: 状態
         ];
 
-        // --- 0〜5番目の描画（TIDは index 0） ---
-        for (let i = 0; i <= 5; i++) {
+        // --- 0〜6番目の描画（TIDは index 0、シリーズは index 5） ---
+        for (let i = 0; i <= 6; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
 
             // TID列（index 0）のクリックイベント
-            if (i === 0 && textVal) {
+            if (i === 0 && textVal && textVal !== '-') {
                 td.style.cursor = 'pointer';
                 td.style.color = '#4da6ff';
                 td.addEventListener('click', () => {
@@ -288,20 +292,18 @@ function renderTable() {
                 });
             }
 
-            // シリーズ列（index 4）のクリックイベント
-            if (i === 4) {
+            // シリーズ列（index 5）のクリックイベント
+            if (i === 5) {
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', async () => { // async を追加
+                td.addEventListener('click', async () => {
                     if (!appState.playerAppPath) {
                         showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
                         return;
                     }
-                    // プレイヤーアプリを実行し、結果を待つ
                     const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.folderPath
                     });
-                    // エラーがあればトースト表示
                     if (result && !result.success && result.error) {
                         showToast(result.error, 'error');
                     }
@@ -311,7 +313,7 @@ function renderTable() {
             tr.appendChild(td);
         }
 
-        // 保存対象（チェックボックス）列の追加
+        // 保存対象（チェックボックス）列の追加（7番目の列）
         const saveTd = document.createElement('td');
         saveTd.style.textAlign = 'center';
         const checkbox = document.createElement('input');
@@ -328,34 +330,33 @@ function renderTable() {
         saveTd.appendChild(checkbox);
         tr.appendChild(saveTd);
 
-        // --- 6番目以降の描画（タイトルは index 9） ---
-        for (let i = 6; i < fields.length; i++) {
+        // --- 7番目以降の描画（ fields[7] 以降） ---
+        for (let i = 7; i < fields.length; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
 
-            // タイトル列（index 9）のクリックイベント
-            if (i === 9) { 
+            // タイトル列（fieldsのindex 10にあたる）のクリックイベント
+            if (i === 10) { 
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', async () => { // async を追加
+                td.addEventListener('click', async () => {
                     if (!appState.playerAppPath) {
                         showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
                         return;
                     }
-                    // プレイヤーアプリを実行し、結果を待つ
                     const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.filePath
                     });
-                    // エラーがあればトースト表示
                     if (result && !result.success && result.error) {
                         showToast(result.error, 'error');
                     }
                 });
             }
 
-            if (i === 11) {
+            // 話数や状態などのテキスト中央揃えなど
+            if (i === 11 || i === 12) {
                 td.style.textAlign = 'center';
             }
             tr.appendChild(td);
@@ -423,7 +424,7 @@ function registerWindowApiProgress() {
     });
 }
 
-// 🔎プレイリスト検索イベントのリスナー登録
+// 🔎プレイリスト検索イベントのリスナー登録（初回スキャン）
 function registerSelectDirBtnClick() {
     document.getElementById('select-dir-btn').addEventListener('click', async () => {
         const dirPath = await window.api.openDirectory();
@@ -434,7 +435,6 @@ function registerSelectDirBtnClick() {
 
         appState.isProcessing = true;
         
-        // ★ 検索開始時に既存のデータをクリアして空のテーブルを表示
         appState.rawItems = [];
         appState.items = [];
         applyFilter();
@@ -443,14 +443,14 @@ function registerSelectDirBtnClick() {
 
         let isCanceled = false;
         try {
-            const scanResults = await window.api.scanDirectory(dirPath);
+            // ★ 第二引数を渡さなければ、自動的にフルスキャンとして動作します
+            const scanResults = await window.api.fastSyncDirectory(dirPath);
             
             if (scanResults && scanResults.canceled) {
                 isCanceled = true;
                 return;
             }
 
-            // 念のため最終結果でも確定させておく
             appState.items = scanResults;
             appState.rawItems = [...scanResults];
             saveToLocalStorage();
@@ -790,7 +790,7 @@ function registerFilterClearBtnClick() {
     });
 }
 
-    // リストの各見出し項目（th）の右クリックベントのリスナー登録
+// リストの各見出し項目（th）の右クリックベントのリスナー登録
 function registerPlaylistTableThContextmenu() {
     const headers = document.querySelectorAll('#playlist-table th');
     const filterInput = document.getElementById('filter-input');

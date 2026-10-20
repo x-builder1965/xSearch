@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.11.0';
+ * version   = 'Ver1.15.0';
  * --------------------------------------------------------------------- */
 :root {
     --app-color: #be98ce; /* 紫色 */
@@ -314,18 +314,19 @@ tr:hover {
 
 /* 各列の幅・テキスト配置指定 */
 #playlist-table th:nth-child(1), #playlist-table td:nth-child(1) { width: 70px; text-align: center; }   /* TID */
-#playlist-table th:nth-child(2), #playlist-table td:nth-child(2) { width: 40px; text-align: center; }   /* S50音 */
-#playlist-table th:nth-child(3), #playlist-table td:nth-child(3) { width: 140px; text-align: center; }  /* S放映期間 */
-#playlist-table th:nth-child(4), #playlist-table td:nth-child(4) { width: 100px; text-align: center; }   /* S評価 */
-/* ※ 5番目（シリーズ）は自動拡大（最小幅20pxを指定） */
-#playlist-table th:nth-child(6), #playlist-table td:nth-child(6) { width: 300px; }  /* ジャンル */
-#playlist-table th:nth-child(7), #playlist-table td:nth-child(7) { width: 40px; text-align: center; } /* 保存対象（チェックBOX） */
-#playlist-table th:nth-child(8), #playlist-table td:nth-child(8) { width: 40px; text-align: center; }   /* T50音 */
-#playlist-table th:nth-child(9), #playlist-table td:nth-child(9) { width: 90px; text-align: center; }   /* T放映年月 */
-#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 100px; text-align: center; }   /* T評価 */
-/* ※ 11番目（タイトル）も自動拡大（最小幅20pxを指定） */
-#playlist-table th:nth-child(12), #playlist-table td:nth-child(12) { width: 60px; text-align: center; } /* 話数 */
-#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 60px; text-align: center; } /* 状態 */
+#playlist-table th:nth-child(2), #playlist-table td:nth-child(2) { width: 140px; }   /* 分類 */
+#playlist-table th:nth-child(3), #playlist-table td:nth-child(3) { width: 40px; text-align: center; }   /* S50音 */
+#playlist-table th:nth-child(4), #playlist-table td:nth-child(4) { width: 140px; text-align: center; }  /* S放映期間 */
+#playlist-table th:nth-child(5), #playlist-table td:nth-child(5) { width: 100px; text-align: center; }   /* S評価 */
+/* ※ 6番目（シリーズ）は自動拡大（最小幅20pxを指定） */
+#playlist-table th:nth-child(7), #playlist-table td:nth-child(7) { width: 300px; }  /* ジャンル */
+#playlist-table th:nth-child(8), #playlist-table td:nth-child(8) { width: 40px; text-align: center; } /* 保存対象（チェックBOX） */
+#playlist-table th:nth-child(9), #playlist-table td:nth-child(9) { width: 40px; text-align: center; }   /* T50音 */
+#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 90px; text-align: center; }   /* T放映年月 */
+#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 100px; text-align: center; }   /* T評価 */
+/* ※ 12番目（タイトル）も自動拡大（最小幅20pxを指定） */
+#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 60px; text-align: center; } /* 話数 */
+#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 60px; text-align: center; } /* 状態 */
 
 /* セルの基本設定に溢れ防止を追加 */
 th, td {
@@ -336,16 +337,17 @@ th, td {
     text-overflow: ellipsis;  /* はみ出た部分を「…」にする */
 }
 
-/* シリーズ（5番目）、ジャンル（6番目）、タイトル（11番目）のセル設定 */
-#playlist-table td:nth-child(5),    /* シリーズ名 */
-#playlist-table td:nth-child(11) {  /* タイトル名 */
+/* シリーズ（6番目）、ジャンル（7番目）、タイトル（12番目）のセル設定 */
+#playlist-table td:nth-child(6),    /* シリーズ名 */
+#playlist-table td:nth-child(12) {  /* タイトル名 */
     max-width: 0;
     min-width: 20px;                /* 追加：最小幅を20pxに設定 */
 }
 
-#playlist-table td:nth-child(6) {    /* ジャンル */
+#playlist-table td:nth-child(7) {    /* ジャンル */
     max-width: 0;
 }
+
 /* ヘルプ、変更履歴 */
 .help-container,
 .changelog-container {

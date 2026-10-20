@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.13.0';
+// version   = 'Ver1.15.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -273,105 +273,18 @@ async function collectPlaylists(currentDir) {
     return playlists;
 }
 
-// 通常スキャン（進捗・キャンセル・ファイル単位送信対応版）
-ipcMain.handle('scan:directory', async (event, rootDir) => {
-    const cancelToken = { canceled: false };
-    currentCancelToken = cancelToken;
-
-    try {
-        const playlistItems = await collectPlaylists(rootDir);
-        const total = playlistItems.length;
-        const results = [];
-        let current = 0;
-
-        for (const item of playlistItems) {
-            if (cancelToken.canceled) {
-                throw new Error('Canceled');
-            }
-
-            current++;
-            const { filePath, seriesInfo } = item;
-            const fileName = path.basename(filePath);
-
-            event.sender.send('scan:progress', {
-                current,
-                total,
-                message: `( ${current} / ${total} ) ${fileName}`
-            });
-
-            let fileStat;
-            try {
-                fileStat = await fs.stat(filePath);
-            } catch (e) {
-                continue;
-            }
-            const fileMtime = fileStat.mtimeMs;
-
-            const baseFileName = path.basename(filePath, '.amppl');
-            const parsedTitle = parseTitleInfo(baseFileName);
-
-            const ampplContent = await fs.readFile(filePath, 'utf-8');
-            const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
-            const episodeCount = lines.length;
-
-            const lowerPath = filePath.toLowerCase();
-            const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
-
-            const genre = isAnimePath ? await fetchAniListWithFallback(seriesInfo.seriesName) : '-';
-            const tid = isAnimePath ? await fetchSyobocalTidWithFallback(parsedTitle.titleName) : '-';
-            const playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
-
-            const newItem = {
-                id: `${seriesInfo.folderPath}__${filePath}`,
-                folderPath: seriesInfo.folderPath,
-                filePath,
-                folderMtime: seriesInfo.folderMtime,
-                fileMtime,
-                tid,
-                seriesKana: seriesInfo.seriesKana,
-                seriesPeriod: seriesInfo.seriesPeriod,
-                seriesRating: seriesInfo.seriesRating,
-                seriesName: seriesInfo.seriesName,
-                genre,
-                titleKana: parsedTitle.titleKana,
-                titleDate: parsedTitle.titleDate,
-                titleRating: parsedTitle.titleRating,
-                titleName: parsedTitle.titleName,
-                episodeCount,
-                playlistStatus,
-                isSave: false
-            };
-
-            results.push(newItem);
-            
-            // ★ 1件処理するごとにレンダラーへ送信
-            event.sender.send('scan:item', newItem);
-        }
-        return results;
-    } catch (error) {
-        if (error.message === 'Canceled') {
-            console.log('Scan canceled by user.');
-            return { canceled: true };
-        }
-        console.error('Scan error:', error);
-        throw error;
-    } finally {
-        if (currentCancelToken === cancelToken) {
-            currentCancelToken = null;
-        }
-    }
-});
-
-// 高速再検索 / 同期（進捗・キャンセル・ファイル単位送信対応版）
-ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
+// 高速再検索 / 同期（初回スキャン兼用版）
+ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) => {
     const cancelToken = { canceled: false };
     currentCancelToken = cancelToken;
 
     try {
         const existingMap = new Map();
-        existingItems.forEach(item => {
-            existingMap.set(item.filePath, item);
-        });
+        if (Array.isArray(existingItems)) {
+            existingItems.forEach(item => {
+                existingMap.set(item.filePath, item);
+            });
+        }
 
         const playlistItems = await collectPlaylists(rootDir);
         const total = playlistItems.length;
@@ -413,16 +326,24 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
             const lowerPath = filePath.toLowerCase();
             const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
 
+            // --- 分類（category）の算出ロジック ---
+            const relativePath = path.relative(rootDir, seriesInfo.folderPath);
+            const pathSegments = relativePath.split(path.sep).filter(Boolean);
+            // 選択フォルダ直下のフォルダがシリーズと同じフォルダの場合（階層が1つ）は '-'
+            // let category = '-';
+            // if (pathSegments.length > 1) {
+                category = pathSegments[0];
+            // }
+
             let genre = cachedItem ? cachedItem.genre : null;
             let tid = cachedItem ? cachedItem.tid : null;
             let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
 
             const isMtimeUnchanged = cachedItem && 
-                                   cachedItem.folderMtime === seriesInfo.folderMtime && 
-                                   cachedItem.fileMtime === fileMtime;
+                                     cachedItem.folderMtime === seriesInfo.folderMtime && 
+                                     cachedItem.fileMtime === fileMtime &&
+                                     cachedItem.category === category; // 分類の変化も考慮
 
-            // const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
-            // const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
             const needsFetchGenre = isAnimePath && (!cachedItem || !genre);
             const needsFetchTid = isAnimePath && (!cachedItem || !tid);
             const needsCheckStatus = !cachedItem || !playlistStatus;
@@ -454,6 +375,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
                     folderMtime: seriesInfo.folderMtime,
                     fileMtime,
                     tid,
+                    category, 
                     seriesKana: seriesInfo.seriesKana,
                     seriesPeriod: seriesInfo.seriesPeriod,
                     seriesRating: seriesInfo.seriesRating,
@@ -470,17 +392,15 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems) => {
             }
 
             results.push(resultItem);
-            
-            // ★ 1件処理するごとにレンダラーへ送信
             event.sender.send('scan:item', resultItem);
         }
         return results;
     } catch (error) {
         if (error.message === 'Canceled') {
-            console.log('Fast sync canceled by user.');
+            console.log('Sync/Scan canceled by user.');
             return { canceled: true };
         }
-        console.error('Fast sync error:', error);
+        console.error('Sync/Scan error:', error);
         throw error;
     } finally {
         if (currentCancelToken === cancelToken) {
