@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.15.0';
+// version   = 'Ver1.16.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
@@ -246,6 +246,7 @@ function getStatusIcon(status) {
     switch (status) {
         case 'OK': return '🟢';
         case 'NG': return '🔴';
+        case 'OVERLAP': return '🟣';
         default: return '🟡'; // BLANK など
     }
 }
@@ -908,7 +909,7 @@ function showProgress(current, total, message, now) {
     const status = document.getElementById('status-display');
     const cancelBtn = document.getElementById('scan-cancel-btn');
 
-    container.style.display = 'block';
+    container.style.display = 'flex';
     cancelBtn.style.display = 'flex';
     const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
     bar.style.width = `${percent}%`;

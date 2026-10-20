@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.15.0';
+// version   = 'Ver1.16.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -130,17 +130,42 @@ async function checkPlaylistStatus(folderPath, lines) {
         return 'BLANK';
     }
 
+    const seenPaths = new Set();
+    let hasOverlap = false;
+    const targetPaths = [];
+
+    // パスの解決と重複チェック用のリスト作成
+    for (const line of lines) {
+        const rawPath = line.trim();
+        if (!rawPath) continue; // 空行があればスキップ
+
+        // 絶対パスでなければフォルダからの相対パスとして解決
+        const targetPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(folderPath, rawPath);
+
+        // 重複チェック
+        if (seenPaths.has(targetPath)) {
+            hasOverlap = true;
+        } else {
+            seenPaths.add(targetPath);
+        }
+        targetPaths.push(targetPath);
+    }
+
     try {
-        for (const line of lines) {
-            const rawPath = line.trim();
-            // 絶対パスでなければフォルダからの相対パスとして解決
-            const targetPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(folderPath, rawPath);
+        // すべてのファイルの存在確認
+        for (const targetPath of targetPaths) {
             await fs.access(targetPath);
         }
-        return 'OK';
     } catch (e) {
-        return 'NG';
+        return 'NG'; // ファイルが存在しない場合は NG を優先
     }
+
+    // 重複がある場合は OVERLAP を返す
+    if (hasOverlap) {
+        return 'OVERLAP';
+    }
+
+    return 'OK';
 }
 
 // シリーズ情報の動的パース関数
