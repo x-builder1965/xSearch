@@ -326,22 +326,35 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             const lowerPath = filePath.toLowerCase();
             const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
 
+            // --- プレフィックス除去用のヘルパー関数 ---
+            const removePrefix = (str) => {
+                let cleaned = str;
+                cleaned = cleaned.replace(/^[ぁ-んァ-ン]_/, '');           // 50音＋ "_"
+                cleaned = cleaned.replace(/^[\d\s～〜年月日]+_/, '');        // 放映期間＋ "_"
+                cleaned = cleaned.replace(/^[★☆]+_/, '');                 // 評価＋ "_"
+                return cleaned;
+            };
+
             // --- 「分類」および「シリーズ情報」の算出ロジック ---
             const relativePath = path.relative(rootDir, seriesInfo.folderPath);
             const pathSegments = relativePath.split(path.sep).filter(Boolean);
             
             let category;
-            let seriesName;
+            let rawFolderName;
 
             if (pathSegments.length === 0) {
                 // 選択フォルダの直下にプレイリストファイルが存在する場合
-                category = path.basename(rootDir);
-                seriesName = path.basename(rootDir);
+                const rootFolderName = path.basename(rootDir);
+                category = removePrefix(rootFolderName);
+                rawFolderName = rootFolderName;
             } else {
                 // 選択フォルダの直下にフォルダが存在し、その中（または下層）にプレイリストが存在する場合
                 category = pathSegments[0];
-                seriesName = path.basename(seriesInfo.folderPath);
+                rawFolderName = path.basename(seriesInfo.folderPath);
             }
+
+            // シリーズ名からプレフィックスを除去
+            let seriesName = removePrefix(rawFolderName);
 
             let genre = cachedItem ? cachedItem.genre : null;
             let tid = cachedItem ? cachedItem.tid : null;
@@ -388,7 +401,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     seriesKana: seriesInfo.seriesKana,
                     seriesPeriod: seriesInfo.seriesPeriod,
                     seriesRating: seriesInfo.seriesRating,
-                    seriesName, // 算出されたフォルダ名を反映
+                    seriesName, 
                     genre,
                     titleKana: parsedTitle.titleKana,
                     titleDate: parsedTitle.titleDate,
