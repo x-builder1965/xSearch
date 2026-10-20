@@ -941,7 +941,7 @@ function showProgress(current, total, message, now) {
         const hours = String(etaDate.getHours()).padStart(2, '0');
         const minutes = String(etaDate.getMinutes()).padStart(2, '0');
 
-        etaString = `  完了予定：${month}/${day} ${hours}:${minutes}`;
+        etaString = `　⌚完了予定：${month}/${day} ${hours}:${minutes}`;
     }
 
     text.textContent = `${percent}% ( ${current} / ${total} )${etaString}`;
