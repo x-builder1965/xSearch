@@ -906,8 +906,10 @@ function showProgress(current, total, message, now) {
     const bar = document.getElementById('progress-bar');
     const text = document.getElementById('progress-text');
     const status = document.getElementById('status-display');
+    const cancelBtn = document.getElementById('scan-cancel-btn');
 
     container.style.display = 'block';
+    cancelBtn.style.display = 'flex';
     const percent = total > 0 ? Math.min(Math.round((current / total) * 100), 100) : 0;
     bar.style.width = `${percent}%`;
 
@@ -948,11 +950,13 @@ function showProgress(current, total, message, now) {
     status.textContent = message;
 }
 
-// 進捗バー非表示
+// 進捗バー非表示時の一連のリセット処理
 function hideProgress() {
     const container = document.getElementById('progress-container');
     container.style.display = 'none';
     startTime = null;
+    const cancelBtn = document.getElementById('scan-cancel-btn');
+    cancelBtn.style.display = 'none';
 }
 
 // テーマ適用
@@ -1218,11 +1222,3 @@ async function handleCancelAction() {
     showToast('検索を中断しました。', 'warning')
 }
 
-// 進捗バー非表示時の一連のリセット処理
-function hideProgress() {
-    const container = document.getElementById('progress-container');
-    container.style.display = 'none';
-    startTime = null;
-    const cancelBtn = document.getElementById('scan-cancel-btn');
-    if (cancelBtn) cancelBtn.remove();
-}

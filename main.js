@@ -326,14 +326,22 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             const lowerPath = filePath.toLowerCase();
             const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
 
-            // --- 分類（category）の算出ロジック ---
+            // --- 「分類」および「シリーズ情報」の算出ロジック ---
             const relativePath = path.relative(rootDir, seriesInfo.folderPath);
             const pathSegments = relativePath.split(path.sep).filter(Boolean);
-            // 選択フォルダ直下のフォルダがシリーズと同じフォルダの場合（階層が1つ）は '-'
-            // let category = '-';
-            // if (pathSegments.length > 1) {
+            
+            let category;
+            let seriesName;
+
+            if (pathSegments.length === 0) {
+                // 選択フォルダの直下にプレイリストファイルが存在する場合
+                category = path.basename(rootDir);
+                seriesName = path.basename(rootDir);
+            } else {
+                // 選択フォルダの直下にフォルダが存在し、その中（または下層）にプレイリストが存在する場合
                 category = pathSegments[0];
-            // }
+                seriesName = path.basename(seriesInfo.folderPath);
+            }
 
             let genre = cachedItem ? cachedItem.genre : null;
             let tid = cachedItem ? cachedItem.tid : null;
@@ -342,7 +350,8 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             const isMtimeUnchanged = cachedItem && 
                                      cachedItem.folderMtime === seriesInfo.folderMtime && 
                                      cachedItem.fileMtime === fileMtime &&
-                                     cachedItem.category === category; // 分類の変化も考慮
+                                     cachedItem.category === category &&
+                                     cachedItem.seriesName === seriesName; // 分類・シリーズの変化も考慮
 
             const needsFetchGenre = isAnimePath && (!cachedItem || !genre);
             const needsFetchTid = isAnimePath && (!cachedItem || !tid);
@@ -357,7 +366,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     tid = '-';
                 } else {
                     if (needsFetchGenre) {
-                        genre = await fetchAniListWithFallback(seriesInfo.seriesName);
+                        genre = await fetchAniListWithFallback(seriesName);
                     }
                     if (needsFetchTid) {
                         tid = await fetchSyobocalTidWithFallback(parsedTitle.titleName);
@@ -379,7 +388,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     seriesKana: seriesInfo.seriesKana,
                     seriesPeriod: seriesInfo.seriesPeriod,
                     seriesRating: seriesInfo.seriesRating,
-                    seriesName: seriesInfo.seriesName,
+                    seriesName, // 算出されたフォルダ名を反映
                     genre,
                     titleKana: parsedTitle.titleKana,
                     titleDate: parsedTitle.titleDate,
