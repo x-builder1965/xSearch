@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.16.0';
+// version   = 'Ver1.17.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
@@ -55,6 +55,7 @@ let toastRemainingTime = 3000;  // デフォルトのトースター表示時間
 let startTime = null;           // 処理開始時刻
 let recentFileTimes = [];       // 直近の処理時間を保持する配列
 let lastItemTime = null;        // 前回のアイテム受信時刻
+let activePopupMenu = null;     // アクティブなポップアップメニュー要素の保持
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 🔲初期処理🔲
@@ -96,6 +97,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerWindowKeydown();
      // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
     registerSelectAllSaveChange();
+    // メニュー外のクリック（左右クリック）でメニューを閉じる
+    registerDocumentMousedown();
     // リアルタイムフィルタリングベントのリスナー登録
     registerFilterInputInput();
     // フィルタ条件のキー入力イベントのリスナー登録
@@ -251,6 +254,25 @@ function getStatusIcon(status) {
     }
 }
 
+// リストデータ右クリック時の値変換ヘルパー関数
+function getFilterValue(symbol, rawValue, item) {
+    if (symbol === '[状態]') {
+        switch (rawValue) {
+            case '🟢': return 'OK';
+            case '🔴': return 'NG';
+            case '🟡': return 'BLANK';
+            case '🟣': return 'OVERLAP';
+            default: {
+                return '';
+            }
+        }
+    }
+    if (symbol === '[保存]') {
+        return item.isSave ? 'ON' : 'OFF';
+    }
+    return String(rawValue ?? '');
+}
+
 // リストの描画
 function renderTable() {
     const tbody = document.getElementById('table-body');
@@ -282,6 +304,20 @@ function renderTable() {
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
+
+            const symbol = thSymbols[i];
+
+            // リストデータ右クリックイベントの登録
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closePopupMenu();
+
+                if (symbol) {
+                    const val = getFilterValue(symbol, textVal, item);
+                    insertFilterItem(symbol, val + ', ');
+                }
+            });
 
             // TID列（index 0）のクリックイベント
             if (i === 0 && textVal && textVal !== '-') {
@@ -317,6 +353,20 @@ function renderTable() {
         // 保存対象（チェックボックス）列の追加（7番目の列）
         const saveTd = document.createElement('td');
         saveTd.style.textAlign = 'center';
+        
+        // 保存列の右クリックイベント
+        const saveSymbol = thSymbols[7]; // '[保存]'
+        saveTd.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closePopupMenu();
+
+            if (saveSymbol) {
+                const val = getFilterValue(saveSymbol, null, item);
+                insertFilterItem(saveSymbol, val + ', ');
+            }
+        });
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'save-checkbox';
@@ -337,6 +387,21 @@ function renderTable() {
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
+
+            // thSymbolsのインデックスは保存列（index 7）の分だけ +1 シフトする
+            const symbol = thSymbols[i + 1];
+
+            // リストデータ右クリックイベントの登録
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closePopupMenu();
+
+                if (symbol) {
+                    const val = getFilterValue(symbol, textVal, item);
+                    insertFilterItem(symbol, val + ', ');
+                }
+            });
 
             // タイトル列（fieldsのindex 10にあたる）のクリックイベント
             if (i === 10) { 
@@ -693,6 +758,15 @@ function registerSelectAllSaveChange() {
     });
 }
 
+// メニュー外のクリック（左右クリック）でメニューを閉じる
+function registerDocumentMousedown() {
+    document.addEventListener('mousedown', (e) => {
+        if (activePopupMenu && !activePopupMenu.contains(e.target)) {
+            closePopupMenu();
+        }
+    });
+}
+
 // リアルタイムフィルタリングベントのリスナー登録
 function registerFilterInputInput() {
     const filterInput = document.getElementById('filter-input');
@@ -791,30 +865,83 @@ function registerFilterClearBtnClick() {
     });
 }
 
-// リストの各見出し項目（th）の右クリックベントのリスナー登録
+// リストの各見出し項目（th）の右クリックイベントのリスナー登録
 function registerPlaylistTableThContextmenu() {
     const headers = document.querySelectorAll('#playlist-table th');
     const filterInput = document.getElementById('filter-input');
+
     headers.forEach((th, index) => {
         const symbol = thSymbols[index];
         if (!symbol) return;
 
         th.addEventListener('contextmenu', (e) => {
             e.preventDefault(); // コンテキストメニューを抑制
-            
-            const cursorPos = filterInput.selectionStart;
-            const text = filterInput.value;
-            let newInput = symbol + ' ';
-            if (cursorPos > 0) {
-                newInput = ' ' + newInput;
+            e.stopPropagation();
+
+            // 既存のポップアップを破棄
+            closePopupMenu();
+
+            // 対象項目のメニュー設定を取得
+            const items = getHeaderMenuItems(symbol);
+
+            // 【現状維持の項目】（TID、放映期間、シリーズ、放映年月、タイトル、話数など）の場合
+            if (!items) {
+                const cursorPos = filterInput.selectionStart;
+                const text = filterInput.value;
+                let newInput = symbol + ' ';
+                if (cursorPos > 0 && !text.slice(0, cursorPos).endsWith(' ')) {
+                    newInput = ' ' + newInput;
+                }
+                const newText = text.slice(0, cursorPos) + newInput + text.slice(cursorPos);
+                
+                filterInput.value = newText;
+                filterInput.focus();
+                filterInput.setSelectionRange(cursorPos + newInput.length, cursorPos + newInput.length);
+                
+                applyFilter();
+                return;
             }
-            const newText = text.slice(0, cursorPos) + newInput + text.slice(cursorPos);
-            
-            filterInput.value = newText;
-            filterInput.focus();
-            filterInput.setSelectionRange(cursorPos + newInput.length, cursorPos + newInput.length);
-            
-            applyFilter();
+
+            // 【ポップアップメニュー表示対象の項目】
+            // ポップアップメニューの作成
+            const menu = document.createElement('div');
+            menu.className = 'menu-style';
+
+            // 先頭アイテム：[選択見出し項目]
+            const headerItem = document.createElement('div');
+            headerItem.className = 'menu-item';
+            headerItem.textContent = symbol;
+            headerItem.style.fontWeight = 'bold';
+            headerItem.style.borderBottom = '1px solid #444';
+            headerItem.addEventListener('click', (event) => {
+                event.stopPropagation();
+                insertFilterItem(symbol, '');
+                // メニューは表示したまま
+            });
+            menu.appendChild(headerItem);
+
+            // 各メニューアイテムの追加
+            items.forEach((itemVal) => {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'menu-item';
+                menuItem.textContent = itemVal;
+                menuItem.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    insertFilterItem(symbol, itemVal);
+                    // メニューは表示したまま
+                });
+                menu.appendChild(menuItem);
+            });
+
+            // メニューの表示位置計算（画面外へのはみだし調整）
+            document.body.appendChild(menu);
+            activePopupMenu = menu;
+
+            const x = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 10);
+            const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 10);
+
+            menu.style.left = `${Math.max(10, x)}px`;
+            menu.style.top = `${Math.max(10, y)}px`;
         });
     });
 }
@@ -1223,3 +1350,130 @@ async function handleCancelAction() {
     showToast('検索を中断しました。', 'warning')
 }
 
+// ポップアップメニューを閉じる関数
+function closePopupMenu() {
+    if (activePopupMenu) {
+        activePopupMenu.remove();
+        activePopupMenu = null;
+    }
+}
+
+// 各見出し（th）のメニュー定義を取得するヘルパー関数
+function getHeaderMenuItems(symbol) {
+    switch (symbol) {
+        case '[分類]': {
+            // リストの「分類」列内の値を重複を除いて設定（値の末尾に", "を追加）
+            const categories = Array.from(
+                new Set(appState.items.map(item => item.category).filter(Boolean))
+            );
+            return categories.map(cat => `${cat}, `);
+        }
+        case '[S音]':
+        case '[T音]': {
+            // 50音（シリーズ）/ 50音（タイトル）
+            return [
+                "あ, い, う, え, お, ",
+                "か, き, く, け, こ, ",
+                "さ, し, す, せ, そ, ",
+                "た, ち, つ, て, と, ",
+                "な, に, ぬ, ね, の, ",
+                "は, ひ, ふ, へ, ほ, ",
+                "ま, み, む, め, も, ",
+                "や, ゆ, よ, ら, り, ",
+                "ら, り, る, れ, ろ, ",
+                "わ, を, ん, "
+            ];
+        }
+        case '[S評価]':
+        case '[T評価]': {
+            // 評価（シリーズ）/ 評価（タイトル）
+            return [
+                "☆☆☆☆☆, ",
+                "★☆☆☆☆, ",
+                "★★☆☆☆, ",
+                "★★★☆☆, ",
+                "★★★★☆, ",
+                "★★★★★, "
+            ];
+        }
+        case '[ジャンル]': {
+            return [
+                "アクション, ",
+                "アドベンチャー, ",
+                "コメディ, ",
+                "ドラマ, ",
+                "エッチ, ",
+                "ファンタジー, ",
+                "成人向け, ",
+                "ホラー, ",
+                "魔法少女, ",
+                "メカ・ロボット, ",
+                "音楽, ",
+                "ミステリー, ",
+                "サスペンス・心理, ",
+                "恋愛・ラブコメ, ",
+                "SF, ",
+                "日常・ほのぼの, ",
+                "スポーツ, ",
+                "超自然・能力, ",
+                "スリラー, "
+            ];
+        }
+        case '[保存]': {
+            return [
+                "ON, ",
+                "OFF, "
+            ];
+        }
+        case '[状態]': {
+            return [
+                "OK, ",
+                "NG, ",
+                "BLANK, ",
+                "OVERLAP, "
+            ];
+        }
+        default:
+            return null; // 現状維持（メニュー非表示）の項目
+    }
+}
+
+// フィルタ入力欄へテキストを挿入する関数
+function insertFilterItem(symbol, itemText) {
+    const filterInput = document.getElementById('filter-input');
+    const cursorPos = filterInput.selectionStart;
+    const text = filterInput.value;
+
+    const textBeforeCursor = text.slice(0, cursorPos);
+
+    // カーソル位置より前にある、一番最後に出現した項目指定記号（例: '[S評価]' など）を特定する
+    const symbolMatches = [...textBeforeCursor.matchAll(/\[(.*?)\]/g)];
+    let lastSymbol = null;
+    if (symbolMatches.length > 0) {
+        lastSymbol = symbolMatches[symbolMatches.length - 1][0];
+    }
+
+    // 直前の項目が選択見出し項目と同じかどうか
+    const isSymbolMatch = (lastSymbol === symbol);
+
+    let insertText = '';
+    if (isSymbolMatch) {
+        // フィルタ条件の挿入位置の直前の項目が選択見出し項目と同じ場合：
+        // メニューのアイテムのみ挿入
+        insertText = itemText;
+    } else {
+        // フィルタ条件の挿入位置の直前の項目が選択見出し項目と異なる場合：
+        // 選択見出し項目の項目名 ＋ メニューのアイテムを挿入
+        const prefix = (cursorPos > 0 && !textBeforeCursor.endsWith(' ')) ? ' ' : '';
+        insertText = prefix + symbol + ' ' + itemText;
+    }
+
+    const newText = text.slice(0, cursorPos) + insertText + text.slice(cursorPos);
+    filterInput.value = newText;
+    filterInput.focus();
+
+    const newCursorPos = cursorPos + insertText.length;
+    filterInput.setSelectionRange(newCursorPos, newCursorPos);
+
+    applyFilter();
+}
