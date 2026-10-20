@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.17.0';
+// version   = 'Ver1.18.0';
 // ---------------------------------------------------------------------
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
@@ -307,7 +307,7 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
-            // リストデータ右クリックイベントの登録
+            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -315,7 +315,8 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    insertFilterItem(symbol, val + ', ');
+                    // 記号と値（val）をそれぞれそのまま渡す
+                    insertFilterItem(symbol, val);
                 }
             });
 
@@ -363,7 +364,7 @@ function renderTable() {
 
             if (saveSymbol) {
                 const val = getFilterValue(saveSymbol, null, item);
-                insertFilterItem(saveSymbol, val + ', ');
+                insertFilterItem(saveSymbol, `${saveSymbol} ${val}, `);
             }
         });
 
@@ -391,7 +392,7 @@ function renderTable() {
             // thSymbolsのインデックスは保存列（index 7）の分だけ +1 シフトする
             const symbol = thSymbols[i + 1];
 
-            // リストデータ右クリックイベントの登録
+            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -399,7 +400,8 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    insertFilterItem(symbol, val + ', ');
+                    // 記号と値（val）をそれぞれそのまま渡す
+                    insertFilterItem(symbol, val);
                 }
             });
 
@@ -1171,34 +1173,124 @@ function updateSelectAllCheckbox() {
     selectAllCb.indeterminate = someChecked && !allChecked;
 }
 
-// フィルタリング処理のメインロジック
+// フィルタリング処理のメインロジick
 function filterItems(items, query) {
     if (!query || query.trim() === '') {
         return items;
     }
 
-    // 括弧を考慮してOR条件（","、"，"、"、"、"||"、"｜｜"）で分割
-    const orGroups = splitByOr(query);
+    // 1. カンマ（, または 、）でクエリを分割し、空の項目や前後の空白を除外する
+    const rawParts = query.split(/[,，]/);
+    const orParts = rawParts.map(p => p.trim()).filter(Boolean);
 
+    if (orParts.length === 0) {
+        return items;
+    }
+
+    // 2. 各項（ORグループ）ごとの条件リストを構築する
+    const orGroups = [];
+    for (let part of orParts) {
+        // 各項は完全に独立してパースする（前の項のフィールドを引き継がない）
+        const conditions = parseAndConditions(part, '[全]');
+        if (conditions.length > 0) {
+            orGroups.push(conditions);
+        }
+    }
+
+    if (orGroups.length === 0) {
+        return items;
+    }
+
+    // 3. ベースデータ（items）の元の並び順を維持したままフィルタリング
+    // 各項のいずれか（OR）にヒットするかを判定しつつ、上から順のインデックスを保持する
     return items.filter(item => {
-        // いずれかのORグループにマッチすればtrue
         return orGroups.some(orGroup => {
-            const trimmedGroup = orGroup.trim();
-            if (!trimmedGroup) return false;
-
-            // グループ全体を囲む括弧 "()" または "（）" があれば外す
-            let content = trimmedGroup;
-            if ((content.startsWith('(') && content.endsWith(')')) || 
-                (content.startsWith('（') && content.endsWith('）'))) {
-                content = content.slice(1, -1).trim();
-            }
-
-            // AND条件で分割
-            const conditions = parseAndConditions(content);
-
-            // すべてのAND条件を満たすか
-            return conditions.every(cond => evaluateCondition(item, cond));
+            // グループ内のすべての条件（AND）を満たすか
+            return orGroup.every(cond => {
+                const internalField = fieldMappings[cond.field] || 'all';
+                return evaluateSingleCondition(item, internalField, cond.expression);
+            });
         });
+    });
+}
+
+// 1つのブロック内のスペース区切りからAND条件のリストを抽出するパーサー
+function parseAndConditions(partStr, defaultField) {
+    const regex = /(\[[^\]]+\])|([^\s]+)/g;
+    let tokens = [];
+    let match;
+    while ((match = regex.exec(partStr)) !== null) {
+        if (match[1]) tokens.push({ type: 'field', val: match[1] });
+        else if (match[2]) tokens.push({ type: 'word', val: match[2] });
+    }
+
+    let conditions = [];
+    let currentField = defaultField;
+
+    for (let token of tokens) {
+        if (token.type === 'field') {
+            currentField = token.val;
+        } else if (token.type === 'word') {
+            let val = token.val.trim();
+            if (val) {
+                conditions.push({ field: currentField, expression: val });
+            }
+        }
+    }
+
+    return conditions;
+}
+
+// 個別の条件評価
+function evaluateSingleCondition(item, internalField, expr) {
+    let op = '=';
+    let val = expr;
+    if (expr.startsWith('>')) {
+        op = '>';
+        val = expr.slice(1);
+    } else if (expr.startsWith('<')) {
+        op = '<';
+        val = expr.slice(1);
+    } else if (expr.startsWith('=')) {
+        op = '=';
+        val = expr.slice(1);
+    } else if (expr.startsWith('!')) {
+        op = '!';
+        val = expr.slice(1);
+    }
+
+    if (internalField === 'isSave') {
+        const upperVal = val.toUpperCase();
+        if (upperVal === 'ON' || upperVal === 'OFF') {
+            const expectedBool = (upperVal === 'ON');
+            const actualBool = Boolean(item.isSave);
+            return op === '!' ? (actualBool !== expectedBool) : (actualBool === expectedBool);
+        }
+        return false;
+    }
+
+    const targetValues = internalField === 'all' 
+        ? Object.values(item) 
+        : [item[internalField]];
+
+    return targetValues.some(itemVal => {
+        if (itemVal === undefined || itemVal === null) return false;
+        const strVal = String(itemVal);
+        const numVal = Number(itemVal);
+        const targetNum = Number(val);
+        const isNumeric = !isNaN(numVal) && !isNaN(targetNum) && val !== '';
+
+        switch (op) {
+            case '>':
+                return isNumeric ? numVal >= targetNum : strVal >= val;
+            case '<':
+                return isNumeric ? numVal <= targetNum : strVal <= val;
+            case '!':
+                return !strVal.includes(val);
+            case '=':
+            default:
+                return strVal.includes(val);
+        }
     });
 }
 
@@ -1438,35 +1530,19 @@ function getHeaderMenuItems(symbol) {
     }
 }
 
-// フィルタ入力欄へテキストを挿入する関数
-function insertFilterItem(symbol, itemText) {
+// フィルタ入力欄へテキストを挿入する関数（記号の省略を完全に廃止）
+function insertFilterItem(symbol, val) {
     const filterInput = document.getElementById('filter-input');
     const cursorPos = filterInput.selectionStart;
     const text = filterInput.value;
 
     const textBeforeCursor = text.slice(0, cursorPos);
+    
+    // カーソル位置の直前がスペースやカンマでなければ、自然にスペースを空ける
+    const prefix = (cursorPos > 0 && !textBeforeCursor.endsWith(' ') && !textBeforeCursor.endsWith(',')) ? ' ' : '';
 
-    // カーソル位置より前にある、一番最後に出現した項目指定記号（例: '[S評価]' など）を特定する
-    const symbolMatches = [...textBeforeCursor.matchAll(/\[(.*?)\]/g)];
-    let lastSymbol = null;
-    if (symbolMatches.length > 0) {
-        lastSymbol = symbolMatches[symbolMatches.length - 1][0];
-    }
-
-    // 直前の項目が選択見出し項目と同じかどうか
-    const isSymbolMatch = (lastSymbol === symbol);
-
-    let insertText = '';
-    if (isSymbolMatch) {
-        // フィルタ条件の挿入位置の直前の項目が選択見出し項目と同じ場合：
-        // メニューのアイテムのみ挿入
-        insertText = itemText;
-    } else {
-        // フィルタ条件の挿入位置の直前の項目が選択見出し項目と異なる場合：
-        // 選択見出し項目の項目名 ＋ メニューのアイテムを挿入
-        const prefix = (cursorPos > 0 && !textBeforeCursor.endsWith(' ')) ? ' ' : '';
-        insertText = prefix + symbol + ' ' + itemText;
-    }
+    // 常に「[記号] 値, 」の形式で文字列を生成する
+    const insertText = prefix + symbol + ' ' + val;
 
     const newText = text.slice(0, cursorPos) + insertText + text.slice(cursorPos);
     filterInput.value = newText;
