@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.19.0';
+// version   = 'Ver1.20.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -538,62 +538,75 @@ async function fetchAniListData(query) {
     return '-';
 }
 
-// しょぼいカレンダーAPIからTIDを取得（リトライ・ルール適用版）
-async function fetchSyobocalTid(title) {
-    if (!title) return '-';
+// 表記揺れ（全角半角・大文字小文字・スペース等）を吸収するための正規化関数
+function normalizeString(str) {
+    if (!str) return '';
+    return str
+        .toLowerCase()
+        .replace(/[\s\u3000]+/g, '') // スペース全削除
+        .replace(/[!-~]/g, s => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)); // 半角英数を全角化して判定統一
+}
 
-    // 1. 同一条件のキャッシュがあれば利用
-    if (syobocalCache.has(title)) {
-        return syobocalCache.get(title);
-    }
+// しょぼいカレンダーからTIDを取得する内部関数
+async function fetchSyobocalTid(name) {
+    if (!name) return '-';
 
-    const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodeURIComponent(title)}`;
-    const maxRetries = 5;
+    // 全角・半角スペースで分割し、空文字を除外して先頭のキーワードを取得
+    const keywords = name.trim().split(/[\s\u3000]+/).filter(Boolean);
+    if (keywords.length === 0) return '-';
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            await throttleApiCall();
+    const firstKeyword = keywords[0]; // 例: "ウマ娘 プリティーダービー Season 3" -> "ウマ娘"
+    const encodedSearch = encodeURIComponent(firstKeyword);
+    const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodedSearch}`;
 
-            const response = await fetch(url);
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return '-';
 
-            // 429 エラー (Rate Limit) の場合
-            if (response.status === 429) {
-                if (attempt < maxRetries) {
-                    console.warn(`Syobocal API Error: HTTP ${response.status} (attempt ${attempt}/${maxRetries}). Waiting 30s...`);
-                    await delay(30000);
-                    continue;
-                } else {
-                    console.error(`Syobocal API Error: HTTP ${response.status} ${title}`);
-                    break;
-                }
-            }
-
-            // 429 以外のエラーレスポンスの場合、リトライせずに終了
-            if (!response.ok) {
-                console.warn(`Syobocal API Error: HTTP ${response.status} ${title}`);
-                return '-';
-            }
-
-            const data = await response.json();
-            if (data.Titles) {
-                const keys = Object.keys(data.Titles);
-                if (keys.length > 0) {
-                    const tid = keys[0];
-                    syobocalCache.set(title, tid); // キャッシュに保存
-                    return tid;
-                }
-            }
-
-            syobocalCache.set(title, '-');
+        const data = await response.json();
+        // レスポンスが null または Titles が存在しない・空の場合はアンマッチ
+        if (!data || !data.Titles || Object.keys(data.Titles).length === 0) {
             return '-';
-        } catch (e) {
-            console.error('Syobocal API network error:', e);
-            if (attempt === maxRetries) break;
-            await delay(3000);
         }
-    }
 
-    return '-';
+        const titles = data.Titles;
+        const normalizedFullName = normalizeString(name);
+
+        // 1. フル検索キーワードと完全一致するタイトルを判定 (Title または ShortTitle)
+        for (const tid in titles) {
+            const item = titles[tid];
+            if (
+                normalizeString(item.Title) === normalizedFullName ||
+                normalizeString(item.ShortTitle) === normalizedFullName
+            ) {
+                return tid;
+            }
+        }
+
+        // 2. 完全一致がない場合、全単語（スペース区切りの全キーワード）を含むタイトルを抽出
+        for (const tid in titles) {
+            const item = titles[tid];
+            const targetTitle = normalizeString(item.Title);
+            const targetShort = normalizeString(item.ShortTitle);
+            
+            const matchesAll = keywords.every(kw => {
+                const normKw = normalizeString(kw);
+                return targetTitle.includes(normKw) || targetShort.includes(normKw);
+            });
+
+            if (matchesAll) {
+                return tid;
+            }
+        }
+
+        // 3. 全単語ヒットもない場合、先頭要素（最初に見つかった検索結果）のTIDをフォールバックとして採用
+        const firstResultTid = Object.keys(titles)[0];
+        return firstResultTid || '-';
+
+    } catch (error) {
+        console.error('しょぼいカレンダーAPIの取得に失敗しました:', error);
+        return '-';
+    }
 }
 
 // プレイリスト統合保存 IPC ハンドラー
