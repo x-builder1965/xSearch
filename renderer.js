@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.19.0';
+// version   = 'Ver1.21.0';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -469,6 +469,13 @@ function registerWindowApiProgress() {
         }
         showProgress(progress.current, progress.total, progress.message, now);
     });
+
+    // ★ サーバー制限時のトースト通知を受け取るリスナーを追加
+    if (window.api.onScanToast) {
+        window.api.onScanToast((data) => {
+            showToast(data.message, data.type);
+        });
+    }
 
     // ★ 1件ずつアイテムを受信したタイミングで処理時間を計測
     window.api.onScanItem((item) => {
@@ -1119,15 +1126,9 @@ function hideToast() {
 // showToast('接続を確認してください', 'warning');
 // showToast('エラーが発生しました', 'error');
 function showToast(message, type = 'info', displayTime = 6000) {
-    const toastMessage = document.getElementById('toast-message');
+    const container = document.getElementById('toast-container');
     const statusDisplay = document.getElementById('status-display');
-    if (!toastMessage) return;
-
-    // 既存タイマーのクリア
-    if (toastTimer) {
-        clearTimeout(toastTimer);
-        toastTimer = null;
-    }
+    if (!container) return;
 
     const icons = {
         info: 'ℹ️',
@@ -1136,26 +1137,70 @@ function showToast(message, type = 'info', displayTime = 6000) {
     };
     const icon = icons[type] || icons.info;
 
-    toastMessage.classList.remove('toast-info', 'toast-warning', 'toast-error');
-    toastMessage.classList.add(`toast-${type}`);
-    
-    // 改行コード（\n）を反映させるため white-space を指定
-    toastMessage.style.whiteSpace = 'pre-line';
-    toastMessage.textContent = `${icon} ${message}`;
-    toastMessage.classList.remove('hidden');
+    // 1. トースト要素を動的生成
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast toast-${type} hidden`;
+    toastEl.textContent = `${icon} ${message}`;
 
+    // 2. 個別のタイマー・時間管理用変数
+    let timer = null;
+    let remainingTime = displayTime;
+    let startTime = Date.now();
+
+    // タイマー開始・再開用関数
+    const startTimer = (duration) => {
+        startTime = Date.now();
+        timer = setTimeout(() => {
+            removeToast();
+        }, duration);
+    };
+
+    // トースト削除関数（アニメーション付き）
+    const removeToast = () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+        toastEl.classList.add('hidden');
+        // トランジション終了後にDOMから完全削除
+        setTimeout(() => {
+            toastEl.remove();
+        }, 300);
+    };
+
+    // 3. イベントリスナーの設定（個別要素に紐付け）
+    toastEl.addEventListener('click', removeToast);
+
+    toastEl.addEventListener('mouseenter', () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+            const elapsed = Date.now() - startTime;
+            remainingTime = Math.max(0, remainingTime - elapsed);
+        }
+    });
+
+    toastEl.addEventListener('mouseleave', () => {
+        if (remainingTime > 0 && !toastEl.classList.contains('hidden')) {
+            startTimer(remainingTime);
+        }
+    });
+
+    // 4. コンテナに追加して表示
+    container.appendChild(toastEl);
+
+    // 強制再描画（フェードイン・スライドインのアニメーションを効かせるため）
+    toastEl.offsetHeight;
+    toastEl.classList.remove('hidden');
+
+    // タイマー起動
+    startTimer(remainingTime);
+
+    // ステータス表示の更新（必要に応じて）
     if (statusDisplay) {
         statusDisplay.style.whiteSpace = 'pre-line';
         statusDisplay.textContent = `${icon} ${message}`;
     }
-
-    // 新しい表示に合わせて残時間と開始時間をリセット
-    toastRemainingTime = displayTime;
-    toastStartTime = Date.now();
-
-    toastTimer = setTimeout(() => {
-        hideToast();
-    }, toastRemainingTime);
 }
 
 // 全選択チェックボックスの状態を同期・更新するヘルパー関数

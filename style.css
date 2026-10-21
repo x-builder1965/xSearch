@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.19.0';
+ * version   = 'Ver1.21.0';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -159,41 +159,51 @@ button.secondary {
     background-color: var(--panel-bg);
 }
 
-/* 🔲メイン：トースト🔲 */
-.toast {
+/* 🔲 トーストコンテナ（複数並び用） 🔲 */
+#toast-container {
     position: fixed;
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px; /* トースト同士の間隔 */
+    pointer-events: none; /* コンテナ自体のマウス操作を無効化し、中のトーストだけ有効にする */
+}
+
+/* 🔲 メイン：トースト単体 🔲 */
+.toast {
     color: #fff;
     padding: 10px 20px;
     border-radius: 6px;
     font-size: 20px;
-    z-index: 9999;
     transition: opacity 0.3s ease, transform 0.3s ease;
-    pointer-events: auto; /* 下の要素の操作を邪魔しない */
-    cursor: pointer; /* カーソルをポインターに変更 */
+    pointer-events: auto; /* トースト自体の操作は有効 */
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    white-space: pre-line;
 }
+
 /* メッセージタイプ別スタイル */
-/* ℹ️ info (青) */
 .toast.toast-info {
     background-color: rgba(20, 80, 160, 0.95);
     box-shadow: 0 4px 12px rgba(10, 40, 90, 0.7);
 }
-/* ⚠️ warning (黄) */
 .toast.toast-warning {
-    background-color: rgba(210, 140, 10, 0.466);
+    background-color: rgba(210, 140, 10, 0.9);
     box-shadow: 0 4px 12px rgba(100, 70, 5, 0.7);
 }
-/* 🚫 error (赤) */
 .toast.toast-error {
     background-color: rgba(180, 20, 20, 0.95);
     box-shadow: 0 4px 12px rgba(90, 10, 10, 0.7);
 }
+
 /* 非表示状態 */
 .toast.hidden {
     opacity: 0;
-    transform: translate(-50%, -10px);
+    transform: translateY(-10px);
 }
 
 /* 🔲メイン：コントロールパネル🔲 */

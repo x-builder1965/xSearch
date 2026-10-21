@@ -891,3 +891,289 @@ function renderTable() {
     updateSelectAllCheckbox();
 }
 ```
+
+
+
+
+
+
+
+・下記データーで"雨と君と"～"EAT-MAN'98"でTIDが連続で取得できていない原因と対応。
+・実行ログ：
+[Match Found - Exact] Syoboca
+[RateLimit] Syobocal: Interval too short (237ms < 500ms). Waiting 263ms...
+[API Request] Syobocal: fetching for query "アポカリプスホテル" (Full: "アポカリプスホテル", attempt 1/5)
+[Match Found - Exact] Syobocal: "アポカリプスホテル" matched TID 7382 (アポカリプスホテル)
+[RateLimit] AniList: Interval too short (418ms < 500ms). Waiting 82ms...
+[API Request] AniList: fetching for query "アン・シャーリー" (attempt 1/5)
+[RateLimit Hit] AniList API Error: HTTP 429 (attempt 1/5). Waiting 30s...
+[API Request] AniList: fetching for query "アン・シャーリー" (attempt 2/5)
+[API Success] AniList: "アン・シャーリー" -> [ドラマ, 日常・ほのぼの]
+[API Request] Syobocal: fetching for query "アン・シャーリー" (Full: "アン・シャーリー", attempt 1/5)
+[Match Found - Exact] Syobocal: "アン・シャーリー" matched TID 7356 (アン・シャーリー)
+[API Request] AniList: fetching for query "雨と君と" (attempt 1/5)
+[API Success] AniList: "雨と君と" -> [コメディ, 日常・ほのぼの]
+[RateLimit] Syobocal: Interval too short (237ms < 500ms). Waiting 263ms...
+[API Request] Syobocal: fetching for query "雨と君と" (Full: "雨と君と", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "雨と君と"
+[RateLimit] AniList: Interval too short (482ms < 500ms). Waiting 18ms...
+[API Request] AniList: fetching for query "暗殺者である俺のステータスが勇者よりも明らかに強いのだが" (attempt 1/5)
+[API Success] AniList: "暗殺者である俺のステータスが勇者よりも明らかに強いのだが" -> [アクション, アドベンチャー, ファンタジー]
+[RateLimit] Syobocal: Interval too short (243ms < 500ms). Waiting 257ms...
+[API Request] Syobocal: fetching for query "暗殺者である俺のステータスが勇者よりも明らかに強いのだが" (Full: "暗殺者である俺のステータスが勇者よりも明らかに強いのだが", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "暗殺者である俺のステータスが勇者よりも明らかに強いのだが"
+[RateLimit] AniList: Interval too short (469ms < 500ms). Waiting 31ms...
+[API Request] AniList: fetching for query "ある日、お姫様になってしまった件について" (attempt 1/5)
+[API Success] AniList: "ある日、お姫様になってしまった件について" -> [コメディ, ファンタジー, 恋愛・ラブコメ]
+[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
+[API Request] Syobocal: fetching for query "ある日、お姫様になってしまった件について" (Full: "ある日、お姫様になってしまった件について", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "ある日、お姫様になってしまった件について"
+[RateLimit] AniList: Interval too short (456ms < 500ms). Waiting 44ms...
+[API Request] AniList: fetching for query "アルマちゃんは家族になりたい" (attempt 1/5)
+[API Success] AniList: "アルマちゃんは家族になりたい" -> [コメディ, 恋愛・ラブコメ, SF, 日常・ほのぼの]
+[RateLimit] Syobocal: Interval too short (250ms < 500ms). Waiting 250ms...
+[API Request] Syobocal: fetching for query "アルマちゃんは家族になりたい" (Full: "アルマちゃんは家族になりたい", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "アルマちゃんは家族になりたい"
+[RateLimit] AniList: Interval too short (423ms < 500ms). Waiting 77ms...
+[API Request] AniList: fetching for query "悪食令嬢と狂血公爵" (attempt 1/5)
+[API Success] AniList: "悪食令嬢と狂血公爵" -> [ファンタジー, 恋愛・ラブコメ]
+[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
+[API Request] Syobocal: fetching for query "悪食令嬢と狂血公爵" (Full: "悪食令嬢と狂血公爵", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "悪食令嬢と狂血公爵"
+[RateLimit] AniList: Interval too short (404ms < 500ms). Waiting 96ms...
+[API Request] AniList: fetching for query "アルネの事件簿" (attempt 1/5)
+[API Success] AniList: "アルネの事件簿" -> [ミステリー]
+[RateLimit] Syobocal: Interval too short (243ms < 500ms). Waiting 257ms...
+[API Request] Syobocal: fetching for query "アルネの事件簿" (Full: "アルネの事件簿", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "アルネの事件簿"
+[RateLimit] AniList: Interval too short (376ms < 500ms). Waiting 124ms...
+[API Request] AniList: fetching for query "アンドロイドは経験人数に入りますか？？" (attempt 1/5)
+[API Success] AniList: "アンドロイドは経験人数に入りますか？？" -> [コメディ, エッチ, 恋愛・ラブコメ, SF]
+[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
+[API Request] Syobocal: fetching for query "アンドロイドは経験人数に入りますか？？" (Full: "アンドロイドは経験人数に入りますか？？", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "アンドロイドは経験人数に入りますか？？"
+[RateLimit] AniList: Interval too short (359ms < 500ms). Waiting 141ms...
+[API Request] AniList: fetching for query "悪役令嬢は隣国の王太子に溺愛される" (attempt 1/5)
+[API Success] AniList: "悪役令嬢は隣国の王太子に溺愛される" -> [ファンタジー, 恋愛・ラブコメ]
+[RateLimit] Syobocal: Interval too short (286ms < 500ms). Waiting 214ms...
+[API Request] Syobocal: fetching for query "悪役令嬢は隣国の王太子に溺愛される" (Full: "悪役令嬢は隣国の王太子に溺愛される", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "悪役令嬢は隣国の王太子に溺愛される"
+[RateLimit] AniList: Interval too short (342ms < 500ms). Waiting 158ms...
+[API Request] AniList: fetching for query "有栖川煉ってホントは女なんだよね。" (attempt 1/5)
+[API Success] AniList: "有栖川煉ってホントは女なんだよね。" -> [コメディ, ドラマ, 成人向け]
+[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
+[API Request] Syobocal: fetching for query "有栖川煉ってホントは女なんだよね。" (Full: "有栖川煉ってホントは女なんだよね。", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "有栖川煉ってホントは女なんだよね。"
+[RateLimit] AniList: Interval too short (294ms < 500ms). Waiting 206ms...
+[API Request] AniList: fetching for query "あかね噺" (attempt 1/5)
+[API Success] AniList: "あかね噺" -> [ドラマ]
+[RateLimit] Syobocal: Interval too short (244ms < 500ms). Waiting 256ms...
+[API Request] Syobocal: fetching for query "あかね噺" (Full: "あかね噺", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "あかね噺"
+[RateLimit] AniList: Interval too short (258ms < 500ms). Waiting 242ms...
+[API Request] AniList: fetching for query "愛してるゲームを終わらせたい" (attempt 1/5)
+[API Success] AniList: "愛してるゲームを終わらせたい" -> [コメディ, 恋愛・ラブコメ, 日常・ほのぼの]
+[RateLimit] Syobocal: Interval too short (244ms < 500ms). Waiting 256ms...
+[API Request] Syobocal: fetching for query "愛してるゲームを終わらせたい" (Full: "愛してるゲームを終わらせたい", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "愛してるゲームを終わらせたい"
+[RateLimit] AniList: Interval too short (254ms < 500ms). Waiting 246ms...
+[API Request] AniList: fetching for query "淡島百景" (attempt 1/5)
+[API Success] AniList: "淡島百景" -> [ドラマ, 音楽, 恋愛・ラブコメ]
+[RateLimit] Syobocal: Interval too short (241ms < 500ms). Waiting 259ms...
+[API Request] Syobocal: fetching for query "淡島百景" (Full: "淡島百景", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "淡島百景"
+[RateLimit] AniList: Interval too short (249ms < 500ms). Waiting 251ms...
+[API Request] AniList: fetching for query "蒼き伝承 ウェルシュ＆シェダー" (attempt 1/5)
+[API Error] AniList API Error: HTTP 404 for query "蒼き伝承 ウェルシュ＆シェダー"
+[RateLimit] Syobocal: Interval too short (248ms < 500ms). Waiting 252ms...
+[API Request] Syobocal: fetching for query "蒼き伝承" (Full: "蒼き伝承 ウェルシュ＆シェダー", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "蒼き伝承"
+[RateLimit] AniList: Interval too short (262ms < 500ms). Waiting 238ms...
+[API Request] AniList: fetching for query "EAT-MAN" (attempt 1/5)
+[API Success] AniList: "EAT-MAN" -> [アクション, アドベンチャー, SF]
+[RateLimit] Syobocal: Interval too short (237ms < 500ms). Waiting 263ms...
+[API Request] Syobocal: fetching for query "EAT-MAN" (Full: "EAT-MAN", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "EAT-MAN"
+[Cache Hit] AniList: "EAT-MAN" -> アクション, アドベンチャー, SF
+[RateLimit] Syobocal: Interval too short (259ms < 500ms). Waiting 241ms...
+[API Request] Syobocal: fetching for query "EAT-MAN'98" (Full: "EAT-MAN'98", attempt 1/5)
+[API Empty] Syobocal: No titles matched for query "EAT-MAN'98"
+[API Request] AniList: fetching for query "頭文字D" (attempt 1/5)
+[API Success] AniList: "頭文字D" -> [アクション, ドラマ, スポーツ]
+[RateLimit] Syobocal: Interval too short (235ms < 500ms). Waiting 265ms...
+[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Stage1", attempt 1/5)
+[Match Found - Fallback] Syobocal: "頭文字D Stage1" fell back to first result TID 397
+[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
+[RateLimit] Syobocal: Interval too short (493ms < 500ms). Waiting 7ms...
+[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Stage2", attempt 1/5)
+[Match Found - All Keywords] Syobocal: "頭文字D Stage2" matched TID 2355 (OVA 頭文字D Extra Stage 2 ～旅立ちのグリーン～) with keywords [頭文字D, Stage2]
+[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
+[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Stage3", attempt 1/5)
+[Match Found - Fallback] Syobocal: "頭文字D Stage3" fell back to first result TID 397
+[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
+[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Extra Stage", attempt 1/5)
+[Match Found - All Keywords] Syobocal: "頭文字D Extra Stage" matched TID 2354 (OVA 頭文字D Extra Stage インパクトブルーの彼方に…) with keywords [頭文字D, Extra, Stage]
+[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
+
+・検索結果リスト：
+TID    分類    音    放映期間    評価    シリーズ    ジャンル        音    放映年月    評価    タイトル    話数    状態
+7293    アニメ（一般）    あ    202501～202501    ★★★☆☆    悪役令嬢転生おじさん    コメディ, ファンタジー        あ    202501    ★★★☆☆    悪役令嬢転生おじさん    12    🟢
+7329    アニメ（一般）    あ    202501～202501    ★★★☆☆    空色ユーティリティ(2025)    -        あ    202501    ★★★☆☆    空色ユーティリティ(2025)    12    🟢
+7361    アニメ（一般）    あ    202504～202504    ★★★★☆    ある魔女が死ぬまで    アドベンチャー, ドラマ, ファンタジー        あ    202504    ★★★★☆    ある魔女が死ぬまで    12    🟢
+7382    アニメ（一般）    あ    202504～202504    ★★★☆☆    アポカリプスホテル    コメディ, SF, 日常・ほのぼの        あ    202504    ★★★☆☆    アポカリプスホテル    12    🟢
+7356    アニメ（一般）    あ    202504～202504    ★★★☆☆    アン・シャーリー    ドラマ, 日常・ほのぼの        あ    202504    ★★★☆☆    アン・シャーリー    24    🟢
+-    アニメ（一般）    あ    202507～202507    ★★★☆☆    雨と君と    コメディ, 日常・ほのぼの        あ    202507    ★★★☆☆    雨と君と    12    🟢
+-    アニメ（一般）    あ    202510～202510    ★★★★☆    暗殺者である俺のステータスが勇者よりも明らかに強いのだが    アクション, アドベンチャー, ファンタジー        あ    202510    ★★★★☆    暗殺者である俺のステータスが勇者よりも明らかに強いのだが    12    🟢
+-    アニメ（一般）    あ    202510～202510    ★★★☆☆    ある日、お姫様になってしまった件について    コメディ, ファンタジー, 恋愛・ラブコメ        あ    202510    ★★★☆☆    ある日、お姫様になってしまった件について    16    🟢
+-    アニメ（一般）    あ    202510～202510    ★★★☆☆    アルマちゃんは家族になりたい    コメディ, 恋愛・ラブコメ, SF, 日常・ほのぼの        あ    202510    ★★★☆☆    アルマちゃんは家族になりたい    11    🟢
+-    アニメ（一般）    あ    202510～202510    ★★★☆☆    悪食令嬢と狂血公爵    ファンタジー, 恋愛・ラブコメ        あ    202510    ★★★☆☆    悪食令嬢と狂血公爵    12    🟢
+-    アニメ（一般）    あ    202601～202601    ★★★☆☆    アルネの事件簿    ミステリー        あ    202601    ★★★☆☆    アルネの事件簿    12    🟢
+-    アニメ（一般）    あ    202601～202601    ★★★☆☆    アンドロイドは経験人数に入りますか？？    コメディ, エッチ, 恋愛・ラブコメ, SF        あ    202601    ★★★☆☆    アンドロイドは経験人数に入りますか？？    8    🟢
+-    アニメ（一般）    あ    202601～202601    ★★★☆☆    悪役令嬢は隣国の王太子に溺愛される    ファンタジー, 恋愛・ラブコメ        あ    202601    ★★★☆☆    悪役令嬢は隣国の王太子に溺愛される    12    🟢
+-    アニメ（一般）    あ    202601～202601    ★★★☆☆    有栖川煉ってホントは女なんだよね。    コメディ, ドラマ, 成人向け        あ    202601    ★★★☆☆    有栖川煉ってホントは女なんだよね。    9    🟢
+-    アニメ（一般）    あ    202604～202604    ★★★★☆    あかね噺    ドラマ        あ    202604    ★★★★☆    あかね噺    12    🟢
+-    アニメ（一般）    あ    202604～202604    ★★★☆☆    愛してるゲームを終わらせたい    コメディ, 恋愛・ラブコメ, 日常・ほのぼの        あ    202604    ★★★☆☆    愛してるゲームを終わらせたい    12    🟢
+-    アニメ（一般）    あ    202604～202604    ★★★☆☆    淡島百景    ドラマ, 音楽, 恋愛・ラブコメ        あ    202604    ★★★☆☆    淡島百景    12    🟢
+-    アニメ（一般）    あ    202610～202610    ★★★☆☆    蒼き伝承 ウェルシュ＆シェダー    -        あ    202610    ★★★☆☆    蒼き伝承 ウェルシュ＆シェダー    3    🟢
+-    アニメ（一般）    い    199701～199810    ★★★★☆    EAT-MAN    アクション, アドベンチャー, SF        い    199701    ★★★★☆    EAT-MAN    12    🟢
+-    アニメ（一般）    い    199701～199810    ★★★★☆    EAT-MAN    アクション, アドベンチャー, SF        い    199810    ★★★★☆    EAT-MAN'98    12    🟢
+397    アニメ（一般）    い    199804～201707    ★★★★☆    頭文字D    アクション, ドラマ, スポーツ        い    199804    ★★★☆☆    頭文字D Stage1    26    🟢
+2355    アニメ（一般）    い    199804～201707    ★★★★☆    頭文字D    アクション, ドラマ, スポーツ        い    199910    ★★★☆☆    頭文字D Stage2    13    🟢
+397    アニメ（一般）    い    199804～201707    ★★★★☆    頭文字D    アクション, ドラマ, スポーツ        い    200011    ★★★☆☆    頭文字D Stage3    1    🟢
+
+
+// しょぼいカレンダーからTIDを取得する内部関数
+async function fetchSyobocalTid(name) {
+    if (!name) return '-';
+
+    // 1. 同一条件（同じ名前）ですでに結果があればそれを利用
+    if (syobocalCache.has(name)) {
+        console.log(`[Cache Hit] Syobocal: "${name}" -> TID: ${syobocalCache.get(name)}`);
+        return syobocalCache.get(name);
+    }
+
+    // 全角・半角スペースで分割し、空文字を除外して先頭のキーワードを取得
+    const keywords = name.trim().split(/[\s\u3000]+/).filter(Boolean);
+    if (keywords.length === 0) {
+        console.log(`[Keyword Empty] Syobocal: No valid keywords for "${name}"`);
+        syobocalCache.set(name, '-');
+        return '-';
+    }
+
+    const firstKeyword = keywords[0]; // 例: "ウマ娘 プリティーダービー Season 3" -> "ウマ娘"
+    const encodedSearch = encodeURIComponent(firstKeyword);
+    const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodedSearch}`;
+
+    const maxRetries = 5;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            // リクエスト前に共通のスロットリング（ウェイト）を適用
+            await throttleApiCall('Syobocal');
+            console.log(`[API Request] Syobocal: fetching for query "${firstKeyword}" (Full: "${name}", attempt ${attempt}/${maxRetries})`);
+
+            const response = await fetch(url);
+
+            // 429 エラー (Rate Limit) の場合
+            if (response.status === 429) {
+                if (attempt < maxRetries) {
+                    console.warn(`[RateLimit Hit] Syobocal API Error: HTTP 429 (attempt ${attempt}/${maxRetries}). Waiting 30s...`);
+                    await delay(30000);
+                    continue;
+                } else {
+                    console.error(`[RateLimit Max] Syobocal API Error: HTTP 429 for "${name}" after max retries.`);
+                    break;
+                }
+            }
+
+            // 429 以外のエラーレスポンスの場合
+            if (!response.ok) {
+                console.warn(`[API Error] Syobocal API Error: HTTP ${response.status} for "${name}"`);
+                syobocalCache.set(name, '-');
+                return '-';
+            }
+
+            const data = await response.json();
+            // レスポンスが null または Titles が存在しない・空の場合はアンマッチ
+            if (!data || !data.Titles || Object.keys(data.Titles).length === 0) {
+                console.log(`[API Empty] Syobocal: No titles matched for query "${firstKeyword}"`);
+                syobocalCache.set(name, '-');
+                return '-';
+            }
+
+            const titles = data.Titles;
+            const normalizedFullName = normalizeString(name);
+
+            // 1. フル検索キーワードと完全一致するタイトルを判定 (Title または ShortTitle)
+            for (const tid in titles) {
+                const item = titles[tid];
+                if (
+                    normalizeString(item.Title) === normalizedFullName ||
+                    normalizeString(item.ShortTitle) === normalizedFullName
+                ) {
+                    console.log(`[Match Found - Exact] Syobocal: "${name}" matched TID ${tid} (${item.Title})`);
+                    syobocalCache.set(name, tid);
+                    return tid;
+                }
+            }
+
+            // 2. 完全一致がない場合、全単語（スペース区切りの全キーワード）を含むタイトルを抽出
+            for (const tid in titles) {
+                const item = titles[tid];
+                const targetTitle = normalizeString(item.Title);
+                const targetShort = normalizeString(item.ShortTitle);
+                
+                const matchesAll = keywords.every(kw => {
+                    const normKw = normalizeString(kw);
+                    return targetTitle.includes(normKw) || targetShort.includes(normKw);
+                });
+
+                if (matchesAll) {
+                    console.log(`[Match Found - All Keywords] Syobocal: "${name}" matched TID ${tid} (${item.Title}) with keywords [${keywords.join(', ')}]`);
+                    syobocalCache.set(name, tid);
+                    return tid;
+                }
+            }
+
+            // 3. 全単語ヒットもない場合、先頭要素（最初に見つかった検索結果）のTIDをフォールバックとして採用
+            const firstResultTid = Object.keys(titles)[0] || '-';
+            console.log(`[Match Found - Fallback] Syobocal: "${name}" fell back to first result TID ${firstResultTid}`);
+            syobocalCache.set(name, firstResultTid);
+            return firstResultTid;
+
+        } catch (error) {
+            console.error(`[Network Error] Syobocal API error for "${name}":`, error);
+            if (attempt === maxRetries) break;
+            await delay(3000);
+        }
+    }
+
+    // 失敗時も空結果としてキャッシュして無駄な再リクエストを防ぐ
+    syobocalCache.set(name, '-');
+    return '-';
+}
+
+## 2026-10-XX Ver1.XX.0 しょぼいカレンダーAPIへのリクエスト回数を軽減する処理を追加。
+### 下記ロジックでしょぼいカレンダーAPIへのリクエスト回数を軽減する処理を追加実装。
+    ・前回リクエストと今回リクエストのシリーズ名が異なる場合：
+        ・保持レスポンス（メモリキャッシュ）をクリア。
+        ・シリーズ名でリクエスト。
+        ・返却されたレスポンス（先頭から１０件）を保持レスポンスに追加。
+    ・前回リクエストと今回リクエストのシリーズ名が同じ場合：
+        ・保持レスポンスにタイトル名が存在する場合：
+            ・保持レスポンスからTIDを取得し返却
+        ・保持レスポンスにタイトル名が存在しない場合：
+            ・タイトル名でリクエスト。
+            ・返却されたレスポンスにタイトル名が存在する場合：
+                ・返却されたレスポンスからTIDを取得し返却
+                ・返却されたレスポンス（先頭から１０件）を保持レスポンスに追加。
+            ・返却されたレスポンスにタイトル名が存在しない場合："-"を返却
+    ※現在実装されている下記処理は現状維持
+        ・「スペース分割して先頭文字列でリクエスト」する処理。
+        ・429エラー時のリトライ。
+        ・連続リクエスト防止用の待機処理
+
+### 「修正に向けた具体的なアプローチ」を全て実施してください。
+    ・関数の引数の拡張async function fetchSyobocalTid(seriesName, titleName) のように、シリーズ名とタイトル名を明示的に受け取るようにする。
+    ・シリーズ名変更時のキャッシュクリア
+    ・同シリーズ時のタイトル名チェック
+

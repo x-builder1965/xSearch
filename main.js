@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.20.0';
+// version   = 'Ver1.21.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -32,12 +32,18 @@ const GENRE_MAP = {
     'Thriller': 'スリラー'
 };
 
+const MIN_API_INTERVAL = 2000;          // 最低2sの間隔を空けてサーバー負荷を抑制
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const aniListCache = new Map();         // リクエスト結果のキャッシュ：key: seriesName, value: genre
+const syobocalCache = new Map();        // リクエスト結果のキャッシュ：key: titleName, value: tid
+
 let currentCancelToken = null;          // キャンセル状態を管理するマップまたは変数
 let lastApiCallTime = 0;                // レートリミット管理用変数
-const MIN_API_INTERVAL = 500;           // 最低500msの間隔を空けてサーバー負荷を抑制
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+let lastSyobocalSeriesName = null;      // シリーズ名ベースのキャッシュおよび状態管理用
+let isAniListRateLimited = false;       // AniListAPIアクセス制限フラグ
+let isSyobocalRateLimited = false;      // しょぼいカレンダーAPIアクセス制限フラグ
 
-async function throttleApiCall() {
+async function throttleApiCall(apiName = 'API') {
     const now = Date.now();
     const elapsed = now - lastApiCallTime;
     if (elapsed < MIN_API_INTERVAL) {
@@ -46,10 +52,6 @@ async function throttleApiCall() {
     }
     lastApiCallTime = Date.now();
 }
-
-// --- リクエスト結果のキャッシュ（同一条件での重複リクエスト防止） ---
-const aniListCache = new Map();   // key: seriesName, value: genre
-const syobocalCache = new Map();  // key: titleName, value: tid
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
@@ -98,30 +100,159 @@ ipcMain.handle('dialog:openDirectory', async () => {
     return filePaths[0];
 });
 
-// AniListデータ取得（アンマッチ時に「劇場版」「映画」を除外して再リクエスト）
-async function fetchAniListWithFallback(name) {
-    let genre = await fetchAniListData(name);
+// AniListデータ取得（アンマッチ時に「劇場版」「映画」を除外して再リクエスト＋制限・キャッシュ対応版）
+async function fetchAniListWithFallback(name, event, cachedGenre) {
+    // 制限中の場合はAPIを叩かずに即座にキャッシュまたは '-' を返す
+    if (isAniListRateLimited) {
+        return cachedGenre || '-';
+    }
+
+    let genre = await fetchAniListData(name, event, cachedGenre);
+    
+    // 制限フラグが途中で立った場合はそのまま抜ける
+    if (isAniListRateLimited) {
+        return cachedGenre || '-';
+    }
+
     // アンマッチ（'-' または空）かつ、キーワードに「劇場版」または「映画」が含まれている場合
     if ((!genre || genre === '-') && (name.includes('劇場版') || name.includes('映画'))) {
         const cleanedName = name.replace(/劇場版|映画/g, '').trim();
         if (cleanedName && cleanedName !== name) {
-            genre = await fetchAniListData(cleanedName);
+            genre = await fetchAniListData(cleanedName, event, cachedGenre);
         }
     }
     return genre;
 }
 
-// しょぼカレンダーTID取得（アンマッチ時に「劇場版」「映画」を除外して再リクエスト）
-async function fetchSyobocalTidWithFallback(name) {
-    let tid = await fetchSyobocalTid(name);
-    // アンマッチ（'-' または空）かつ、キーワードに「劇場版」または「映画」が含まれている場合
-    if ((!tid || tid === '-') && (name.includes('劇場版') || name.includes('映画'))) {
-        const cleanedName = name.replace(/劇場版|映画/g, '').trim();
-        if (cleanedName && cleanedName !== name) {
-            tid = await fetchSyobocalTid(cleanedName);
+// 共通のしょぼいカレンダーAPI検索実行関数（スペース分割・リトライ・スロットリングを維持）
+async function requestSyobocalTitleSearch(queryName, event, cachedTid) {
+    if (!queryName || isSyobocalRateLimited) return null;
+
+    const keywords = queryName.trim().split(/[ \u3000]+/).filter(Boolean);
+    if (keywords.length === 0) return null;
+
+    const searchQueries = [queryName.trim()];
+    if (keywords.length > 1) {
+        searchQueries.push(keywords[0]);
+    }
+
+    const maxRetries = 5;
+
+    for (const searchQuery of searchQueries) {
+        const encodedSearch = encodeURIComponent(searchQuery);
+        const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodedSearch}`;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await throttleApiCall('Syobocal');
+
+                const response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'xSearchApp/1.0 (DesktopApp)'
+                    }
+                });
+
+                // ★ 530 エラーの場合の制限中処理
+                if (response.status === 530) {
+                    if (!isSyobocalRateLimited) {
+                        isSyobocalRateLimited = true;
+                        event.sender.send('scan:toast', { message: 'しょぼいカレンダーAPI制限中', type: 'error' });
+                        console.warn('SyoboiAPI： 530エラー検知のため制限フラグをtrueに設定しました。');
+                    }
+                    return null;
+                }
+
+                if (response.status === 429) {
+                    if (attempt < maxRetries) {
+                        await delay(30000);
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (!response.ok) {
+                    break;
+                }
+
+                const data = await response.json();
+                if (data && data.Titles && Object.keys(data.Titles).length > 0) {
+                    return data.Titles;
+                }
+                break;
+            } catch (error) {
+                if (attempt === maxRetries) break;
+                await delay(3000);
+            }
         }
     }
-    return tid;
+    return null;
+}
+
+// しょぼいカレンダーからTIDを取得する内部関数（シリーズ名とタイトル名を受け取る）
+async function fetchSyobocalTid(seriesName, titleName, event, cachedTid) {
+    if (isSyobocalRateLimited) {
+        return cachedTid || '-';
+    }
+
+    const effectiveSeriesName = seriesName || titleName;
+    const effectiveTitleName = titleName || seriesName;
+
+    if (!effectiveTitleName) return cachedTid || '-';
+
+    const normalizedTargetTitle = normalizeString(effectiveTitleName);
+
+    if (lastSyobocalSeriesName !== effectiveSeriesName) {
+        syobocalCache.clear();
+        lastSyobocalSeriesName = effectiveSeriesName;
+
+        const titles = await requestSyobocalTitleSearch(effectiveSeriesName, event, cachedTid);
+        if (isSyobocalRateLimited) return cachedTid || '-';
+
+        if (titles) {
+            let count = 0;
+            for (const tid in titles) {
+                if (count >= 10) break;
+                const item = titles[tid];
+                if (item.Title) syobocalCache.set(normalizeString(item.Title), tid);
+                if (item.ShortTitle) syobocalCache.set(normalizeString(item.ShortTitle), tid);
+                count++;
+            }
+        }
+    }
+
+    if (syobocalCache.has(normalizedTargetTitle)) {
+        return syobocalCache.get(normalizedTargetTitle);
+    }
+
+    const titles = await requestSyobocalTitleSearch(effectiveTitleName, event, cachedTid);
+    if (isSyobocalRateLimited) return cachedTid || '-';
+
+    if (titles) {
+        let foundTid = null;
+        let count = 0;
+        for (const tid in titles) {
+            const item = titles[tid];
+            const normTitle = item.Title ? normalizeString(item.Title) : '';
+            const normShort = item.ShortTitle ? normalizeString(item.ShortTitle) : '';
+
+            if (normTitle === normalizedTargetTitle || normShort === normalizedTargetTitle) {
+                if (!foundTid) foundTid = tid;
+            }
+
+            if (count < 10) {
+                if (item.Title) syobocalCache.set(normTitle, tid);
+                if (item.ShortTitle) syobocalCache.set(normShort, tid);
+                count++;
+            }
+        }
+
+        if (foundTid) {
+            return foundTid;
+        }
+    }
+
+    return cachedTid || '-';
 }
 
 // プレイリスト内のパスを検証して状態を判定するヘルパー関数
@@ -298,10 +429,30 @@ async function collectPlaylists(currentDir) {
     return playlists;
 }
 
+// しょぼカレンダーTID取得（アンマッチ時に「劇場版」「映画」を除外して再リクエスト）
+async function fetchSyobocalTidWithFallback(seriesName, titleName, event, cachedTid) {
+    if (isSyobocalRateLimited) return cachedTid || '-';
+
+    let tid = await fetchSyobocalTid(seriesName, titleName, event, cachedTid);
+    if (isSyobocalRateLimited) return cachedTid || '-';
+
+    if ((!tid || tid === '-') && (titleName.includes('劇場版') || titleName.includes('映画'))) {
+        const cleanedName = titleName.replace(/劇場版|映画/g, '').trim();
+        if (cleanedName && cleanedName !== titleName) {
+            tid = await fetchSyobocalTid(seriesName, cleanedName, event, cachedTid);
+        }
+    }
+    return tid;
+}
+
 // 高速再検索 / 同期（初回スキャン兼用版）
 ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) => {
     const cancelToken = { canceled: false };
     currentCancelToken = cancelToken;
+
+    // ★ 検索・再検索実行時にフラグをfalseでクリア
+    isAniListRateLimited = false;
+    isSyobocalRateLimited = false;
 
     try {
         const existingMap = new Map();
@@ -368,17 +519,14 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             let rawFolderName;
 
             if (pathSegments.length === 0) {
-                // 選択フォルダの直下にプレイリストファイルが存在する場合
                 const rootFolderName = path.basename(rootDir);
                 category = removePrefix(rootFolderName);
                 rawFolderName = rootFolderName;
             } else {
-                // 選択フォルダの直下にフォルダが存在し、その中（または下層）にプレイリストが存在する場合
                 category = pathSegments[0];
                 rawFolderName = path.basename(seriesInfo.folderPath);
             }
 
-            // シリーズ名からプレフィックスを除去
             let seriesName = removePrefix(rawFolderName);
 
             let genre = cachedItem ? cachedItem.genre : null;
@@ -389,10 +537,10 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                                      cachedItem.folderMtime === seriesInfo.folderMtime && 
                                      cachedItem.fileMtime === fileMtime &&
                                      cachedItem.category === category &&
-                                     cachedItem.seriesName === seriesName; // 分類・シリーズの変化も考慮
+                                     cachedItem.seriesName === seriesName;
 
-            const needsFetchGenre = isAnimePath && (!cachedItem || !genre);
-            const needsFetchTid = isAnimePath && (!cachedItem || !tid);
+            const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
+            const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
             const needsCheckStatus = !cachedItem || !playlistStatus;
 
             let resultItem;
@@ -404,10 +552,20 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     tid = '-';
                 } else {
                     if (needsFetchGenre) {
-                        genre = await fetchAniListWithFallback(seriesName);
+                        // ★ AniList制限中の判定：制限中ならキャッシュのジャンル、または '-' を返却
+                        if (isAniListRateLimited) {
+                            genre = cachedItem ? cachedItem.genre : '-';
+                        } else {
+                            genre = await fetchAniListWithFallback(seriesName, event, cachedItem ? cachedItem.genre : '-');
+                        }
                     }
                     if (needsFetchTid) {
-                        tid = await fetchSyobocalTidWithFallback(parsedTitle.titleName);
+                        // ★ しょぼいカレンダー制限中の判定：制限中ならキャッシュのTID、または '-' を返却
+                        if (isSyobocalRateLimited) {
+                            tid = cachedItem ? cachedItem.tid : '-';
+                        } else {
+                            tid = await fetchSyobocalTidWithFallback(seriesName, parsedTitle.titleName, event, cachedItem ? cachedItem.tid : '-');
+                        }
                     }
                 }
 
@@ -464,10 +622,9 @@ ipcMain.handle('scan:cancel', () => {
 });
 
 // AniList API からジャンルを取得し日本語に変換（リトライ・ルール適用版）
-async function fetchAniListData(query) {
-    if (!query) return '-';
+async function fetchAniListData(query, event, cachedGenre) {
+    if (!query || isAniListRateLimited) return cachedGenre || '-';
 
-    // 1. 同一条件（同じ検索クエリ）ですでに成功した結果があればそれを利用
     if (aniListCache.has(query)) {
         return aniListCache.get(query);
     }
@@ -483,13 +640,14 @@ async function fetchAniListData(query) {
     const maxRetries = 5;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            await throttleApiCall();
+            await throttleApiCall('AniList');
 
             const response = await fetch('https://graphql.anilist.co', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
+                    'User-Agent': 'xSearchApp/1.0 (DesktopApp)'
                 },
                 body: JSON.stringify({
                     query: graphqlQuery,
@@ -497,22 +655,29 @@ async function fetchAniListData(query) {
                 })
             });
 
-            // 429 エラー (Rate Limit) の場合
+            // ★ 403 エラーの場合の制限中処理
+            if (response.status === 403) {
+                if (!isAniListRateLimited) {
+                    isAniListRateLimited = true;
+                    event.sender.send('scan:toast', { message: 'AniListAPI制限中', type: 'error' });
+                    console.warn('AniListAPI： 403エラー検知のため制限フラグをtrueに設定しました。');
+                }
+                aniListCache.set(query, cachedGenre || '-');
+                return cachedGenre || '-';
+            }
+
             if (response.status === 429) {
                 if (attempt < maxRetries) {
-                    console.warn(`AniList API Error: HTTP ${response.status} (attempt ${attempt}/${maxRetries}). Waiting 30s...`);
                     await delay(30000);
                     continue;
                 } else {
-                    console.error(`AniList API Error: HTTP ${response.status} ${query}`);
                     break;
                 }
             }
 
-            // 429 以外のエラーレスポンスの場合、リトライせずに終了
             if (!response.ok) {
-                console.warn(`AniList API Error: HTTP ${response.status} ${query}`);
-                return '-';
+                aniListCache.set(query, cachedGenre || '-');
+                return cachedGenre || '-';
             }
 
             const result = await response.json();
@@ -521,21 +686,20 @@ async function fetchAniListData(query) {
             if (media && media.genres && media.genres.length > 0) {
                 const translatedGenres = media.genres.map(g => GENRE_MAP[g] || g);
                 const genres = translatedGenres.join(', ');
-                aniListCache.set(query, genres); // キャッシュに保存
+                aniListCache.set(query, genres);
                 return genres;
             } else {
-                // 結果が見つからない場合もキャッシュして無駄な再リクエストを防ぐ
                 aniListCache.set(query, '-');
                 return '-';
             }
         } catch (e) {
-            console.error('AniList API network error:', e);
             if (attempt === maxRetries) break;
             await delay(3000);
         }
     }
 
-    return '-';
+    aniListCache.set(query, '-');
+    return cachedGenre || '-';
 }
 
 // 表記揺れ（全角半角・大文字小文字・スペース等）を吸収するための正規化関数
@@ -545,68 +709,6 @@ function normalizeString(str) {
         .toLowerCase()
         .replace(/[\s\u3000]+/g, '') // スペース全削除
         .replace(/[!-~]/g, s => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)); // 半角英数を全角化して判定統一
-}
-
-// しょぼいカレンダーからTIDを取得する内部関数
-async function fetchSyobocalTid(name) {
-    if (!name) return '-';
-
-    // 全角・半角スペースで分割し、空文字を除外して先頭のキーワードを取得
-    const keywords = name.trim().split(/[\s\u3000]+/).filter(Boolean);
-    if (keywords.length === 0) return '-';
-
-    const firstKeyword = keywords[0]; // 例: "ウマ娘 プリティーダービー Season 3" -> "ウマ娘"
-    const encodedSearch = encodeURIComponent(firstKeyword);
-    const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodedSearch}`;
-
-    try {
-        const response = await fetch(url);
-        if (!response.ok) return '-';
-
-        const data = await response.json();
-        // レスポンスが null または Titles が存在しない・空の場合はアンマッチ
-        if (!data || !data.Titles || Object.keys(data.Titles).length === 0) {
-            return '-';
-        }
-
-        const titles = data.Titles;
-        const normalizedFullName = normalizeString(name);
-
-        // 1. フル検索キーワードと完全一致するタイトルを判定 (Title または ShortTitle)
-        for (const tid in titles) {
-            const item = titles[tid];
-            if (
-                normalizeString(item.Title) === normalizedFullName ||
-                normalizeString(item.ShortTitle) === normalizedFullName
-            ) {
-                return tid;
-            }
-        }
-
-        // 2. 完全一致がない場合、全単語（スペース区切りの全キーワード）を含むタイトルを抽出
-        for (const tid in titles) {
-            const item = titles[tid];
-            const targetTitle = normalizeString(item.Title);
-            const targetShort = normalizeString(item.ShortTitle);
-            
-            const matchesAll = keywords.every(kw => {
-                const normKw = normalizeString(kw);
-                return targetTitle.includes(normKw) || targetShort.includes(normKw);
-            });
-
-            if (matchesAll) {
-                return tid;
-            }
-        }
-
-        // 3. 全単語ヒットもない場合、先頭要素（最初に見つかった検索結果）のTIDをフォールバックとして採用
-        const firstResultTid = Object.keys(titles)[0];
-        return firstResultTid || '-';
-
-    } catch (error) {
-        console.error('しょぼいカレンダーAPIの取得に失敗しました:', error);
-        return '-';
-    }
 }
 
 // プレイリスト統合保存 IPC ハンドラー
