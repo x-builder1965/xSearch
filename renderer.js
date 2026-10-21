@@ -2,8 +2,9 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.18.0';
+// version   = 'Ver1.19.0';
 // ---------------------------------------------------------------------
+// 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
     '[全]': 'all',
@@ -22,7 +23,6 @@ const fieldMappings = {
     '[話数]': 'episodeCount',
     '[状態]': 'playlistStatus'
 };
-
 // thに対応する項目指定記号のマッピング（テーブルの列順に対応）
 const thSymbols = [
     '[TID]', 
@@ -41,6 +41,7 @@ const thSymbols = [
     '[状態]'
 ];
 
+// 🔲グルーバル共通変数🔲
 let appState = {                // localStorage管理情報
     selectedDir: '',            // 検索フォルダパス
     rawItems: [],               // ベースリスト管理
@@ -63,19 +64,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await setupHTMLLoad();
     // ローカルストレージから状態を復元
     await loadFromLocalStorage();
-    // プレイヤーアプリ設定の復元
-    await loadPlayerConfigState();
-    // 初期表示
-    await renderTable();
     // 初回保持（もし未定義なら現在のitemsを保持）
     await setupRawItem();
     // 起動時に一度フィルタ（または全件表示）を適用して件数を正しく表示させる
     applyFilter();
     // テーマの適用
-    await applyTheme();
+    applyTheme();
 
     // 🔲イベント登録処理🔲
-    // テーマ切替
+    // ☀️／🌙テーマ切替イベントのリスナー登録
     registerThemeToggleBtnClick();
     // 進捗イベントのリスナー登録
     registerWindowApiProgress();
@@ -206,7 +203,7 @@ async function setupHTMLLoad() {
     }
 }
 
-// 検索元フォルダ、検索結果リストの復元
+// ローカルストレージから状態を復元
 function loadFromLocalStorage() {
     const saved = localStorage.getItem('playlist_app_state');
     if (saved) {
@@ -225,22 +222,20 @@ function loadFromLocalStorage() {
             if (typeof renderTable === 'function' && appState.items.length > 0) {
                 renderTable();
             }
+
+            // プレイヤーアプリの復元
+            const savedPath = localStorage.getItem('playerAppPath');
+            const btn = document.getElementById('player-config-btn');
+            if (savedPath) {
+                appState.playerAppPath = savedPath;
+                if (btn) btn.style.backgroundColor = 'red';
+            } else {
+                appState.playerAppPath = '';
+                if (btn) btn.style.backgroundColor = '';
+            }
         } catch (e) {
             console.error('Failed to load localStorage:', e);
         }
-    }
-}
-
-// プレイヤーアプリの復元
-function loadPlayerConfigState() {
-    const savedPath = localStorage.getItem('playerAppPath');
-    const btn = document.getElementById('player-config-btn');
-    if (savedPath) {
-        appState.playerAppPath = savedPath;
-        if (btn) btn.style.backgroundColor = 'red';
-    } else {
-        appState.playerAppPath = '';
-        if (btn) btn.style.backgroundColor = '';
     }
 }
 
@@ -273,7 +268,7 @@ function getFilterValue(symbol, rawValue, item) {
     return String(rawValue ?? '');
 }
 
-// リストの描画
+// リスト描画
 function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
@@ -334,10 +329,14 @@ function renderTable() {
             if (i === 5) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
+                    // プレイヤーアプリが未設定の場合の挙動
                     if (!appState.playerAppPath) {
-                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
+                        if (item.folderPath) {
+                            await window.api.showInFolder(item.folderPath);
+                        }
                         return;
                     }
+            
                     const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.folderPath
@@ -347,6 +346,7 @@ function renderTable() {
                     }
                 });
             }
+            
 
             tr.appendChild(td);
         }
@@ -409,10 +409,14 @@ function renderTable() {
             if (i === 10) { 
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
+                    // プレイヤーアプリが未設定の場合の挙動
                     if (!appState.playerAppPath) {
-                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
+                        if (item.filePath) {
+                            await window.api.showInFolder(item.filePath);
+                        }
                         return;
                     }
+            
                     const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.filePath

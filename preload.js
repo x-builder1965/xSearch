@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.15.0';
+// version   = 'Ver1.19.0';
 // ---------------------------------------------------------------------
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -17,5 +17,6 @@ contextBridge.exposeInMainWorld('api', {
     importSettings: () => ipcRenderer.invoke('import-settings'),
     selectPlayerApp: () => ipcRenderer.invoke('dialog:selectPlayerApp'),
     openExternalUrl: (url) => ipcRenderer.invoke('shell:openExternalUrl', url),
-    launchPlayer: (data) => ipcRenderer.invoke('app:launchPlayer', data)
+    launchPlayer: (data) => ipcRenderer.invoke('app:launchPlayer', data),
+    showInFolder: (data) => ipcRenderer.invoke('app:showInFolder', data)
 });

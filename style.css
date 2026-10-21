@@ -2,9 +2,11 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.17.0';
+ * version   = 'Ver1.19.0';
  * --------------------------------------------------------------------- */
-:root {
+/* 🔲カラー設定🔲 */
+/* ダークモード（デフォルト） */
+ :root {
     --app-color: #be98ce; /* 紫色 */
     --bg-color: #1e1e1e;
     --text-color: #d4d4d4;
@@ -12,6 +14,7 @@
     --border-color: #404040;
     --accent-color: #ad53d4;
     --hover-color: #333333;
+    --list-hover-color: #424242;
     /* スクロールバー用 */
     --scrollbar-track: #121212;
     --scrollbar-thumb: #999999;
@@ -32,7 +35,7 @@
     --text-muted: #aaaaaab4;
     --sub-item-text: #b0bec5;
 }
-
+/* ライトモード */
 [data-theme="light"] {
     --app-color: #a43fcf; /* 紫色 */
     --bg-color: #f3f3f3;
@@ -41,6 +44,7 @@
     --border-color: #cccccc;
     --accent-color: #7b1ea3;
     --hover-color: #e5e5e5;
+    --list-hover-color: #e5e5e5;
     /* スクロールバー用 */
     --scrollbar-track: #f1f1f1;
     --scrollbar-thumb: #747474;
@@ -62,12 +66,12 @@
     --sub-item-text: #546e7a;
 }
 
+/* 🔲全体共通🔲 */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
-
 body {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     background-color: var(--bg-color);
@@ -77,7 +81,6 @@ body {
     display: flex;
     flex-direction: column;
 }
-
 .app-container {
     display: flex;
     flex-direction: column;
@@ -85,76 +88,7 @@ body {
     padding: 12px;
     gap: 12px;
 }
-
-.main-container {
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    height: 97%;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-}
-
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    flex-shrink: 0;
-}
-
-.header h1 {
-    margin: 0;
-    font-size: 1.3rem;
-}
-
-.title-group {
-    display: flex;
-    align-items: center; /* 横並びで文字の下線を揃える */
-    gap: 12px;
-}
-
-.title-icon {
-    width: 26px;
-    height: 26px;
-    object-fit: contain;
-    cursor: pointer;
-}
-
-.app-title {
-    display: flex;
-    color: var(--app-color);
-    align-items: center;
-    gap: 8px;
-    font-size: 1.5rem;
-    margin: 0;
-    cursor: pointer;
-}
-
-.ver-title {
-    font-size: 1rem;
-    margin: 0;
-    color: #d2d2d2;
-    cursor: pointer;
-}
-
-.toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--panel-bg);
-    padding: 10px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    gap: 8px;
-}
-
-.left-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
+/* ボタン共通 */
 button {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     background-color: var(--accent-color);
@@ -165,82 +99,131 @@ button {
     cursor: pointer;
     font-weight: bold;
 }
-
-#theme-toggle-btn {
-    background-color: var(--panel-bg);
+button:hover {
+    opacity: 0.9;
 }
-
 button.secondary {
     background-color: #555;
 }
 
-button:hover {
-    opacity: 0.9;
+/* 🔲メインコンテナ🔲 */
+.main-container {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    height: 97%;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
+/* 🔲メイン：ヘッダー🔲 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+.header h1 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+.title-group {
+    display: flex;
+    align-items: center; /* 横並びで文字の下線を揃える */
+    gap: 12px;
+}
+.title-icon {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    cursor: pointer;
+}
+.app-title {
+    display: flex;
+    color: var(--app-color);
+    align-items: center;
+    gap: 8px;
+    font-size: 1.5rem;
+    margin: 0;
+    cursor: pointer;
+}
+.ver-title {
+    font-size: 1rem;
+    margin: 0;
+    color: #d2d2d2;
+    cursor: pointer;
+}
+/* ☀️／🌙テーマ切替 */
+#theme-toggle-btn {
+    background-color: var(--panel-bg);
+}
+
+/* 🔲メイン：トースト🔲 */
+.toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 20px;
+    z-index: 9999;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: auto; /* 下の要素の操作を邪魔しない */
+    cursor: pointer; /* カーソルをポインターに変更 */
+}
+/* メッセージタイプ別スタイル */
+/* ℹ️ info (青) */
+.toast.toast-info {
+    background-color: rgba(20, 80, 160, 0.95);
+    box-shadow: 0 4px 12px rgba(10, 40, 90, 0.7);
+}
+/* ⚠️ warning (黄) */
+.toast.toast-warning {
+    background-color: rgba(210, 140, 10, 0.466);
+    box-shadow: 0 4px 12px rgba(100, 70, 5, 0.7);
+}
+/* 🚫 error (赤) */
+.toast.toast-error {
+    background-color: rgba(180, 20, 20, 0.95);
+    box-shadow: 0 4px 12px rgba(90, 10, 10, 0.7);
+}
+/* 非表示状態 */
+.toast.hidden {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+}
+
+/* 🔲メイン：コントロールパネル🔲 */
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--panel-bg);
+    padding: 10px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    gap: 8px;
+}
+.left-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
 .path-label {
     font-size: 0.9rem;
     width: 100%;
     color: #888;
 }
-
-.table-container {
-    flex: 1;
-    background-color: var(--panel-bg);
-    border: 1px solid var(--border-color);
-    height: 100%;
-    border-radius: 6px;
-    overflow-y: auto;
+/* 💾プレイリスト作成・⚙️プレイヤーアプリ設定 */
+#save-btn,
+#player-config-btn {
+    margin-right: 10px; /* 右側隙間 */
 }
 
-/* スクロールバー設定 */
-.table-container::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
-    cursor: default; /* スクロールバー全体の基本カーソルをデフォルト（矢印）に設定 */
-}
-
-.table-container::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
-    border-radius: 4px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: 4px;
-    border: 2px solid var(--scrollbar-track);
-    cursor: default; /* サム（つまみ）にホバーした際もデフォルト（矢印）を維持 */
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover);
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    font-size: 0.9rem;
-}
-
-th, td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-color);
-    white-space: nowrap;
-}
-
-th {
-    background-color: var(--panel-bg);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    border-bottom: 2px solid var(--border-color);
-}
-
-tr:hover {
-    background-color: var(--hover-color);
-}
-
+/* 🔲メイン：進捗パネル🔲 */
 .progress-container {
     position: relative;
     height: 24px;
@@ -251,14 +234,12 @@ tr:hover {
     margin-top: 4px;
     margin-bottom: 4px;
 }
-
 .progress-bar {
     height: 100%;
     width: 0%;
     background-color: var(--accent-color); /* 紫色 */
     transition: width 0.1s ease;
 }
-
 .progress-text {
     position: absolute;
     top: 0;
@@ -274,7 +255,7 @@ tr:hover {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
     pointer-events: none; /* テキストがボタンのクリックを邪魔しないように */
 }
-
+/* 検索・再検索キャンセルボタン */
 .scan-cancel-btn {
     position: absolute;
     top: 0px;
@@ -291,66 +272,198 @@ tr:hover {
     gap: 8px;
     z-index: 2;
 }
-
 .scan-cancel-btn:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
 
-.copyright-container {
+/* 🔲メイン：フィルタパネル🔲 */
+.filter-container {
     display: flex;
-    justify-content: space-between; /* 子要素を両端（左端と右端）に配置 */
-    align-items: center;            /* 上下の縦中央揃え */
-    width: 100%;                     /* 親要素の幅を画面（または親要素）いっぱいに広げる */
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: var(--panel-bg);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+}
+.filter-count {
+    flex: 0 0 160px; /* 固定幅 160px */
+    width: 160px;
+    text-align: center;
+    font-weight: bold;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 4px 0;
+    font-size: 18px;
+}
+.filter-input {
+    flex: 1; /* 可変幅 */
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 10px;
+    outline: none;
+    font-size: 18px;
+}
+.filter-input:focus {
+    border-color: var(--accent-color);
+}
+.filter-clear-btn {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+.filter-clear-btn:hover {
+    background-color: var(--hover-color);
+    border-color: var(--accent-color);
 }
 
-/* テーブル全体の設定 */
-#playlist-table {
-    table-layout: fixed;
+/* 🔲メイン：リストパネル🔲 */
+/* リストテーブルコンテナ設定 */
+.table-container {
+    flex: 1;
+    height: 100%;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow-y: auto;
+}
+.table-container::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    cursor: default;
+}
+.table-container::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 4px;
+}
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border: 2px solid var(--scrollbar-track);
+    border-radius: 4px;
+    cursor: default; /* サムにホバー時も矢印を維持 */
+}
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* リストテーブル全体設定 */
+table {
     width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.9rem;
 }
-
-.table-header th {
-    background-color: #731d97;
-    color: #ffffff; /* 必要に応じて文字色を白に */
-}
-
-/* 各列の幅・テキスト配置指定 */
-#playlist-table th:nth-child(1), #playlist-table td:nth-child(1) { width: 70px; text-align: center; }   /* TID */
-#playlist-table th:nth-child(2), #playlist-table td:nth-child(2) { width: 130px; }   /* 分類 */
-#playlist-table th:nth-child(3), #playlist-table td:nth-child(3) { width: 24px; text-align: center; }   /* S50音 */
-#playlist-table th:nth-child(4), #playlist-table td:nth-child(4) { width: 140px; text-align: center; }  /* S放映期間 */
-#playlist-table th:nth-child(5), #playlist-table td:nth-child(5) { width: 96px; text-align: center; }   /* S評価 */
-/* ※ 6番目（シリーズ）は自動拡大（最小幅20pxを指定） */
-#playlist-table th:nth-child(7), #playlist-table td:nth-child(7) { width: 300px; }  /* ジャンル */
-#playlist-table th:nth-child(8), #playlist-table td:nth-child(8) { width: 40px; text-align: center; } /* 保存対象（チェックBOX） */
-#playlist-table th:nth-child(9), #playlist-table td:nth-child(9) { width: 24px; text-align: center; }   /* T50音 */
-#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 82px; text-align: center; }   /* T放映年月 */
-#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 96px; text-align: center; }   /* T評価 */
-/* ※ 12番目（タイトル）も自動拡大（最小幅20pxを指定） */
-#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 54px; text-align: center; } /* 話数 */
-#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 54px; text-align: center; } /* 状態 */
-
-/* セルの基本設定に溢れ防止を追加 */
 th, td {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border-color);
     white-space: nowrap;
-    overflow: hidden;       /* はみ出たテキストを非表示 */
-    text-overflow: ellipsis;  /* はみ出た部分を「…」にする */
+    overflow: hidden;           /* はみ出たテキストを非表示 */
+    text-overflow: ellipsis;    /* はみ出た部分を「…」にする */
+}
+th {
+    background-color: var(--panel-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 2px solid var(--border-color);
+}
+#playlist-table tr:hover td {
+    background-color: var(--list-hover-color);
 }
 
-/* シリーズ（6番目）、ジャンル（7番目）、タイトル（12番目）のセル設定 */
-#playlist-table td:nth-child(6),    /* シリーズ名 */
-#playlist-table td:nth-child(12) {  /* タイトル名 */
+/* リストテーブル固有設定 (#playlist-table) */
+#playlist-table {
+    table-layout: fixed;
+    width: 100%;
+}
+.table-header th {
+    background-color: #731d97;
+    color: #ffffff;
+}
+/* 各列の幅・テキスト配置指定 */
+#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 70px;  text-align: center; } /* TID */
+#playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 130px; }                     /* 分類 */
+#playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: 24px;  text-align: center; } /* S50音 */
+#playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: 140px; text-align: center; } /* S放映期間 */
+#playlist-table th:nth-child(5),  #playlist-table td:nth-child(5)  { width: 96px;  text-align: center; } /* S評価 */
+/* ※ 6番目（シリーズ）は自動拡大 */
+#playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 300px; }                     /* ジャンル */
+#playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: 40px;  text-align: center; } /* 保存対象（チェックBOX） */
+#playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 24px;  text-align: center; } /* T50音 */
+#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 82px;  text-align: center; } /* T放映年月 */
+#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 96px;  text-align: center; } /* T評価 */
+/* ※ 12番目（タイトル）は自動拡大 */
+#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 54px;  text-align: center; } /* 話数 */
+#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 54px;  text-align: center; } /* 状態 */
+/* 自動拡大列・省略表示の調整 */
+#playlist-table td:nth-child(6),  /* シリーズ名 */
+#playlist-table td:nth-child(12) {/* タイトル名 */
     max-width: 0;
-    min-width: 20px;                /* 追加：最小幅を20pxに設定 */
+    min-width: 20px;
 }
-
-#playlist-table td:nth-child(7) {    /* ジャンル */
+#playlist-table td:nth-child(7) { /* ジャンル */
     max-width: 0;
 }
 
-/* ヘルプ、変更履歴 */
+/* 見出しポップアップメニュー */
+.menu-style {
+    position: absolute;
+    background: rgba(30, 30, 30, 0.95);
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 6px 0;
+    z-index: 1001;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    white-space: pre;
+    font-family: monospace;
+    font-size: 16px;
+    line-height: 1.0;
+    min-width: 120px;
+    max-height: min(400px, calc(100vh - 16px));
+    overflow-y: auto;
+}
+.menu-style::-webkit-scrollbar {
+    width: 8px;
+}
+.menu-style::-webkit-scrollbar-track {
+    background: #121212;
+}
+.menu-style::-webkit-scrollbar-thumb {
+    background: #999;
+    border-radius: 4px;
+}
+.menu-style::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+.menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.menu-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* 🔲メイン：ステータスパネル🔲 */
+.status-display {
+    color: var(--status-color);
+    font-size: 0.85em;
+    min-height: 1.2em;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* 🔲ヘルプ、変更履歴🔲 */
+/* ヘルプ、変更履歴共通 */
 .help-container,
 .changelog-container {
     width: 100%;
@@ -410,6 +523,11 @@ h1 {
 #changelogCloseBtn:active {
     transform: translateY(-50%) scale(0.95);
 }
+.sub-title {
+    background-color: var(--subtitle-bg);
+}
+
+/* 🔲ヘルプ🔲 */
 .help-table-container {
     width: 100%;
     margin: 0 auto;
@@ -500,9 +618,6 @@ table {
     text-align: left;
     font-size: 1.1em;
 }
-.sub-title {
-    background-color: var(--subtitle-bg);
-}
 .body-table td.no-data { 
     color: var(--text-muted);
 }
@@ -520,7 +635,7 @@ caption {
     font-size: 1.4em; 
 }
 
-/* 変更履歴のコンテナ */
+/* 🔲変更履歴🔲 */
 .changelog-header {
     background-color: #731d97;
     font-size: 1.4rem;
@@ -553,150 +668,10 @@ caption {
     transition: background-color 0.3s ease;
 }
 
-/* トースト通知のベーススタイル */
-.toast {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-size: 20px;
-    z-index: 9999;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    pointer-events: auto; /* 下の要素の操作を邪魔しない */
-    cursor: pointer; /* カーソルをポインターに変更 */
-}
-
-/* メッセージタイプ別スタイル */
-/* ℹ️ info (青) */
-.toast.toast-info {
-    background-color: rgba(20, 80, 160, 0.95);
-    box-shadow: 0 4px 12px rgba(10, 40, 90, 0.7);
-}
-
-/* ⚠️ warning (黄) */
-.toast.toast-warning {
-    background-color: rgba(210, 140, 10, 0.466);
-    box-shadow: 0 4px 12px rgba(100, 70, 5, 0.7);
-}
-
-/* 🚫 error (赤) */
-.toast.toast-error {
-    background-color: rgba(180, 20, 20, 0.95);
-    box-shadow: 0 4px 12px rgba(90, 10, 10, 0.7);
-}
-
-/* 非表示状態 */
-.toast.hidden {
-    opacity: 0;
-    transform: translate(-50%, -10px);
-}
-
-.status-display {
-    color: var(--status-color);
-    font-size: 0.85em;
-    min-height: 1.2em;
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-
-/* 💾ボタンの右側に隙間を空ける場合 */
-#save-btn,
-#player-config-btn {
-    margin-right: 10px; /* お好みの広さに調整してください (例: 10px, 15px など) */
-}
-
-/* フィルタパネル用スタイル */
-.filter-container {
+/* 🔲copyright＆email🔲 */
+.copyright-container {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background-color: var(--panel-bg);
-    border-bottom: 1px solid var(--border-color);
-    font-size: 14px;
-}
-
-.filter-count {
-    flex: 0 0 160px; /* 固定幅 160px */
-    width: 160px;
-    text-align: center;
-    font-weight: bold;
-    color: var(--text-color);
-    background-color: var(--bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 4px 0;
-    font-size: 18px;
-}
-
-.filter-input {
-    flex: 1; /* 可変幅 */
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 6px 10px;
-    outline: none;
-    font-size: 18px;
-}
-
-.filter-input:focus {
-    border-color: var(--accent-color);
-}
-
-.filter-clear-btn {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
-}
-
-.filter-clear-btn:hover {
-    background-color: var(--hover-color);
-    border-color: var(--accent-color);
-}
-
-.menu-style {
-    position: absolute;
-    background: rgba(30, 30, 30, 0.95);
-    border: 1px solid #444;
-    border-radius: 6px;
-    padding: 6px 0;
-    z-index: 1001;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
-    white-space: pre;
-    font-family: monospace;
-    font-size: 16px;
-    line-height: 1.0;
-    min-width: 120px;
-    max-height: min(400px, calc(100vh - 16px));
-    overflow-y: auto;
-}
-.menu-style::-webkit-scrollbar {
-    width: 8px;
-}
-.menu-style::-webkit-scrollbar-track {
-    background: #121212;
-}
-.menu-style::-webkit-scrollbar-thumb {
-    background: #999;
-    border-radius: 4px;
-}
-.menu-style::-webkit-scrollbar-thumb:hover {
-    background: #777;
-}
-.menu-item {
-    padding: 8px 16px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-.menu-item:hover {
-    background: rgba(255, 255, 255, 0.1);
+    justify-content: space-between;     /* 子要素を両端（左端と右端）に配置 */
+    align-items: center;                /* 上下の縦中央揃え */
+    width: 100%;                        /* 親要素の幅を画面（または親要素）いっぱいに広げる */
 }

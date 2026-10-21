@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.16.0';
+// version   = 'Ver1.19.0';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -761,5 +761,18 @@ ipcMain.handle('app:launchPlayer', async (event, { appPath, targetPath }) => {
     } catch (error) {
         console.error('Failed to launch player app:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// エクスプローラでファイル/フォルダを表示する処理
+ipcMain.handle('app:showInFolder', async (event, targetPath) => {
+    try {
+        // 対象のパスが存在するか確認
+        await fs.access(targetPath);
+        // エクスプローラでファイルを選択した状態で表示
+        shell.showItemInFolder(targetPath);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: `パスが見つかりません: ${targetPath}` };
     }
 });

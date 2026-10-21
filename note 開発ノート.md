@@ -291,3 +291,603 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
         - 実行例：シリーズのリストデータ（"あしたのジョー"）上で右クリックした場合。
         - 結果例："[シリーズ] あしたのジョー, "がフィルタ条件に挿入される。
 
+
+## 2026-10-XX Ver1.XX.0 ダッシュボード表示機能の追加。
+### 要件説明
+・下記データ例を使っての統計結果をダッシュボードを表示する処理作成
+    ・electron（JavaScript）で作成
+    ・Chart.jsをelectronセキュリティを考慮して実装
+    ・「ダッシュボード／リスト」の切替ボタン（トグル）をテーマ切替の左横に配置
+    ・下記HTMLの"ここから"ー"ここまで"をコンテナ化
+    ・ダッシュボード用HTMLは別ファイル"index_dashboard.html"に作成
+    ・ダッシュボードクリックで下記HTMLの"ここから"ー"ここまで"を非表示にしダッシュボードを表示
+    ・リストクリックで下記HTMLの"ここから"ー"ここまで"を表示にしダッシュボードを非表示
+    ・ダッシュボードの内容
+        ・サマリーカード：
+            ・全て：シリーズ件数、タイトル件数、話数件数、状態別件数
+            ・分類別：シリーズ件数、タイトル件数、話数件数、状態別件数
+        ・分類・ジャンル分析：
+            ・分類別の割合を横棒グラフ
+            ・分類選択で選択された分類のジャンルの割合の円グラフ
+        ・分類・評価・ジャンル分析：
+            ・評価／ジャンルの切替ボタン
+            ・年月／年シーズン／単年／５年の集計単位切替ボタン
+            ・集計単位のタイトル数の縦棒グラフ（評価／ジャンルの多層グラフ）
+
+### データ例：
+TID    分類    音    放映期間    評価    シリーズ    ジャンル        音    放映年月    評価    タイトル    話数    状態
+-    アダルト    -    -    -    アダルト    -        -    -    -    AV_★★★★☆    83    🟢
+-    アダルト    -    -    -    アダルト    -        -    -    -    AV_★★★☆☆    174    🟢
+-    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★★★★    247    🟢
+-    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★★★☆    495    🟢
+-    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★★☆☆    1053    🟢
+-    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★☆☆☆    151    🟢
+1075    アニメ（一般）    あ    197004～198010    ★★★★☆    あしたのジョー    アクション, ドラマ, 日常・ほのぼの, スポーツ        あ    197004    ★★★★☆    あしたのジョー    79    🟢
+1075    アニメ（一般）    あ    197004～198010    ★★★★☆    あしたのジョー    アクション, ドラマ, 日常・ほのぼの, スポーツ        あ    198010    ★★★★☆    あしたのジョー2    47    🟢
+3087    アニメ（一般）    あ    198510～198608    ★★★☆☆    蒼き流星SPTレイズナー    アクション, アドベンチャー, メカ・ロボット, SF        あ    198510    ★★★☆☆    蒼き流星SPTレイズナー    38    🟢
+3417    アニメ（一般）    あ    198510～198608    ★★★☆☆    蒼き流星SPTレイズナー    アクション, アドベンチャー, メカ・ロボット, SF        あ    198608    ★★★☆☆    蒼き流星SPTレイズナー OVA    3    🟢
+-    アニメ（一般）    あ    198804～198804    ★★★★☆    アップルシード OVA    -        あ    198804    ★★★★☆    アップルシード OVA    1    🟢
+2371    アニメ（一般）    あ    198807～198807    ★★★★☆    AKIRA    アクション, アドベンチャー, ホラー, サスペンス・心理, SF, 超自然・能力        あ    198807    ★★★★☆    劇場版 AKIRA    1    🟢
+-    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    199302    ★★★☆☆    ああっ女神さまっ OVA1    5    🟢
+1301    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    199804    ★★★★☆    ああっ女神さまっ 小っちゃいって事は便利だねっ    48    🟢
+653    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    200010    ★★★★☆    劇場版 ああっ女神さまっ    1    🟢
+521    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    200501    ★★★★☆    ああっ女神さまっ    26    🟢
+
+### 対象ロジック：
+#### -- styles.css --------------------------------------------------------
+```css
+:root {
+    --app-color: #be98ce; /* 紫色 */
+    --bg-color: #1e1e1e;
+    --text-color: #d4d4d4;
+    --panel-bg: #2d2d2d;
+    --border-color: #404040;
+    --accent-color: #ad53d4;
+    --hover-color: #bc58c5;
+    /* スクロールバー用 */
+    --scrollbar-track: #121212;
+    --scrollbar-thumb: #999999;
+    --scrollbar-thumb-hover: #777777;
+    /* ヘルプ・変更履歴用の変数追加（参考例より保持） */
+    --heading-color: #cfaaff;
+    --heading-shadow: rgba(132, 0, 255, 0.5);
+    --close-btn-bg: rgba(0, 0, 0, 0.5);
+    --close-btn-text: #ff6b6b;
+    --close-btn-border: #555555;
+    --close-btn-hover-bg: rgba(255, 107, 107, 0.3);
+    --close-btn-shadow: rgba(0, 0, 0, 0.5);
+    --table-bg: #1a1a1a;
+    --table-hover-bg: #404040;
+    --table-shadow: rgba(0, 0, 0, 0.6);
+    --subtitle-bg: rgb(74, 0, 92);
+    --subtitle-bg-hover: rgb(59, 25, 68);
+    --text-muted: #aaaaaab4;
+    --sub-item-text: #b0bec5;
+}
+
+[data-theme="light"] {
+    --app-color: #a43fcf; /* 紫色 */
+    --bg-color: #f3f3f3;
+    --text-color: #333333;
+    --panel-bg: #ffffff;
+    --border-color: #cccccc;
+    --accent-color: #7b1ea3;
+    --hover-color: #e5e5e5;
+    /* スクロールバー用 */
+    --scrollbar-track: #f1f1f1;
+    --scrollbar-thumb: #747474;
+    --scrollbar-thumb-hover: #575656;
+    /* ヘルプ・変更履歴用の変数追加（ライトモード用調整） */
+    --heading-color: #470099;
+    --heading-shadow: rgba(88, 0, 204, 0.2);
+    --close-btn-bg: rgba(255, 255, 255, 0.8);
+    --close-btn-text: #d93838;
+    --close-btn-border: #cccccc;
+    --close-btn-hover-bg: rgba(217, 56, 56, 0.15);
+    --close-btn-shadow: rgba(0, 0, 0, 0.15);
+    --table-bg: #ffffff;
+    --table-hover-bg: #f4f0f8;
+    --table-shadow: rgba(0, 0, 0, 0.1);
+    --subtitle-bg: rgba(129, 0, 204, 0.15);
+    --subtitle-bg-hover: rgb(224, 204, 241);
+    --text-muted: #777777;
+    --sub-item-text: #546e7a;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 12px;
+    gap: 12px;
+}
+```
+
+#### -- index.html ---------------------------------------------------
+```html
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>プレイリスト検索</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="main-container">
+            <div class="header">
+                <div class="title-group left-controls">
+                    <h1 class="app-title">
+                        <img src="xSearch.ico" alt="xSearch Icon" class="title-icon">
+                        xSearch -プレイリスト検索-
+                    </h1>
+                    <div class="ver-title">Ver1.00.0</div>
+                </div>
+                <div class="right-controls">
+                    <button id="theme-toggle-btn">☀️</button>
+                </div>
+            </div>
+            <!-- トースト通知用オーバーレイ -->
+            <div id="toast-message" class="toast hidden"></div>
+--- ここから
+            <!-- コントロールパネル -->
+            <header class="toolbar">
+                <button id="select-dir-btn">🔎</button>
+                <button id="fast-search-btn">👁️</button>
+                <span id="current-dir-path" class="path-label">フォルダが選択されていません</span>
+                <button id="save-btn">💾</button>
+                <button id="player-config-btn" title="プレイヤーアプリ設定">⚙️</button> <!-- 追加 -->
+                <button id="import-btn" title="設定インポート">📥</button>
+                <button id="export-btn" title="設定エクスポート">📤</button>
+            </header>
+            <!-- 進捗パネル -->
+            <div id="progress-container" class="progress-container" style="display: none;">
+                <div id="progress-bar" class="progress-bar"></div>
+                <span id="progress-text" class="progress-text">(0/0)</span>
+                <button id="scan-cancel-btn" class="scan-cancel-btn" title="キャンセル">❌</button>
+            </div>
+            <!-- フィルタパネル -->
+            <div id="filter-container" class="filter-container">
+                <div id="filter-count" class="filter-count">(0/0)</div>
+                <input type="text" id="filter-input" class="filter-input" placeholder="フィルタ条件を入力... (例: [シリーズ]ああああ, [話数]>10)">
+                <button id="filter-clear-btn" class="filter-clear-btn" title="入力クリア">🆑</button>
+            </div>
+            <!-- リストパネル -->
+            <main class="table-container">
+                <table id="playlist-table">
+                    <thead class="table-header">
+                        <tr>
+                            <th>TID</th>
+                            <th>分類</th>
+                            <th>音</th>
+                            <th>放映期間</th>
+                            <th>評価</th>
+                            <th>シリーズ</th>
+                            <th>ジャンル</th>
+                            <th><input type="checkbox" id="select-all-save" title="全選択/全解除"></th>
+                            <th>音</th>
+                            <th>放映年月</th>
+                            <th>評価</th>
+                            <th>タイトル</th>
+                            <th>話数</th>
+                            <th>状態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- 動的生成 -->
+                    </tbody>
+                </table>
+            </main>
+--- ここまで
+            <div class="status-display" id="status-display">ステータス表示</div>
+        </div>
+        <!-- ヘルプ -->
+        <div class="help-container">
+            <div class="header-row">
+                <h1>xSearch -プレイリスト検索- Ver1.00.0 ヘルプ</h1>
+                <button id="helpCloseBtn" class="btn-Close" title="ヘルプ閉じる（Escape）">❌</button>
+            </div>
+            <div id="helpTableContainer" class="help-table-container"></div>
+        </div>
+        <!-- 変更履歴 -->
+        <div class="changelog-container">
+            <div class="header-row">
+                <h1>xSearch -プレイリスト検索- Ver1.00.0 変更履歴</h1>
+                <button id="changelogCloseBtn" class="btn-Close" title="変更履歴閉じる（Escape）">❌</button>
+            </div>
+            <div id="appConfigContainer" class="app-config-container" style="display: none;"></div>
+            <div id="changelogHeader" class="changelog-header">変更日付 バージョン 変更内容</div>
+            <div id="changelogContent" class="changelog-Content"></div>
+        </div>
+        <!-- copyright＆email -->
+        <div class="copyright-container">
+            <span class="email-text" id="email-text">x-builder@gmail.com</span>
+            <span class="copyright-text" id="copyright-text">Copyright © 2026- @x-builder, Japan</span>
+        </div>
+    </div>
+    <script src="renderer.js"></script>
+</body>
+</html>
+```
+#### -- renderer.js ------------------------------------------------------
+```js
+// 項目指定記号と内部プロパティのマッピング定義
+const fieldMappings = {
+    '[全]': 'all',
+    '[TID]': 'tid',
+    '[分類]': 'category',
+    '[S音]': 'seriesKana',
+    '[放映期間]': 'seriesPeriod',
+    '[S評価]': 'seriesRating',
+    '[シリーズ]': 'seriesName',
+    '[ジャンル]': 'genre',
+    '[保存]': 'isSave',
+    '[T音]': 'titleKana',
+    '[放映年月]': 'titleDate',
+    '[T評価]': 'titleRating',
+    '[タイトル]': 'titleName',
+    '[話数]': 'episodeCount',
+    '[状態]': 'playlistStatus'
+};
+
+// thに対応する項目指定記号のマッピング（テーブルの列順に対応）
+const thSymbols = [
+    '[TID]', 
+    '[分類]',
+    '[S音]', 
+    '[放映期間]', 
+    '[S評価]', 
+    '[シリーズ]', 
+    '[ジャンル]', 
+    '[保存]',
+    '[T音]', 
+    '[放映年月]', 
+    '[T評価]', 
+    '[タイトル]', 
+    '[話数]', 
+    '[状態]'
+];
+
+let appState = {                // localStorage管理情報
+    selectedDir: '',            // 検索フォルダパス
+    rawItems: [],               // ベースリスト管理
+    items: [],                  // リスト管理
+    theme: 'dark',              // テーマ管理
+    isProcessing: false,        // 処理中フラグ
+    playerAppPath: ''           // プレイヤーアプリのパス
+};
+let toastTimer = null;          // トースター表示タイマー
+let toastStartTime = 0;         // トースター表示開始時間
+let toastRemainingTime = 3000;  // デフォルトのトースター表示時間（3秒）
+let startTime = null;           // 処理開始時刻
+let recentFileTimes = [];       // 直近の処理時間を保持する配列
+let lastItemTime = null;        // 前回のアイテム受信時刻
+let activePopupMenu = null;     // アクティブなポップアップメニュー要素の保持
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // 🔲初期処理🔲
+    // HTMLロード
+    await setupHTMLLoad();
+    // ローカルストレージから状態を復元
+    await loadFromLocalStorage();
+    // プレイヤーアプリ設定の復元
+    await loadPlayerConfigState();
+    // 初期表示
+    await renderTable();
+    // 初回保持（もし未定義なら現在のitemsを保持）
+    await setupRawItem();
+    // 起動時に一度フィルタ（または全件表示）を適用して件数を正しく表示させる
+    applyFilter();
+    // テーマの適用
+    await applyTheme();
+
+    // 🔲イベント登録処理🔲
+    // テーマ切替
+    registerThemeToggleBtnClick();
+    // 進捗イベントのリスナー登録
+    registerWindowApiProgress();
+    // 🔎プレイリスト検索イベントのリスナー登録
+    registerSelectDirBtnClick();
+    // 👁️プレイリスト再建策イベントのリスナー登録
+    registerFastSearchBtnClick();
+    // 💾保存ボタンイベントのリスナー登録
+    registerSaveBtnClick();
+    // ⚙️ボタンクリックベントのリスナー登録
+    registerPlayerConfigBtnClick();
+    // 📤エクスポートボタンクリックベントのリスナー登録
+    registerExportBtnClick();
+    // 📤インポートボタンクリックベントのリスナー登録
+    registerImportBtnClick();
+    // ❌検索・再検索のキャンセルクリックイベントのリスナー登録
+    registerScanCancelBtnClick();
+    // ESCキー押下によるキャンセル処理のリスナー登録
+    registerWindowKeydown();
+     // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
+    registerSelectAllSaveChange();
+    // メニュー外のクリック（左右クリック）でメニューを閉じる
+    registerDocumentMousedown();
+    // リアルタイムフィルタリングベントのリスナー登録
+    registerFilterInputInput();
+    // フィルタ条件のキー入力イベントのリスナー登録
+    registerFilterInputKeydown();
+    // 🆑（クリアボタン）ベントのリスナー登録
+    registerFilterClearBtnClick();
+    // リストの各見出し項目（th）の右クリックベントのリスナー登録
+    registerPlaylistTableThContextmenu();
+    // トースタークリックイベントのリスナー登録
+    registerToastMessageClick();
+    // トースターマウスエンターイベントのリスナー登録
+    registerToastMessageMouseenter();
+    // トースターマウスリーヴイベントのリスナー登録
+    registerToastMessageMouseleave();
+    // アプリタイトルクリックイベントのリスナー登録
+    registerAppTitleClick();
+    // バージョンクリックイベントのリスナー登録
+    registerVerTitleClick();
+    // ❌ヘルプのクローズクリックイベントのリスナー登録
+    registerHelpCloseBtnClick();
+    // ❌変更履歴のクローズクリックイベントのリスナー登録
+    registerChangelogCloseBtnClick();
+});
+
+// HTMLロード
+async function setupHTMLLoad() {
+    // 初期化処理 (HTML読み込み & 設定値反映)
+    try {
+        const helpTableContainer = document.getElementById('helpTableContainer');
+        const appConfigContainer = document.getElementById('appConfigContainer');
+        const changelogContent = document.getElementById('changelogContent');
+        // [処理1] index_helpTable.html の読み込みと流し込み
+        const helpRes = await fetch('index_helpTable.html');
+        if (helpRes.ok) {
+            const helpHtmlText = await helpRes.text();
+            // 取得したHTMLをhelpTableContainerへ挿入
+            if (helpTableContainer) {
+                helpTableContainer.innerHTML = helpHtmlText;
+            }
+        }
+
+        // [処理2] index_changelog.html の読み込みと流し込み
+        const changelogRes = await fetch('index_changelog.html');
+        if (changelogRes.ok) {
+            const changelogHtmlText = await changelogRes.text();
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = changelogHtmlText;
+
+            // appConfig を appConfigContainer に差し込む
+            const appConfigEl = tempDiv.querySelector('#appConfig');
+            if (appConfigEl && appConfigContainer) {
+                appConfigContainer.appendChild(appConfigEl);
+            }
+
+            // changelog-list を changelogContent に差し込む
+            const changelogListEl = tempDiv.querySelector('.changelog-list');
+            if (changelogListEl && changelogContent) {
+                changelogContent.appendChild(changelogListEl);
+            }
+        }
+
+        // [処理3] appConfig の読み込みと画面への反映
+        const appConfig = document.getElementById('appConfig');
+        const appTitle = document.querySelector('.app-title');
+        const verTitle = document.querySelector('.ver-title');
+        const helpContainer = document.querySelector('.help-container');
+        const helpTitle = helpContainer?.querySelector('h1');
+        const changelogContainer = document.querySelector('.changelog-container');
+        const changelogTitle = changelogContainer?.querySelector('h1');
+        const copyrightText = document.querySelector('.copyright-text');
+        const emailText = document.querySelector('.email-text');
+        if (appConfig) {
+            // dataset 経由で data-* 属性の値を取得
+            const appName = appConfig.dataset.appName || '';
+            const version = appConfig.dataset.version || '';
+
+            // 設定１: タイトル部分の設定 (アイコン画像 + appName, verTitle)
+            if (appTitle) {
+                appTitle.innerHTML = `
+                    <img src="xSearch.ico" alt="xSearch Icon" class="title-icon">
+                    ${appName}
+                `;
+            }
+            if (verTitle) {
+                verTitle.textContent = `${version}`;
+            }
+
+            // 設定２: ヘルプ画面の <h1> 設定 (appName + ' ' + version)
+            if (helpTitle) {
+                helpTitle.textContent = `${appName} ${version} ヘルプ`;
+            }
+
+            // 設定３: 変更履歴画面の <h1> 設定 (appName + ' ' + version)
+            if (changelogTitle) {
+                changelogTitle.textContent = `${appName} ${version} 変更履歴`;
+            }
+
+            // dataset 経由で data-* 属性の値を取得
+            if (copyrightText) copyrightText.textContent = appConfig.dataset.copyright || '';
+            if (emailText) emailText.textContent = appConfig.dataset.email || '';
+        }
+    } catch (error) {
+        console.error('初期化データの読み込みに失敗しました:', error);
+    }
+}
+
+// リストの描画
+function renderTable() {
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+
+    appState.items.forEach((item, index) => {
+        const tr = document.createElement('tr');
+
+        // 各フィールドの定義（列順に合わせて調整）
+        const fields = [
+            item.tid,           // index 0: TID
+            item.category,      // index 1: 分類
+            item.seriesKana,    // index 2: S音
+            item.seriesPeriod,  // index 3: 放映期間
+            item.seriesRating,  // index 4: 評価
+            item.seriesName,    // index 5: シリーズ
+            item.genre,         // index 6: ジャンル
+            item.titleKana,     // index 7: T音
+            item.titleDate,     // index 8: 放映年月
+            item.titleRating,   // index 9: T評価
+            item.titleName,     // index 10: タイトル
+            item.episodeCount,  // index 11: 話数
+            getStatusIcon(item.playlistStatus) // index 12: 状態
+        ];
+
+        // --- 0〜6番目の描画（TIDは index 0、シリーズは index 5） ---
+        for (let i = 0; i <= 6; i++) {
+            const td = document.createElement('td');
+            const textVal = fields[i] ?? '';
+            td.textContent = textVal;
+            td.title = textVal;
+
+            const symbol = thSymbols[i];
+
+            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closePopupMenu();
+
+                if (symbol) {
+                    const val = getFilterValue(symbol, textVal, item);
+                    // 記号と値（val）をそれぞれそのまま渡す
+                    insertFilterItem(symbol, val);
+                }
+            });
+
+            // TID列（index 0）のクリックイベント
+            if (i === 0 && textVal && textVal !== '-') {
+                td.style.cursor = 'pointer';
+                td.style.color = '#4da6ff';
+                td.addEventListener('click', () => {
+                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
+                    window.api.openExternalUrl(tidUrl);
+                });
+            }
+
+            // シリーズ列（index 5）のクリックイベント
+            if (i === 5) {
+                td.style.cursor = 'pointer';
+                td.addEventListener('click', async () => {
+                    if (!appState.playerAppPath) {
+                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
+                        return;
+                    }
+                    const result = await window.api.launchPlayer({
+                        appPath: appState.playerAppPath,
+                        targetPath: item.folderPath
+                    });
+                    if (result && !result.success && result.error) {
+                        showToast(result.error, 'error');
+                    }
+                });
+            }
+
+            tr.appendChild(td);
+        }
+
+        // 保存対象（チェックボックス）列の追加（7番目の列）
+        const saveTd = document.createElement('td');
+        saveTd.style.textAlign = 'center';
+        
+        // 保存列の右クリックイベント
+        const saveSymbol = thSymbols[7]; // '[保存]'
+        saveTd.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closePopupMenu();
+
+            if (saveSymbol) {
+                const val = getFilterValue(saveSymbol, null, item);
+                insertFilterItem(saveSymbol, `${saveSymbol} ${val}, `);
+            }
+        });
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'save-checkbox';
+        checkbox.checked = item.isSave ?? false;
+        checkbox.dataset.index = index;
+
+        checkbox.addEventListener('change', (e) => {
+            item.isSave = e.target.checked;
+            saveToLocalStorage();
+            updateSelectAllCheckbox();
+        });
+        saveTd.appendChild(checkbox);
+        tr.appendChild(saveTd);
+
+        // --- 7番目以降の描画（ fields[7] 以降） ---
+        for (let i = 7; i < fields.length; i++) {
+            const td = document.createElement('td');
+            const textVal = fields[i] ?? '';
+            td.textContent = textVal;
+            td.title = textVal;
+
+            // thSymbolsのインデックスは保存列（index 7）の分だけ +1 シフトする
+            const symbol = thSymbols[i + 1];
+
+            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closePopupMenu();
+
+                if (symbol) {
+                    const val = getFilterValue(symbol, textVal, item);
+                    // 記号と値（val）をそれぞれそのまま渡す
+                    insertFilterItem(symbol, val);
+                }
+            });
+
+            // タイトル列（fieldsのindex 10にあたる）のクリックイベント
+            if (i === 10) { 
+                td.style.cursor = 'pointer';
+                td.addEventListener('click', async () => {
+                    if (!appState.playerAppPath) {
+                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
+                        return;
+                    }
+                    const result = await window.api.launchPlayer({
+                        appPath: appState.playerAppPath,
+                        targetPath: item.filePath
+                    });
+                    if (result && !result.success && result.error) {
+                        showToast(result.error, 'error');
+                    }
+                });
+            }
+
+            // 話数や状態などのテキスト中央揃えなど
+            if (i === 11 || i === 12) {
+                td.style.textAlign = 'center';
+            }
+            tr.appendChild(td);
+        }
+
+        tbody.appendChild(tr);
+    });
+
+    updateSelectAllCheckbox();
+}
+```
