@@ -493,7 +493,6 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                 }
 
                 resultItem = {
-                    id: `${seriesInfo.folderPath}__${filePath}`,
                     folderPath: seriesInfo.folderPath,
                     filePath,
                     folderMtime: seriesInfo.folderMtime,
@@ -505,6 +504,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     seriesRating: seriesInfo.seriesRating,
                     seriesName, 
                     genre,
+                    id: `${seriesInfo.folderPath}__${filePath}`,
                     titleKana: parsedTitle.titleKana,
                     titleDate: parsedTitle.titleDate,
                     titleRating: parsedTitle.titleRating,

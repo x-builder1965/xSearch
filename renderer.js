@@ -2,13 +2,12 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.21.0';
+// version   = 'Ver1.23.0';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
     '[全]': 'all',
-    '[TID]': 'tid',
     '[分類]': 'category',
     '[S音]': 'seriesKana',
     '[放映期間]': 'seriesPeriod',
@@ -16,6 +15,7 @@ const fieldMappings = {
     '[シリーズ]': 'seriesName',
     '[ジャンル]': 'genre',
     '[保存]': 'isSave',
+    '[TID]': 'tid',
     '[T音]': 'titleKana',
     '[放映年月]': 'titleDate',
     '[T評価]': 'titleRating',
@@ -25,7 +25,6 @@ const fieldMappings = {
 };
 // thに対応する項目指定記号のマッピング（テーブルの列順に対応）
 const thSymbols = [
-    '[TID]', 
     '[分類]',
     '[S音]', 
     '[放映期間]', 
@@ -33,6 +32,7 @@ const thSymbols = [
     '[シリーズ]', 
     '[ジャンル]', 
     '[保存]',
+    '[TID]', 
     '[T音]', 
     '[放映年月]', 
     '[T評価]', 
@@ -276,25 +276,28 @@ function renderTable() {
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
 
-        // 各フィールドの定義（列順に合わせて調整）
+        // 各フィールドの定義（列順の変更に合わせる）
+        // 変更後の順序: 
+        // 0: 分類, 1: S音, 2: 放映期間, 3: 評価, 4: シリーズ, 5: ジャンル, 6: 保存(checkbox), 7: TID, 8: T音, 9: 放映年月, 10: T評価, 11: タイトル, 12: 話数, 13: 状態
         const fields = [
-            item.tid,           // index 0: TID
-            item.category,      // index 1: 分類
-            item.seriesKana,    // index 2: S音
-            item.seriesPeriod,  // index 3: 放映期間
-            item.seriesRating,  // index 4: 評価
-            item.seriesName,    // index 5: シリーズ
-            item.genre,         // index 6: ジャンル
-            item.titleKana,     // index 7: T音
-            item.titleDate,     // index 8: 放映年月
-            item.titleRating,   // index 9: T評価
-            item.titleName,     // index 10: タイトル
-            item.episodeCount,  // index 11: 話数
-            getStatusIcon(item.playlistStatus) // index 12: 状態
+            item.category,      // index 0: 分類
+            item.seriesKana,    // index 1: S音
+            item.seriesPeriod,  // index 2: 放映期間
+            item.seriesRating,  // index 3: 評価
+            item.seriesName,    // index 4: シリーズ
+            item.genre,         // index 5: ジャンル
+            // [index 6は保存対象チェックボックスとして別途挿入]
+            item.tid,           // index 7: TID（ここに移動）
+            item.titleKana,     // index 8: T音
+            item.titleDate,     // index 9: 放映年月
+            item.titleRating,   // index 10: T評価
+            item.titleName,     // index 11: タイトル
+            item.episodeCount,  // index 12: 話数
+            getStatusIcon(item.playlistStatus) // index 13: 状態
         ];
 
-        // --- 0〜6番目の描画（TIDは index 0、シリーズは index 5） ---
-        for (let i = 0; i <= 6; i++) {
+        // --- 前半部分の描画（分類からジャンルまで: index 0〜5） ---
+        for (let i = 0; i <= 5; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
@@ -302,7 +305,6 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
-            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -310,26 +312,14 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    // 記号と値（val）をそれぞれそのまま渡す
                     insertFilterItem(symbol, val);
                 }
             });
 
-            // TID列（index 0）のクリックイベント
-            if (i === 0 && textVal && textVal !== '-') {
-                td.style.cursor = 'pointer';
-                td.style.color = '#4da6ff';
-                td.addEventListener('click', () => {
-                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
-                    window.api.openExternalUrl(tidUrl);
-                });
-            }
-
-            // シリーズ列（index 5）のクリックイベント
-            if (i === 5) {
+            // シリーズ列（index 4）のクリックイベント
+            if (i === 4) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
-                    // プレイヤーアプリが未設定の場合の挙動
                     if (!appState.playerAppPath) {
                         if (item.folderPath) {
                             await window.api.showInFolder(item.folderPath);
@@ -346,17 +336,15 @@ function renderTable() {
                     }
                 });
             }
-            
 
             tr.appendChild(td);
         }
 
-        // 保存対象（チェックボックス）列の追加（7番目の列）
+        // --- 保存対象（チェックボックス）列の挿入（6番目の列） ---
         const saveTd = document.createElement('td');
         saveTd.style.textAlign = 'center';
         
-        // 保存列の右クリックイベント
-        const saveSymbol = thSymbols[7]; // '[保存]'
+        const saveSymbol = thSymbols[6]; 
         saveTd.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -382,17 +370,17 @@ function renderTable() {
         saveTd.appendChild(checkbox);
         tr.appendChild(saveTd);
 
-        // --- 7番目以降の描画（ fields[7] 以降） ---
-        for (let i = 7; i < fields.length; i++) {
+        // --- 後半部分の描画（TID および 7番目以降: fields[6] 以降） ---
+        // fieldsのインデックス 6 以降（TID = fields[6]）を描画
+        for (let i = 6; i < fields.length; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
 
-            // thSymbolsのインデックスは保存列（index 7）の分だけ +1 シフトする
+            // thSymbols のインデックス対応（保存列が挟まった分を考慮）
             const symbol = thSymbols[i + 1];
 
-            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -400,16 +388,24 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    // 記号と値（val）をそれぞれそのまま渡す
                     insertFilterItem(symbol, val);
                 }
             });
+
+            // TID列（fieldsのindex 6にあたる）のクリックイベント
+            if (i === 6 && textVal && textVal !== '-') {
+                td.style.cursor = 'pointer';
+                td.style.color = '#4da6ff';
+                td.addEventListener('click', () => {
+                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
+                    window.api.openExternalUrl(tidUrl);
+                });
+            }
 
             // タイトル列（fieldsのindex 10にあたる）のクリックイベント
             if (i === 10) { 
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
-                    // プレイヤーアプリが未設定の場合の挙動
                     if (!appState.playerAppPath) {
                         if (item.filePath) {
                             await window.api.showInFolder(item.filePath);
@@ -427,7 +423,7 @@ function renderTable() {
                 });
             }
 
-            // 話数や状態などのテキスト中央揃えなど
+            // 話数や状態などのテキスト中央揃え
             if (i === 11 || i === 12) {
                 td.style.textAlign = 'center';
             }
@@ -1507,12 +1503,14 @@ function getHeaderMenuItems(symbol) {
             const categories = Array.from(
                 new Set(appState.items.map(item => item.category).filter(Boolean))
             );
-            return categories.map(cat => `${cat}, `);
+            const hyphen = "-, ";
+            return categories.map(cat => `${hyphen}, ${cat}, `);
         }
         case '[S音]':
         case '[T音]': {
             // 50音（シリーズ）/ 50音（タイトル）
             return [
+                "-, ",
                 "あ, い, う, え, お, ",
                 "か, き, く, け, こ, ",
                 "さ, し, す, せ, そ, ",
@@ -1529,6 +1527,7 @@ function getHeaderMenuItems(symbol) {
         case '[T評価]': {
             // 評価（シリーズ）/ 評価（タイトル）
             return [
+                "-, ",
                 "☆☆☆☆☆, ",
                 "★☆☆☆☆, ",
                 "★★☆☆☆, ",
@@ -1539,6 +1538,7 @@ function getHeaderMenuItems(symbol) {
         }
         case '[ジャンル]': {
             return [
+                "-, ",
                 "アクション, ",
                 "アドベンチャー, ",
                 "コメディ, ",
