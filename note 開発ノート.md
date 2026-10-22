@@ -448,8 +448,8 @@ body {
 --- ここから
             <!-- コントロールパネル -->
             <header class="toolbar">
-                <button id="select-dir-btn">🔎</button>
-                <button id="fast-search-btn">👁️</button>
+                <button id="select-dir-btn">📁</button>
+                <button id="fast-search-btn">🔎</button>
                 <span id="current-dir-path" class="path-label">フォルダが選択されていません</span>
                 <button id="save-btn">💾</button>
                 <button id="player-config-btn" title="プレイヤーアプリ設定">⚙️</button> <!-- 追加 -->
@@ -602,9 +602,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerThemeToggleBtnClick();
     // 進捗イベントのリスナー登録
     registerWindowApiProgress();
-    // 🔎プレイリスト検索イベントのリスナー登録
+    // 📁プレイリスト検索イベントのリスナー登録
     registerSelectDirBtnClick();
-    // 👁️プレイリスト再建策イベントのリスナー登録
+    // 🔎プレイリスト再建策イベントのリスナー登録
     registerFastSearchBtnClick();
     // 💾保存ボタンイベントのリスナー登録
     registerSaveBtnClick();

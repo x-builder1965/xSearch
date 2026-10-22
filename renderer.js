@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.23.0';
+// version   = 'Ver1.24.0';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -76,9 +76,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerThemeToggleBtnClick();
     // 進捗イベントのリスナー登録
     registerWindowApiProgress();
-    // 🔎プレイリスト検索イベントのリスナー登録
+    // 📁プレイリスト検索イベントのリスナー登録
     registerSelectDirBtnClick();
-    // 👁️プレイリスト再建策イベントのリスナー登録
+    // 🔎プレイリスト再建策イベントのリスナー登録
     registerFastSearchBtnClick();
     // 💾保存ボタンイベントのリスナー登録
     registerSaveBtnClick();
@@ -499,7 +499,7 @@ function registerWindowApiProgress() {
     });
 }
 
-// 🔎プレイリスト検索イベントのリスナー登録（初回スキャン）
+// 📁プレイリスト検索イベントのリスナー登録（初回スキャン）
 function registerSelectDirBtnClick() {
     document.getElementById('select-dir-btn').addEventListener('click', async () => {
         const dirPath = await window.api.openDirectory();
@@ -544,7 +544,7 @@ function registerSelectDirBtnClick() {
     });
 }
 
-// 👁️プレイリスト再検索イベントのリスナー登録
+// 🔎プレイリスト再検索イベントのリスナー登録
 function registerFastSearchBtnClick() {
     document.getElementById('fast-search-btn').addEventListener('click', async () => {
         if (!appState.selectedDir) {
