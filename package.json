@@ -1,6 +1,6 @@
 {
     "name": "xsearch",
-    "version": "1.21.0",
+    "version": "1.23.0",
     "description": "xSearch playlist search tool",
     "main": "main.js",
     "author": "x-builder",
@@ -17,7 +17,8 @@
     },
     "dependencies": {
         "archiver": "^7.0.1",
-        "cheerio": "^1.2.0"
+        "cheerio": "^1.2.0",
+        "electron-store": "^8.1.0"
     },
     "devDependencies": {
         "electron": "^30.5.1",
@@ -78,7 +79,7 @@
             {
                 "name": "xsearch",
                 "schemes": [
-                "xsearch"
+                    "xsearch"
                 ]
             }
         ],

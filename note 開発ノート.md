@@ -292,6 +292,49 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
         - 結果例："[シリーズ] あしたのジョー, "がフィルタ条件に挿入される。
 
 
+## 2026-10-XX Ver1.XX.0 しょぼいカレンダーAPIへのリクエスト回数を軽減する処理を追加。
+### 下記ロジックでしょぼいカレンダーAPIへのリクエスト回数を軽減する処理を追加実装。
+    ・前回リクエストと今回リクエストのシリーズ名が異なる場合：
+        ・保持レスポンス（メモリキャッシュ）をクリア。
+        ・シリーズ名でリクエスト。
+        ・返却されたレスポンス（先頭から１０件）を保持レスポンスに追加。
+    ・前回リクエストと今回リクエストのシリーズ名が同じ場合：
+        ・保持レスポンスにタイトル名が存在する場合：
+            ・保持レスポンスからTIDを取得し返却
+        ・保持レスポンスにタイトル名が存在しない場合：
+            ・タイトル名でリクエスト。
+            ・返却されたレスポンスにタイトル名が存在する場合：
+                ・返却されたレスポンスからTIDを取得し返却
+                ・返却されたレスポンス（先頭から１０件）を保持レスポンスに追加。
+            ・返却されたレスポンスにタイトル名が存在しない場合："-"を返却
+    ※現在実装されている下記処理は現状維持
+        ・「スペース分割して先頭文字列でリクエスト」する処理。
+        ・429エラー時のリトライ。
+        ・連続リクエスト防止用の待機処理
+
+### 「修正に向けた具体的なアプローチ」を全て実施してください。
+    ・関数の引数の拡張async function fetchSyobocalTid(seriesName, titleName) のように、シリーズ名とタイトル名を明示的に受け取るようにする。
+    ・シリーズ名変更時のキャッシュクリア
+    ・同シリーズ時のタイトル名チェック
+
+## 2026-10-XX Ver1.XX.0 しょぼいカレンダーAPIへのリクエスト回数軽減の強化。
+- （事前作業）
+    - 現在取得できている TID, Title をlocalStorageに保存（移行作業）
+        - 再検索で fast:syncDirectory に渡された existingItems を元に localStorage.TIDData を作成する様に変更
+
+- 処理変更：
+- Step1の処理は削除済
+- Step2：取得処理を下記のとおり修正
+    - タイトルでelectron-storeを完全一致検索
+        - 存在したらelectron-storeからTIDを取得
+        - 存在しない場合は以下を実行
+    - TID 取得用のURLを下記に変更（全TID, Titleを取得処理実装前のロジックに戻す）
+        https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodedSearch}
+        - 返却データ（xml）でタイトルを完全一致検索
+            - 存在したら返却データ（xml）からTIDを取得
+            - 存在しない場合はTIDに"-"を設定
+            - 返却データ（xml）の全てをelectron-storeへ保存
+
 ## 2026-10-XX Ver1.XX.0 ダッシュボード表示機能の追加。
 ### 要件説明
 ・下記データ例を使っての統計結果をダッシュボードを表示する処理作成
@@ -303,47 +346,89 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
     ・ダッシュボードクリックで下記HTMLの"ここから"ー"ここまで"を非表示にしダッシュボードを表示
     ・リストクリックで下記HTMLの"ここから"ー"ここまで"を表示にしダッシュボードを非表示
     ・ダッシュボードの内容
-        ・サマリーカード：
+        ・（上部50%配置）サマリーカード：
+            ・「サマリーカード」の右端に現在日時（例：2026年10月22日(木) 15:00時点）を表示
             ・全て：シリーズ件数、タイトル件数、話数件数、状態別件数
             ・分類別：シリーズ件数、タイトル件数、話数件数、状態別件数
-        ・分類・ジャンル分析：
-            ・分類別の割合を横棒グラフ
-            ・分類選択で選択された分類のジャンルの割合の円グラフ
-        ・分類・評価・ジャンル分析：
-            ・評価／ジャンルの切替ボタン
-            ・年月／年シーズン／単年／５年の集計単位切替ボタン
-            ・集計単位のタイトル数の縦棒グラフ（評価／ジャンルの多層グラフ）
+        ・（下部50%左側75%配置）選択分類の統計：
+            ・期間（Y軸）／タイトル数（X軸）（評価・シリーズ50音・ジャンル分析別）の統計
+            ・カードタイトルに「分類統計（選択された分類）」を表示
+            ・年月／年シーズン／単年／５年／全年の集計単位切替ドロップダウン
+                ・年シーズンは年毎に3か月単位に分けた期間の単位
+                    冬シーズン：前年12月～02月
+                    春シーズン：03月～05月
+                    夏シーズン：06月～08月
+                    秋シーズン：09月～11月
+                ・５年単位は1970年開始で＋５年毎の単位
+            ・評価／シリーズ50音／ジャンルの切替ドロップダウン
+            ・集計単位のタイトル数の横棒グラフ（評価／シリーズ50音／ジャンルの多層グラフ）
+        ・（下部50%右側25%配置）選択期間の統計：
+            ・評価・シリーズ50音・ジャンルの統計
+            ・カードタイトルに「期間統計（選択された期間）」を表示
+            ・選択期間の評価のドーナッツグラフ
+            ・選択期間のシリーズ50音のドーナッツグラフ
+            ・選択期間のジャンルのドーナッツグラフ
+    ・ダッシュボード用の新規コードは別ファイル"renderer_dashboard.js"に作成
+
+### 配置イメージ
+　----------------------------------------------------------------------------------------
+　xSearch -プレイリスト検索- Ver.1.25.0                         [ダッシュボード／リスト]　☀️
+　----------------------------------------------------------------------------------------
+　サマリーカード                                               2026年10月22日(木) 15:00時点
+　　■全て        　｜シリーズ件数｜タイトル件数｜話数件数｜状態別件数
+　　□アダルト      ｜シリーズ件数｜タイトル件数｜話数件数｜状態別件数
+　　□アニメ（18禁）｜シリーズ件数｜タイトル件数｜話数件数｜状態別件数
+　　□アニメ（一般）｜シリーズ件数｜タイトル件数｜話数件数｜状態別件数
+　　　　：
+　--------------------------------------------------------------+-------------------------
+　分類統計（全て）　　　　　　　　　　　　　　　　　　　　　　　　　　|　期間統計（200107）
+　　　[期間選択▼]　 [要素選択▼]　　　　　　　　　　　　　　　　　　　|　
+　　□200001　🟥🟥🟧🟧🟧🟨🟨🟨🟨🟩🟩🟩🟦🟦　　　　　　　　　|　　評価
+　　□200104　🟥🟥🟥🟧🟧🟨🟨🟨🟨🟨🟩🟩🟩🟩🟦🟦🟦🟦　　　　|　　　（ドーナッツグラフ）
+　　■200107　🟥🟧🟧🟧🟧🟧🟨🟨🟩🟩🟦　　　　　　　　　　　　　|　　シリーズ50音
+　　□200110　🟥🟥🟥🟥🟧🟨🟨🟨🟩🟦🟦🟦　　　　　　　　　　　　|　　　（ドーナッツグラフ）
+　　□200201　🟥🟥🟨🟨🟨🟩🟩🟦🟦🟦🟦　　　　　　　　　　　　　|　　ジャンル
+　　□200204　🟥🟥🟧🟧🟧🟨🟨🟨🟨🟩🟩🟩🟦🟦　　　　　　　　　|　　　（ドーナッツグラフ）
+    　　：　　　　　　　　　　　　　　　　　　　　　　　　　　　　　|
+　　　　　　　0  100  200  300  400  500  600  700  800 900     |
+　--------------------------------------------------------------+-------------------------
+　ステータス表示
+　x-builder@gmail.com　　　　　　　　　　　　　　　　　　Copyright © 2026- @x-builder, Japan
+　----------------------------------------------------------------------------------------
 
 ### データ例：
-TID    分類    音    放映期間    評価    シリーズ    ジャンル        音    放映年月    評価    タイトル    話数    状態
--    アダルト    -    -    -    アダルト    -        -    -    -    AV_★★★★☆    83    🟢
--    アダルト    -    -    -    アダルト    -        -    -    -    AV_★★★☆☆    174    🟢
--    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★★★★    247    🟢
--    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★★★☆    495    🟢
--    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★★☆☆    1053    🟢
--    アニメ（18禁）    -    -    -    アニメ（18禁）    -        -    -    -    18禁アニメ_★★☆☆☆    151    🟢
-1075    アニメ（一般）    あ    197004～198010    ★★★★☆    あしたのジョー    アクション, ドラマ, 日常・ほのぼの, スポーツ        あ    197004    ★★★★☆    あしたのジョー    79    🟢
-1075    アニメ（一般）    あ    197004～198010    ★★★★☆    あしたのジョー    アクション, ドラマ, 日常・ほのぼの, スポーツ        あ    198010    ★★★★☆    あしたのジョー2    47    🟢
-3087    アニメ（一般）    あ    198510～198608    ★★★☆☆    蒼き流星SPTレイズナー    アクション, アドベンチャー, メカ・ロボット, SF        あ    198510    ★★★☆☆    蒼き流星SPTレイズナー    38    🟢
-3417    アニメ（一般）    あ    198510～198608    ★★★☆☆    蒼き流星SPTレイズナー    アクション, アドベンチャー, メカ・ロボット, SF        あ    198608    ★★★☆☆    蒼き流星SPTレイズナー OVA    3    🟢
--    アニメ（一般）    あ    198804～198804    ★★★★☆    アップルシード OVA    -        あ    198804    ★★★★☆    アップルシード OVA    1    🟢
-2371    アニメ（一般）    あ    198807～198807    ★★★★☆    AKIRA    アクション, アドベンチャー, ホラー, サスペンス・心理, SF, 超自然・能力        あ    198807    ★★★★☆    劇場版 AKIRA    1    🟢
--    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    199302    ★★★☆☆    ああっ女神さまっ OVA1    5    🟢
-1301    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    199804    ★★★★☆    ああっ女神さまっ 小っちゃいって事は便利だねっ    48    🟢
-653    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    200010    ★★★★☆    劇場版 ああっ女神さまっ    1    🟢
-521    アニメ（一般）    あ    199302～201102    ★★★★☆    ああっ女神さまっ    コメディ, 恋愛・ラブコメ, 超自然・能力        あ    200501    ★★★★☆    ああっ女神さまっ    26    🟢
+分類	音	放映期間	評価	シリーズ	ジャンル		TID	音	放映年月	評価	タイトル	話数	状態
+アダルト	-	-	-	アダルト	-		-	-	-	-	AV_★★★★☆	83	🟢
+アダルト	-	-	-	アダルト	-		-	-	-	-	AV_★★★☆☆	174	🟢
+アニメ（18禁）	-	-	-	アニメ（18禁）	-		-	-	-	-	18禁アニメ_★★★★★	247	🟢
+アニメ（18禁）	-	-	-	アニメ（18禁）	-		-	-	-	-	18禁アニメ_★★★★☆	495	🟢
+アニメ（18禁）	-	-	-	アニメ（18禁）	-		-	-	-	-	18禁アニメ_★★★☆☆	1053	🟢
+アニメ（18禁）	-	-	-	アニメ（18禁）	-		-	-	-	-	18禁アニメ_★★☆☆☆	151	🟢
+アニメ（一般）	あ	197004～198010	★★★★☆	あしたのジョー	アクション, ドラマ, 日常・ほのぼの, スポーツ		-	あ	197004	★★★★☆	あしたのジョー	79	🟢
+アニメ（一般）	あ	197004～198010	★★★★☆	あしたのジョー	アクション, ドラマ, 日常・ほのぼの, スポーツ		1075	あ	198010	★★★★☆	あしたのジョー2	47	🟢
+アニメ（一般）	あ	198510～198608	★★★☆☆	蒼き流星SPTレイズナー	アクション, アドベンチャー, メカ・ロボット, SF		3087	あ	198510	★★★☆☆	蒼き流星SPTレイズナー	38	🟢
+アニメ（一般）	あ	198510～198608	★★★☆☆	蒼き流星SPTレイズナー	アクション, アドベンチャー, メカ・ロボット, SF		-	あ	198608	★★★☆☆	蒼き流星SPTレイズナー OVA	3	🟢
+アニメ（一般）	あ	198804～198804	★★★★☆	アップルシード OVA	-		-	あ	198804	★★★★☆	アップルシード OVA	1	🟢
+アニメ（一般）	あ	198807～198807	★★★★☆	AKIRA	アクション, アドベンチャー, ホラー, サスペンス・心理, SF, 超自然・能力		441	あ	198807	★★★★☆	劇場版 AKIRA	1	🟢
+アニメ（一般）	あ	199302～201102	★★★★☆	ああっ女神さまっ	コメディ, 恋愛・ラブコメ, 超自然・能力		-	あ	199302	★★★☆☆	ああっ女神さまっ OVA1	5	🟢
+アニメ（一般）	あ	199302～201102	★★★★☆	ああっ女神さまっ	コメディ, 恋愛・ラブコメ, 超自然・能力		1301	あ	199804	★★★★☆	ああっ女神さまっ 小っちゃいって事は便利だねっ	48	🟢
+アニメ（一般）	あ	199302～201102	★★★★☆	ああっ女神さまっ	コメディ, 恋愛・ラブコメ, 超自然・能力		653	あ	200010	★★★★☆	劇場版 ああっ女神さまっ	1	🟢
+アニメ（一般）	あ	199302～201102	★★★★☆	ああっ女神さまっ	コメディ, 恋愛・ラブコメ, 超自然・能力		521	あ	200501	★★★★☆	ああっ女神さまっ	26	🟢
+アニメ（一般）	あ	199302～201102	★★★★☆	ああっ女神さまっ	コメディ, 恋愛・ラブコメ, 超自然・能力		779	あ	200604	★★★★☆	ああっ女神さまっ それぞれの翼	24	🟢
 
 ### 対象ロジック：
 #### -- styles.css --------------------------------------------------------
 ```css
-:root {
+/* ダークモード（デフォルト） */
+ :root {
     --app-color: #be98ce; /* 紫色 */
     --bg-color: #1e1e1e;
     --text-color: #d4d4d4;
     --panel-bg: #2d2d2d;
     --border-color: #404040;
     --accent-color: #ad53d4;
-    --hover-color: #bc58c5;
+    --hover-color: #333333;
+    --list-hover-color: #424242;
     /* スクロールバー用 */
     --scrollbar-track: #121212;
     --scrollbar-thumb: #999999;
@@ -364,7 +449,7 @@ TID    分類    音    放映期間    評価    シリーズ    ジャンル  
     --text-muted: #aaaaaab4;
     --sub-item-text: #b0bec5;
 }
-
+/* ライトモード */
 [data-theme="light"] {
     --app-color: #a43fcf; /* 紫色 */
     --bg-color: #f3f3f3;
@@ -373,6 +458,7 @@ TID    分類    音    放映期間    評価    シリーズ    ジャンル  
     --border-color: #cccccc;
     --accent-color: #7b1ea3;
     --hover-color: #e5e5e5;
+    --list-hover-color: #e5e5e5;
     /* スクロールバー用 */
     --scrollbar-track: #f1f1f1;
     --scrollbar-thumb: #747474;
@@ -394,12 +480,12 @@ TID    分類    音    放映期間    評価    シリーズ    ジャンル  
     --sub-item-text: #546e7a;
 }
 
+/* 🔲全体共通🔲 */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
-
 body {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     background-color: var(--bg-color);
@@ -409,7 +495,6 @@ body {
     display: flex;
     flex-direction: column;
 }
-
 .app-container {
     display: flex;
     flex-direction: column;
@@ -431,6 +516,7 @@ body {
 <body>
     <div class="app-container">
         <div class="main-container">
+            <!-- ヘッダー -->
             <div class="header">
                 <div class="title-group left-controls">
                     <h1 class="app-title">
@@ -443,16 +529,16 @@ body {
                     <button id="theme-toggle-btn">☀️</button>
                 </div>
             </div>
-            <!-- トースト通知用オーバーレイ -->
-            <div id="toast-message" class="toast hidden"></div>
+            <!-- トースト通知用コンテナ -->
+            <div id="toast-container"></div>
 --- ここから
             <!-- コントロールパネル -->
             <header class="toolbar">
-                <button id="select-dir-btn">🔎</button>
-                <button id="fast-search-btn">👁️</button>
+                <button id="select-dir-btn">📁</button>
+                <button id="fast-search-btn">🔎</button>
                 <span id="current-dir-path" class="path-label">フォルダが選択されていません</span>
                 <button id="save-btn">💾</button>
-                <button id="player-config-btn" title="プレイヤーアプリ設定">⚙️</button> <!-- 追加 -->
+                <button id="player-config-btn" title="プレイヤーアプリ設定">⚙️</button>
                 <button id="import-btn" title="設定インポート">📥</button>
                 <button id="export-btn" title="設定エクスポート">📤</button>
             </header>
@@ -473,7 +559,6 @@ body {
                 <table id="playlist-table">
                     <thead class="table-header">
                         <tr>
-                            <th>TID</th>
                             <th>分類</th>
                             <th>音</th>
                             <th>放映期間</th>
@@ -481,6 +566,7 @@ body {
                             <th>シリーズ</th>
                             <th>ジャンル</th>
                             <th><input type="checkbox" id="select-all-save" title="全選択/全解除"></th>
+                            <th>TID</th>
                             <th>音</th>
                             <th>放映年月</th>
                             <th>評価</th>
@@ -495,6 +581,7 @@ body {
                 </table>
             </main>
 --- ここまで
+            <!-- ステータスパネル -->
             <div class="status-display" id="status-display">ステータス表示</div>
         </div>
         <!-- ヘルプ -->
@@ -530,7 +617,6 @@ body {
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
     '[全]': 'all',
-    '[TID]': 'tid',
     '[分類]': 'category',
     '[S音]': 'seriesKana',
     '[放映期間]': 'seriesPeriod',
@@ -538,6 +624,7 @@ const fieldMappings = {
     '[シリーズ]': 'seriesName',
     '[ジャンル]': 'genre',
     '[保存]': 'isSave',
+    '[TID]': 'tid',
     '[T音]': 'titleKana',
     '[放映年月]': 'titleDate',
     '[T評価]': 'titleRating',
@@ -545,10 +632,8 @@ const fieldMappings = {
     '[話数]': 'episodeCount',
     '[状態]': 'playlistStatus'
 };
-
 // thに対応する項目指定記号のマッピング（テーブルの列順に対応）
 const thSymbols = [
-    '[TID]', 
     '[分類]',
     '[S音]', 
     '[放映期間]', 
@@ -556,6 +641,7 @@ const thSymbols = [
     '[シリーズ]', 
     '[ジャンル]', 
     '[保存]',
+    '[TID]', 
     '[T音]', 
     '[放映年月]', 
     '[T評価]', 
@@ -564,6 +650,7 @@ const thSymbols = [
     '[状態]'
 ];
 
+// 🔲グルーバル共通変数🔲
 let appState = {                // localStorage管理情報
     selectedDir: '',            // 検索フォルダパス
     rawItems: [],               // ベースリスト管理
@@ -586,25 +673,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     await setupHTMLLoad();
     // ローカルストレージから状態を復元
     await loadFromLocalStorage();
-    // プレイヤーアプリ設定の復元
-    await loadPlayerConfigState();
-    // 初期表示
-    await renderTable();
     // 初回保持（もし未定義なら現在のitemsを保持）
     await setupRawItem();
     // 起動時に一度フィルタ（または全件表示）を適用して件数を正しく表示させる
     applyFilter();
     // テーマの適用
-    await applyTheme();
+    applyTheme();
 
     // 🔲イベント登録処理🔲
-    // テーマ切替
+    // ☀️／🌙テーマ切替イベントのリスナー登録
     registerThemeToggleBtnClick();
     // 進捗イベントのリスナー登録
     registerWindowApiProgress();
-    // 🔎プレイリスト検索イベントのリスナー登録
+    // 📁プレイリスト検索イベントのリスナー登録
     registerSelectDirBtnClick();
-    // 👁️プレイリスト再建策イベントのリスナー登録
+    // 🔎プレイリスト再建策イベントのリスナー登録
     registerFastSearchBtnClick();
     // 💾保存ボタンイベントのリスナー登録
     registerSaveBtnClick();
@@ -618,7 +701,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerScanCancelBtnClick();
     // ESCキー押下によるキャンセル処理のリスナー登録
     registerWindowKeydown();
-     // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
+     // リストヘッダーの全選択・全解除の変更イベントのリスナー登録
     registerSelectAllSaveChange();
     // メニュー外のクリック（左右クリック）でメニューを閉じる
     registerDocumentMousedown();
@@ -646,6 +729,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerChangelogCloseBtnClick();
 });
 
+// 🔲初期処理🔲
 // HTMLロード
 async function setupHTMLLoad() {
     // 初期化処理 (HTML読み込み & 設定値反映)
@@ -728,7 +812,7 @@ async function setupHTMLLoad() {
     }
 }
 
-// リストの描画
+// リスト描画
 function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
@@ -736,25 +820,28 @@ function renderTable() {
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
 
-        // 各フィールドの定義（列順に合わせて調整）
+        // 各フィールドの定義（列順の変更に合わせる）
+        // 変更後の順序: 
+        // 0: 分類, 1: S音, 2: 放映期間, 3: 評価, 4: シリーズ, 5: ジャンル, 6: 保存(checkbox), 7: TID, 8: T音, 9: 放映年月, 10: T評価, 11: タイトル, 12: 話数, 13: 状態
         const fields = [
-            item.tid,           // index 0: TID
-            item.category,      // index 1: 分類
-            item.seriesKana,    // index 2: S音
-            item.seriesPeriod,  // index 3: 放映期間
-            item.seriesRating,  // index 4: 評価
-            item.seriesName,    // index 5: シリーズ
-            item.genre,         // index 6: ジャンル
-            item.titleKana,     // index 7: T音
-            item.titleDate,     // index 8: 放映年月
-            item.titleRating,   // index 9: T評価
-            item.titleName,     // index 10: タイトル
-            item.episodeCount,  // index 11: 話数
-            getStatusIcon(item.playlistStatus) // index 12: 状態
+            item.category,      // index 0: 分類
+            item.seriesKana,    // index 1: S音
+            item.seriesPeriod,  // index 2: 放映期間
+            item.seriesRating,  // index 3: 評価
+            item.seriesName,    // index 4: シリーズ
+            item.genre,         // index 5: ジャンル
+            // [index 6は保存対象チェックボックスとして別途挿入]
+            item.tid,           // index 7: TID（ここに移動）
+            item.titleKana,     // index 8: T音
+            item.titleDate,     // index 9: 放映年月
+            item.titleRating,   // index 10: T評価
+            item.titleName,     // index 11: タイトル
+            item.episodeCount,  // index 12: 話数
+            getStatusIcon(item.playlistStatus) // index 13: 状態
         ];
 
-        // --- 0〜6番目の描画（TIDは index 0、シリーズは index 5） ---
-        for (let i = 0; i <= 6; i++) {
+        // --- 前半部分の描画（分類からジャンルまで: index 0〜5） ---
+        for (let i = 0; i <= 5; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
@@ -762,7 +849,6 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
-            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -770,29 +856,21 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    // 記号と値（val）をそれぞれそのまま渡す
                     insertFilterItem(symbol, val);
                 }
             });
 
-            // TID列（index 0）のクリックイベント
-            if (i === 0 && textVal && textVal !== '-') {
-                td.style.cursor = 'pointer';
-                td.style.color = '#4da6ff';
-                td.addEventListener('click', () => {
-                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
-                    window.api.openExternalUrl(tidUrl);
-                });
-            }
-
-            // シリーズ列（index 5）のクリックイベント
-            if (i === 5) {
+            // シリーズ列（index 4）のクリックイベント
+            if (i === 4) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
                     if (!appState.playerAppPath) {
-                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
+                        if (item.folderPath) {
+                            await window.api.showInFolder(item.folderPath);
+                        }
                         return;
                     }
+            
                     const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.folderPath
@@ -806,12 +884,11 @@ function renderTable() {
             tr.appendChild(td);
         }
 
-        // 保存対象（チェックボックス）列の追加（7番目の列）
+        // --- 保存対象（チェックボックス）列の挿入（6番目の列） ---
         const saveTd = document.createElement('td');
         saveTd.style.textAlign = 'center';
         
-        // 保存列の右クリックイベント
-        const saveSymbol = thSymbols[7]; // '[保存]'
+        const saveSymbol = thSymbols[6]; 
         saveTd.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -837,17 +914,17 @@ function renderTable() {
         saveTd.appendChild(checkbox);
         tr.appendChild(saveTd);
 
-        // --- 7番目以降の描画（ fields[7] 以降） ---
-        for (let i = 7; i < fields.length; i++) {
+        // --- 後半部分の描画（TID および 7番目以降: fields[6] 以降） ---
+        // fieldsのインデックス 6 以降（TID = fields[6]）を描画
+        for (let i = 6; i < fields.length; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
 
-            // thSymbolsのインデックスは保存列（index 7）の分だけ +1 シフトする
+            // thSymbols のインデックス対応（保存列が挟まった分を考慮）
             const symbol = thSymbols[i + 1];
 
-            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -855,19 +932,31 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    // 記号と値（val）をそれぞれそのまま渡す
                     insertFilterItem(symbol, val);
                 }
             });
+
+            // TID列（fieldsのindex 6にあたる）のクリックイベント
+            if (i === 6 && textVal && textVal !== '-') {
+                td.style.cursor = 'pointer';
+                td.style.color = '#4da6ff';
+                td.addEventListener('click', () => {
+                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
+                    window.api.openExternalUrl(tidUrl);
+                });
+            }
 
             // タイトル列（fieldsのindex 10にあたる）のクリックイベント
             if (i === 10) { 
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
                     if (!appState.playerAppPath) {
-                        showToast('プレイヤーアプリが設定されていません。⚙️で設定してください。', 'warning');
+                        if (item.filePath) {
+                            await window.api.showInFolder(item.filePath);
+                        }
                         return;
                     }
+            
                     const result = await window.api.launchPlayer({
                         appPath: appState.playerAppPath,
                         targetPath: item.filePath
@@ -878,7 +967,7 @@ function renderTable() {
                 });
             }
 
-            // 話数や状態などのテキスト中央揃えなど
+            // 話数や状態などのテキスト中央揃え
             if (i === 11 || i === 12) {
                 td.style.textAlign = 'center';
             }
@@ -892,288 +981,434 @@ function renderTable() {
 }
 ```
 
-
-
-
-
-
-
-・下記データーで"雨と君と"～"EAT-MAN'98"でTIDが連続で取得できていない原因と対応。
-・実行ログ：
-[Match Found - Exact] Syoboca
-[RateLimit] Syobocal: Interval too short (237ms < 500ms). Waiting 263ms...
-[API Request] Syobocal: fetching for query "アポカリプスホテル" (Full: "アポカリプスホテル", attempt 1/5)
-[Match Found - Exact] Syobocal: "アポカリプスホテル" matched TID 7382 (アポカリプスホテル)
-[RateLimit] AniList: Interval too short (418ms < 500ms). Waiting 82ms...
-[API Request] AniList: fetching for query "アン・シャーリー" (attempt 1/5)
-[RateLimit Hit] AniList API Error: HTTP 429 (attempt 1/5). Waiting 30s...
-[API Request] AniList: fetching for query "アン・シャーリー" (attempt 2/5)
-[API Success] AniList: "アン・シャーリー" -> [ドラマ, 日常・ほのぼの]
-[API Request] Syobocal: fetching for query "アン・シャーリー" (Full: "アン・シャーリー", attempt 1/5)
-[Match Found - Exact] Syobocal: "アン・シャーリー" matched TID 7356 (アン・シャーリー)
-[API Request] AniList: fetching for query "雨と君と" (attempt 1/5)
-[API Success] AniList: "雨と君と" -> [コメディ, 日常・ほのぼの]
-[RateLimit] Syobocal: Interval too short (237ms < 500ms). Waiting 263ms...
-[API Request] Syobocal: fetching for query "雨と君と" (Full: "雨と君と", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "雨と君と"
-[RateLimit] AniList: Interval too short (482ms < 500ms). Waiting 18ms...
-[API Request] AniList: fetching for query "暗殺者である俺のステータスが勇者よりも明らかに強いのだが" (attempt 1/5)
-[API Success] AniList: "暗殺者である俺のステータスが勇者よりも明らかに強いのだが" -> [アクション, アドベンチャー, ファンタジー]
-[RateLimit] Syobocal: Interval too short (243ms < 500ms). Waiting 257ms...
-[API Request] Syobocal: fetching for query "暗殺者である俺のステータスが勇者よりも明らかに強いのだが" (Full: "暗殺者である俺のステータスが勇者よりも明らかに強いのだが", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "暗殺者である俺のステータスが勇者よりも明らかに強いのだが"
-[RateLimit] AniList: Interval too short (469ms < 500ms). Waiting 31ms...
-[API Request] AniList: fetching for query "ある日、お姫様になってしまった件について" (attempt 1/5)
-[API Success] AniList: "ある日、お姫様になってしまった件について" -> [コメディ, ファンタジー, 恋愛・ラブコメ]
-[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
-[API Request] Syobocal: fetching for query "ある日、お姫様になってしまった件について" (Full: "ある日、お姫様になってしまった件について", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "ある日、お姫様になってしまった件について"
-[RateLimit] AniList: Interval too short (456ms < 500ms). Waiting 44ms...
-[API Request] AniList: fetching for query "アルマちゃんは家族になりたい" (attempt 1/5)
-[API Success] AniList: "アルマちゃんは家族になりたい" -> [コメディ, 恋愛・ラブコメ, SF, 日常・ほのぼの]
-[RateLimit] Syobocal: Interval too short (250ms < 500ms). Waiting 250ms...
-[API Request] Syobocal: fetching for query "アルマちゃんは家族になりたい" (Full: "アルマちゃんは家族になりたい", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "アルマちゃんは家族になりたい"
-[RateLimit] AniList: Interval too short (423ms < 500ms). Waiting 77ms...
-[API Request] AniList: fetching for query "悪食令嬢と狂血公爵" (attempt 1/5)
-[API Success] AniList: "悪食令嬢と狂血公爵" -> [ファンタジー, 恋愛・ラブコメ]
-[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
-[API Request] Syobocal: fetching for query "悪食令嬢と狂血公爵" (Full: "悪食令嬢と狂血公爵", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "悪食令嬢と狂血公爵"
-[RateLimit] AniList: Interval too short (404ms < 500ms). Waiting 96ms...
-[API Request] AniList: fetching for query "アルネの事件簿" (attempt 1/5)
-[API Success] AniList: "アルネの事件簿" -> [ミステリー]
-[RateLimit] Syobocal: Interval too short (243ms < 500ms). Waiting 257ms...
-[API Request] Syobocal: fetching for query "アルネの事件簿" (Full: "アルネの事件簿", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "アルネの事件簿"
-[RateLimit] AniList: Interval too short (376ms < 500ms). Waiting 124ms...
-[API Request] AniList: fetching for query "アンドロイドは経験人数に入りますか？？" (attempt 1/5)
-[API Success] AniList: "アンドロイドは経験人数に入りますか？？" -> [コメディ, エッチ, 恋愛・ラブコメ, SF]
-[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
-[API Request] Syobocal: fetching for query "アンドロイドは経験人数に入りますか？？" (Full: "アンドロイドは経験人数に入りますか？？", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "アンドロイドは経験人数に入りますか？？"
-[RateLimit] AniList: Interval too short (359ms < 500ms). Waiting 141ms...
-[API Request] AniList: fetching for query "悪役令嬢は隣国の王太子に溺愛される" (attempt 1/5)
-[API Success] AniList: "悪役令嬢は隣国の王太子に溺愛される" -> [ファンタジー, 恋愛・ラブコメ]
-[RateLimit] Syobocal: Interval too short (286ms < 500ms). Waiting 214ms...
-[API Request] Syobocal: fetching for query "悪役令嬢は隣国の王太子に溺愛される" (Full: "悪役令嬢は隣国の王太子に溺愛される", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "悪役令嬢は隣国の王太子に溺愛される"
-[RateLimit] AniList: Interval too short (342ms < 500ms). Waiting 158ms...
-[API Request] AniList: fetching for query "有栖川煉ってホントは女なんだよね。" (attempt 1/5)
-[API Success] AniList: "有栖川煉ってホントは女なんだよね。" -> [コメディ, ドラマ, 成人向け]
-[RateLimit] Syobocal: Interval too short (246ms < 500ms). Waiting 254ms...
-[API Request] Syobocal: fetching for query "有栖川煉ってホントは女なんだよね。" (Full: "有栖川煉ってホントは女なんだよね。", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "有栖川煉ってホントは女なんだよね。"
-[RateLimit] AniList: Interval too short (294ms < 500ms). Waiting 206ms...
-[API Request] AniList: fetching for query "あかね噺" (attempt 1/5)
-[API Success] AniList: "あかね噺" -> [ドラマ]
-[RateLimit] Syobocal: Interval too short (244ms < 500ms). Waiting 256ms...
-[API Request] Syobocal: fetching for query "あかね噺" (Full: "あかね噺", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "あかね噺"
-[RateLimit] AniList: Interval too short (258ms < 500ms). Waiting 242ms...
-[API Request] AniList: fetching for query "愛してるゲームを終わらせたい" (attempt 1/5)
-[API Success] AniList: "愛してるゲームを終わらせたい" -> [コメディ, 恋愛・ラブコメ, 日常・ほのぼの]
-[RateLimit] Syobocal: Interval too short (244ms < 500ms). Waiting 256ms...
-[API Request] Syobocal: fetching for query "愛してるゲームを終わらせたい" (Full: "愛してるゲームを終わらせたい", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "愛してるゲームを終わらせたい"
-[RateLimit] AniList: Interval too short (254ms < 500ms). Waiting 246ms...
-[API Request] AniList: fetching for query "淡島百景" (attempt 1/5)
-[API Success] AniList: "淡島百景" -> [ドラマ, 音楽, 恋愛・ラブコメ]
-[RateLimit] Syobocal: Interval too short (241ms < 500ms). Waiting 259ms...
-[API Request] Syobocal: fetching for query "淡島百景" (Full: "淡島百景", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "淡島百景"
-[RateLimit] AniList: Interval too short (249ms < 500ms). Waiting 251ms...
-[API Request] AniList: fetching for query "蒼き伝承 ウェルシュ＆シェダー" (attempt 1/5)
-[API Error] AniList API Error: HTTP 404 for query "蒼き伝承 ウェルシュ＆シェダー"
-[RateLimit] Syobocal: Interval too short (248ms < 500ms). Waiting 252ms...
-[API Request] Syobocal: fetching for query "蒼き伝承" (Full: "蒼き伝承 ウェルシュ＆シェダー", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "蒼き伝承"
-[RateLimit] AniList: Interval too short (262ms < 500ms). Waiting 238ms...
-[API Request] AniList: fetching for query "EAT-MAN" (attempt 1/5)
-[API Success] AniList: "EAT-MAN" -> [アクション, アドベンチャー, SF]
-[RateLimit] Syobocal: Interval too short (237ms < 500ms). Waiting 263ms...
-[API Request] Syobocal: fetching for query "EAT-MAN" (Full: "EAT-MAN", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "EAT-MAN"
-[Cache Hit] AniList: "EAT-MAN" -> アクション, アドベンチャー, SF
-[RateLimit] Syobocal: Interval too short (259ms < 500ms). Waiting 241ms...
-[API Request] Syobocal: fetching for query "EAT-MAN'98" (Full: "EAT-MAN'98", attempt 1/5)
-[API Empty] Syobocal: No titles matched for query "EAT-MAN'98"
-[API Request] AniList: fetching for query "頭文字D" (attempt 1/5)
-[API Success] AniList: "頭文字D" -> [アクション, ドラマ, スポーツ]
-[RateLimit] Syobocal: Interval too short (235ms < 500ms). Waiting 265ms...
-[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Stage1", attempt 1/5)
-[Match Found - Fallback] Syobocal: "頭文字D Stage1" fell back to first result TID 397
-[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
-[RateLimit] Syobocal: Interval too short (493ms < 500ms). Waiting 7ms...
-[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Stage2", attempt 1/5)
-[Match Found - All Keywords] Syobocal: "頭文字D Stage2" matched TID 2355 (OVA 頭文字D Extra Stage 2 ～旅立ちのグリーン～) with keywords [頭文字D, Stage2]
-[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
-[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Stage3", attempt 1/5)
-[Match Found - Fallback] Syobocal: "頭文字D Stage3" fell back to first result TID 397
-[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
-[API Request] Syobocal: fetching for query "頭文字D" (Full: "頭文字D Extra Stage", attempt 1/5)
-[Match Found - All Keywords] Syobocal: "頭文字D Extra Stage" matched TID 2354 (OVA 頭文字D Extra Stage インパクトブルーの彼方に…) with keywords [頭文字D, Extra, Stage]
-[Cache Hit] AniList: "頭文字D" -> アクション, ドラマ, スポーツ
-
-・検索結果リスト：
-TID    分類    音    放映期間    評価    シリーズ    ジャンル        音    放映年月    評価    タイトル    話数    状態
-7293    アニメ（一般）    あ    202501～202501    ★★★☆☆    悪役令嬢転生おじさん    コメディ, ファンタジー        あ    202501    ★★★☆☆    悪役令嬢転生おじさん    12    🟢
-7329    アニメ（一般）    あ    202501～202501    ★★★☆☆    空色ユーティリティ(2025)    -        あ    202501    ★★★☆☆    空色ユーティリティ(2025)    12    🟢
-7361    アニメ（一般）    あ    202504～202504    ★★★★☆    ある魔女が死ぬまで    アドベンチャー, ドラマ, ファンタジー        あ    202504    ★★★★☆    ある魔女が死ぬまで    12    🟢
-7382    アニメ（一般）    あ    202504～202504    ★★★☆☆    アポカリプスホテル    コメディ, SF, 日常・ほのぼの        あ    202504    ★★★☆☆    アポカリプスホテル    12    🟢
-7356    アニメ（一般）    あ    202504～202504    ★★★☆☆    アン・シャーリー    ドラマ, 日常・ほのぼの        あ    202504    ★★★☆☆    アン・シャーリー    24    🟢
--    アニメ（一般）    あ    202507～202507    ★★★☆☆    雨と君と    コメディ, 日常・ほのぼの        あ    202507    ★★★☆☆    雨と君と    12    🟢
--    アニメ（一般）    あ    202510～202510    ★★★★☆    暗殺者である俺のステータスが勇者よりも明らかに強いのだが    アクション, アドベンチャー, ファンタジー        あ    202510    ★★★★☆    暗殺者である俺のステータスが勇者よりも明らかに強いのだが    12    🟢
--    アニメ（一般）    あ    202510～202510    ★★★☆☆    ある日、お姫様になってしまった件について    コメディ, ファンタジー, 恋愛・ラブコメ        あ    202510    ★★★☆☆    ある日、お姫様になってしまった件について    16    🟢
--    アニメ（一般）    あ    202510～202510    ★★★☆☆    アルマちゃんは家族になりたい    コメディ, 恋愛・ラブコメ, SF, 日常・ほのぼの        あ    202510    ★★★☆☆    アルマちゃんは家族になりたい    11    🟢
--    アニメ（一般）    あ    202510～202510    ★★★☆☆    悪食令嬢と狂血公爵    ファンタジー, 恋愛・ラブコメ        あ    202510    ★★★☆☆    悪食令嬢と狂血公爵    12    🟢
--    アニメ（一般）    あ    202601～202601    ★★★☆☆    アルネの事件簿    ミステリー        あ    202601    ★★★☆☆    アルネの事件簿    12    🟢
--    アニメ（一般）    あ    202601～202601    ★★★☆☆    アンドロイドは経験人数に入りますか？？    コメディ, エッチ, 恋愛・ラブコメ, SF        あ    202601    ★★★☆☆    アンドロイドは経験人数に入りますか？？    8    🟢
--    アニメ（一般）    あ    202601～202601    ★★★☆☆    悪役令嬢は隣国の王太子に溺愛される    ファンタジー, 恋愛・ラブコメ        あ    202601    ★★★☆☆    悪役令嬢は隣国の王太子に溺愛される    12    🟢
--    アニメ（一般）    あ    202601～202601    ★★★☆☆    有栖川煉ってホントは女なんだよね。    コメディ, ドラマ, 成人向け        あ    202601    ★★★☆☆    有栖川煉ってホントは女なんだよね。    9    🟢
--    アニメ（一般）    あ    202604～202604    ★★★★☆    あかね噺    ドラマ        あ    202604    ★★★★☆    あかね噺    12    🟢
--    アニメ（一般）    あ    202604～202604    ★★★☆☆    愛してるゲームを終わらせたい    コメディ, 恋愛・ラブコメ, 日常・ほのぼの        あ    202604    ★★★☆☆    愛してるゲームを終わらせたい    12    🟢
--    アニメ（一般）    あ    202604～202604    ★★★☆☆    淡島百景    ドラマ, 音楽, 恋愛・ラブコメ        あ    202604    ★★★☆☆    淡島百景    12    🟢
--    アニメ（一般）    あ    202610～202610    ★★★☆☆    蒼き伝承 ウェルシュ＆シェダー    -        あ    202610    ★★★☆☆    蒼き伝承 ウェルシュ＆シェダー    3    🟢
--    アニメ（一般）    い    199701～199810    ★★★★☆    EAT-MAN    アクション, アドベンチャー, SF        い    199701    ★★★★☆    EAT-MAN    12    🟢
--    アニメ（一般）    い    199701～199810    ★★★★☆    EAT-MAN    アクション, アドベンチャー, SF        い    199810    ★★★★☆    EAT-MAN'98    12    🟢
-397    アニメ（一般）    い    199804～201707    ★★★★☆    頭文字D    アクション, ドラマ, スポーツ        い    199804    ★★★☆☆    頭文字D Stage1    26    🟢
-2355    アニメ（一般）    い    199804～201707    ★★★★☆    頭文字D    アクション, ドラマ, スポーツ        い    199910    ★★★☆☆    頭文字D Stage2    13    🟢
-397    アニメ（一般）    い    199804～201707    ★★★★☆    頭文字D    アクション, ドラマ, スポーツ        い    200011    ★★★☆☆    頭文字D Stage3    1    🟢
-
-
-// しょぼいカレンダーからTIDを取得する内部関数
-async function fetchSyobocalTid(name) {
-    if (!name) return '-';
-
-    // 1. 同一条件（同じ名前）ですでに結果があればそれを利用
-    if (syobocalCache.has(name)) {
-        console.log(`[Cache Hit] Syobocal: "${name}" -> TID: ${syobocalCache.get(name)}`);
-        return syobocalCache.get(name);
-    }
-
-    // 全角・半角スペースで分割し、空文字を除外して先頭のキーワードを取得
-    const keywords = name.trim().split(/[\s\u3000]+/).filter(Boolean);
-    if (keywords.length === 0) {
-        console.log(`[Keyword Empty] Syobocal: No valid keywords for "${name}"`);
-        syobocalCache.set(name, '-');
-        return '-';
-    }
-
-    const firstKeyword = keywords[0]; // 例: "ウマ娘 プリティーダービー Season 3" -> "ウマ娘"
-    const encodedSearch = encodeURIComponent(firstKeyword);
-    const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodedSearch}`;
-
-    const maxRetries = 5;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            // リクエスト前に共通のスロットリング（ウェイト）を適用
-            await throttleApiCall('Syobocal');
-            console.log(`[API Request] Syobocal: fetching for query "${firstKeyword}" (Full: "${name}", attempt ${attempt}/${maxRetries})`);
-
-            const response = await fetch(url);
-
-            // 429 エラー (Rate Limit) の場合
-            if (response.status === 429) {
-                if (attempt < maxRetries) {
-                    console.warn(`[RateLimit Hit] Syobocal API Error: HTTP 429 (attempt ${attempt}/${maxRetries}). Waiting 30s...`);
-                    await delay(30000);
-                    continue;
-                } else {
-                    console.error(`[RateLimit Max] Syobocal API Error: HTTP 429 for "${name}" after max retries.`);
-                    break;
-                }
-            }
-
-            // 429 以外のエラーレスポンスの場合
-            if (!response.ok) {
-                console.warn(`[API Error] Syobocal API Error: HTTP ${response.status} for "${name}"`);
-                syobocalCache.set(name, '-');
-                return '-';
-            }
-
-            const data = await response.json();
-            // レスポンスが null または Titles が存在しない・空の場合はアンマッチ
-            if (!data || !data.Titles || Object.keys(data.Titles).length === 0) {
-                console.log(`[API Empty] Syobocal: No titles matched for query "${firstKeyword}"`);
-                syobocalCache.set(name, '-');
-                return '-';
-            }
-
-            const titles = data.Titles;
-            const normalizedFullName = normalizeString(name);
-
-            // 1. フル検索キーワードと完全一致するタイトルを判定 (Title または ShortTitle)
-            for (const tid in titles) {
-                const item = titles[tid];
-                if (
-                    normalizeString(item.Title) === normalizedFullName ||
-                    normalizeString(item.ShortTitle) === normalizedFullName
-                ) {
-                    console.log(`[Match Found - Exact] Syobocal: "${name}" matched TID ${tid} (${item.Title})`);
-                    syobocalCache.set(name, tid);
-                    return tid;
-                }
-            }
-
-            // 2. 完全一致がない場合、全単語（スペース区切りの全キーワード）を含むタイトルを抽出
-            for (const tid in titles) {
-                const item = titles[tid];
-                const targetTitle = normalizeString(item.Title);
-                const targetShort = normalizeString(item.ShortTitle);
-                
-                const matchesAll = keywords.every(kw => {
-                    const normKw = normalizeString(kw);
-                    return targetTitle.includes(normKw) || targetShort.includes(normKw);
-                });
-
-                if (matchesAll) {
-                    console.log(`[Match Found - All Keywords] Syobocal: "${name}" matched TID ${tid} (${item.Title}) with keywords [${keywords.join(', ')}]`);
-                    syobocalCache.set(name, tid);
-                    return tid;
-                }
-            }
-
-            // 3. 全単語ヒットもない場合、先頭要素（最初に見つかった検索結果）のTIDをフォールバックとして採用
-            const firstResultTid = Object.keys(titles)[0] || '-';
-            console.log(`[Match Found - Fallback] Syobocal: "${name}" fell back to first result TID ${firstResultTid}`);
-            syobocalCache.set(name, firstResultTid);
-            return firstResultTid;
-
-        } catch (error) {
-            console.error(`[Network Error] Syobocal API error for "${name}":`, error);
-            if (attempt === maxRetries) break;
-            await delay(3000);
-        }
-    }
-
-    // 失敗時も空結果としてキャッシュして無駄な再リクエストを防ぐ
-    syobocalCache.set(name, '-');
-    return '-';
-}
-
-## 2026-10-XX Ver1.XX.0 しょぼいカレンダーAPIへのリクエスト回数を軽減する処理を追加。
-### 下記ロジックでしょぼいカレンダーAPIへのリクエスト回数を軽減する処理を追加実装。
-    ・前回リクエストと今回リクエストのシリーズ名が異なる場合：
-        ・保持レスポンス（メモリキャッシュ）をクリア。
-        ・シリーズ名でリクエスト。
-        ・返却されたレスポンス（先頭から１０件）を保持レスポンスに追加。
-    ・前回リクエストと今回リクエストのシリーズ名が同じ場合：
-        ・保持レスポンスにタイトル名が存在する場合：
-            ・保持レスポンスからTIDを取得し返却
-        ・保持レスポンスにタイトル名が存在しない場合：
-            ・タイトル名でリクエスト。
-            ・返却されたレスポンスにタイトル名が存在する場合：
-                ・返却されたレスポンスからTIDを取得し返却
-                ・返却されたレスポンス（先頭から１０件）を保持レスポンスに追加。
-            ・返却されたレスポンスにタイトル名が存在しない場合："-"を返却
-    ※現在実装されている下記処理は現状維持
-        ・「スペース分割して先頭文字列でリクエスト」する処理。
-        ・429エラー時のリトライ。
-        ・連続リクエスト防止用の待機処理
-
-### 「修正に向けた具体的なアプローチ」を全て実施してください。
-    ・関数の引数の拡張async function fetchSyobocalTid(seriesName, titleName) のように、シリーズ名とタイトル名を明示的に受け取るようにする。
-    ・シリーズ名変更時のキャッシュクリア
-    ・同シリーズ時のタイトル名チェック
-
+## ジャンルにタグ追加
+const TAG_MAP = {
+    "4-koma": "4コマ",
+    "Achromatic": "モノクロ・無彩色",
+    "Achronological Order": "時系列順不同",
+    "Acrobatics": "アクロバット",
+    "Acting": "演劇・演技",
+    "Adoption": "養子・養親",
+    "Advertisement": "広告",
+    "Afterlife": "死後の世界・冥界",
+    "Age Gap": "年の差",
+    "Age Regression": "年齢退行・子供返り",
+    "Agender": "エイジェンダー",
+    "Agriculture": "農業",
+    "Ahegao": "アヘ顔",
+    "Airsoft": "サバイバルゲーム",
+    "Alchemy": "錬金術",
+    "Aliens": "宇宙人・エイリアン",
+    "Alternate Universe": "平行世界・異世界",
+    "American Football": "アメリカンフットボール",
+    "Amnesia": "記憶喪失",
+    "Amputation": "切断",
+    "Anachronism": "時代錯誤",
+    "Anal Sex": "アナルセックス",
+    "Ancient China": "古代中国",
+    "Angels": "天使",
+    "Animals": "動物",
+    "Anthology": "アンソロジー",
+    "Anthropomorphism": "擬人化",
+    "Anti-Hero": "アンチヒーロー",
+    "Archery": "アーチェリー・弓道",
+    "Armpits": "脇",
+    "Aromantic": "アロマンティック",
+    "Arranged Marriage": "政略結婚・お見合い",
+    "Artificial Intelligence": "人工知能・AI",
+    "Asexual": "アセクシャル",
+    "Ashikoki": "足コキ",
+    "Asphyxiation": "窒息",
+    "Assassins": "暗殺者",
+    "Astronomy": "天文学",
+    "Athletics": "陸上競技",
+    "Augmented Reality": "拡張現実・AR",
+    "Autobiographical": "自伝的",
+    "Aviation": "航空・飛行",
+    "Badminton": "バドミントン",
+    "Ballet": "バレエ",
+    "Band": "バンド",
+    "Bar": "バー",
+    "Baseball": "野球",
+    "Basketball": "バスケットボール",
+    "Battle Royale": "バトルロイヤル",
+    "Biographical": "伝記",
+    "Bisexual": "バイセクシャル",
+    "Blackmail": "脅迫",
+    "Board Game": "ボードゲーム",
+    "Boarding School": "全寮制学校",
+    "Body Horror": "ボディホラー",
+    "Body Image": "ボディイメージ・容姿",
+    "Body Swapping": "身体入れ替わり",
+    "Bondage": "拘束・ボンテージ",
+    "Boobjob": "パイズリ",
+    "Bowling": "ボウリング",
+    "Boxing": "ボクシング",
+    "Boys' Love": "ボーイズラブ・BL",
+    "Brainwashing": "洗脳",
+    "Bullying": "いじめ",
+    "Butler": "執事",
+    "Calligraphy": "書道",
+    "Camping": "キャンプ",
+    "Cannibalism": "人食い・カニバリズム",
+    "Card Battle": "カードバトル",
+    "Cars": "自動車",
+    "Centaur": "ケンタウロス",
+    "Cervix Penetration": "子宮口突き",
+    "CGI": "CGI・3DCG",
+    "Cheating": "浮気・不倫",
+    "Cheerleading": "チアリーダー",
+    "Chibi": "ちびキャラ",
+    "Chimera": "キメラ",
+    "Chuunibyou": "中二病",
+    "Circus": "サーカス",
+    "Class Struggle": "階級闘争",
+    "Classic Literature": "古典文学",
+    "Classical Music": "クラシック音楽",
+    "Clone": "クローン",
+    "Coastal": "沿岸・海岸",
+    "Cohabitation": "同居",
+    "College": "大学",
+    "Coming of Age": "成長物語・青春",
+    "Conspiracy": "陰謀",
+    "Cosmic Horror": "コズミックホラー",
+    "Cosplay": "コスプレ",
+    "Cowboys": "カウボーイ",
+    "Creature Taming": "魔物使い・モンスターテイマー",
+    "Crime": "犯罪",
+    "Criminal Organization": "犯罪組織",
+    "Crossdressing": "男装・女装",
+    "Crossover": "クロスオーバー",
+    "Cult": "カルト",
+    "Cultivation": "仙侠・修真",
+    "Cumflation": "中出し妊娠膨張",
+    "Cunnilingus": "クンニリングス",
+    "Curses": "呪い",
+    "Cute Boys Doing Cute Things": "可愛い男の子たちの日常",
+    "Cute Girls Doing Cute Things": "日常系・可愛い女の子たち",
+    "Cyberpunk": "サイバーパンク",
+    "Cyborg": "サイボーグ",
+    "Cycling": "サイクリング・自転車",
+    "Dancing": "ダンス",
+    "Death Game": "デスゲーム",
+    "Deepthroat": "ディープスロート",
+    "Defloration": "処女喪失",
+    "Delinquents": "不良",
+    "Demons": "悪魔",
+    "Denpa": "電波系",
+    "Desert": "砂漠",
+    "Detective": "探偵",
+    "DILF": "DILF（魅力的な中年男性）",
+    "Dinosaurs": "恐竜",
+    "Disability": "障害",
+    "Dissociative Identities": "多重人格・解離性障害",
+    "Double Penetration": "ダブルピストン・DP",
+    "Dragons": "ドラゴン",
+    "Drawing": "絵画・お絵描き",
+    "Drugs": "薬物",
+    "Dullahan": "デュラハン",
+    "Dungeon": "ダンジョン",
+    "Dystopian": "ディストピア",
+    "E-Sports": "eスポーツ",
+    "Eco-Horror": "エコホラー",
+    "Economics": "経済",
+    "Educational": "教育的",
+    "Elderly Protagonist": "高齢の主人公",
+    "Elf": "エルフ",
+    "Ensemble Cast": "群像劇",
+    "Environmental": "環境問題",
+    "Episodic": "一話完結型・オムニバス",
+    "Ero Guro": "エログロ",
+    "Erotic Piercings": "エロティックピアス",
+    "Espionage": "スパイ・諜報",
+    "Estranged Family": "確執のある家族",
+    "Exhibitionism": "露出症",
+    "Exiled": "追放",
+    "Exorcism": "悪魔払い・除霊",
+    "Facial": "顔射",
+    "Fairy": "妖精",
+    "Fairy Tale": "おとぎ話",
+    "Fake Relationship": "偽りの関係",
+    "Family Life": "家族生活",
+    "Fashion": "ファッション",
+    "Feet": "足フェティシズム",
+    "Fellatio": "フェラチオ",
+    "Female Harem": "女性向けハーレム・逆ハーレム",
+    "Female Protagonist": "女性主人公",
+    "Femboy": "フェムボーイ・女装男子",
+    "Femdom": "フェムドム・女王様",
+    "Fencing": "フェンシング",
+    "Filmmaking": "映画制作",
+    "Fingering": "フィンガーリング",
+    "Firefighters": "消防士",
+    "Fishing": "釣り",
+    "Fisting": "フィストファック",
+    "Fitness": "フィットネス",
+    "Flash": "フラッシュアニメ",
+    "Flat Chest": "貧乳・絶壁",
+    "Food": "料理・グルメ",
+    "Football": "サッカー",
+    "Foreign": "外国",
+    "Found Family": "血縁を超えた家族・擬似家族",
+    "Fugitive": "逃亡者",
+    "Full CGI": "フルCGI・フル3DCG",
+    "Full Color": "フルカラー",
+    "Futanari": "ふたなり",
+    "Gambling": "ギャンブル",
+    "Gangs": "ギャング・暴走族",
+    "Gekiga": "劇画",
+    "Gender Bending": "性転換",
+    "Ghost": "幽霊",
+    "Go": "囲碁",
+    "Goblin": "ゴブリン",
+    "Gods": "神々",
+    "Golf": "ゴルフ",
+    "Gore": "グロテスク・流血",
+    "Graduation Project": "卒業制作",
+    "Group Sex": "乱交",
+    "Guns": "銃器",
+    "Gyaru": "ギャル",
+    "Hair Pulling": "髪を引っ張る行為",
+    "Handball": "ハンドボール",
+    "Handjob": "手コキ",
+    "Henshin": "変身",
+    "Heterosexual": "異性愛",
+    "Hikikomori": "引きこもり",
+    "Hip-hop Music": "ヒップホップ",
+    "Historical": "歴史・時代劇",
+    "Homeless": "ホームレス",
+    "Horticulture": "園芸・栽培",
+    "Human Experimentation": "人体実験",
+    "Human Pet": "人間ペット",
+    "Hypersexuality": "過剰性欲",
+    "Ice Sports": "アイススポーツ",
+    "Idol": "アイドル",
+    "Incest": "近親相姦",
+    "Indigenous Cultures": "先住民族文化",
+    "Inn": "旅館・宿屋",
+    "Inseki": "いんせき・隕石",
+    "Interspecies": "異種間恋愛",
+    "Irrumatio": "イラマチオ",
+    "Isekai": "異世界",
+    "Iyashikei": "癒し系",
+    "Jazz Music": "ジャズ",
+    "Josei": "女性向け",
+    "Judo": "柔道",
+    "Kabuki": "歌舞伎",
+    "Kaiju": "怪獣",
+    "Karuta": "かるた",
+    "Kemonomimi": "ケモノ耳",
+    "Kids": "子供向け",
+    "Kingdom Management": "国家運営",
+    "Konbini": "コンビニ",
+    "Kuudere": "クーデレ",
+    "Lacrosse": "ラクロス",
+    "Lactation": "母乳・搾乳",
+    "Language Barrier": "言葉の壁",
+    "Large Breasts": "巨乳",
+    "LGBTQ+ Themes": "LGBTQ+テーマ",
+    "Long Strip": "縦スクロールマンガ",
+    "Lost Civilization": "失われた文明",
+    "Love Triangle": "三角関係",
+    "Mafia": "マフィア",
+    "Magic": "魔法",
+    "Mahjong": "麻雀",
+    "Maids": "メイド",
+    "Makeup": "メイクアップ",
+    "Male Harem": "男性向けハーレム",
+    "Male Pregnancy": "男の妊娠",
+    "Male Protagonist": "男性主人公",
+    "Manzai": "漫才",
+    "Marriage": "結婚",
+    "Martial Arts": "武術・格闘技",
+    "Masochism": "マゾヒズム",
+    "Masturbation": "マスターベーション",
+    "Matchmaking": "お見合い・縁談",
+    "Mating Press": "マッティングプレス",
+    "Matriarchy": "母系社会",
+    "Medicine": "医学・医療",
+    "Medieval": "中世",
+    "Memory Manipulation": "記憶操作",
+    "Mermaid": "人魚",
+    "Meta": "メタフィクション",
+    "Metal Music": "ヘヴィメタル",
+    "Middle East": "中東",
+    "MILF": "MILF（魅力的な母親）",
+    "Military": "ミリタリー・軍事",
+    "Mixed Gender Harem": "男女混合ハーレム",
+    "Mixed Media": "メディアミックス",
+    "Modeling": "モデル",
+    "Monster Boy": "モンスター少年",
+    "Monster Girl": "モンスター娘",
+    "Mopeds": "原付バイク",
+    "Motorcycles": "バイク・オートバイ",
+    "Mountaineering": "登山",
+    "Musical Theater": "ミュージカル",
+    "Mythology": "神話",
+    "Nakadashi": "中出し",
+    "Natural Disaster": "自然災害",
+    "Necromancy": "死霊術・ネクロマンシー",
+    "Nekomimi": "猫耳",
+    "Netorare": "寝取られ・NTR",
+    "Netorase": "寝取らせ",
+    "Netori": "寝取り",
+    "Ninja": "忍者",
+    "No Dialogue": "セリフなし",
+    "Noir": "フィルム・ノワール",
+    "Non-fiction": "ノンフィクション",
+    "Nudity": "ヌード・露出",
+    "Nun": "修女・シスター",
+    "Office": "オフィス・職場",
+    "Office Lady": "OL（オフィスレディ）",
+    "Oiran": "花魁",
+    "Ojou-sama": "お嬢様",
+    "Omegaverse": "オメガバース",
+    "Orphan": "孤児",
+    "Otaku Culture": "オタクカルチャー",
+    "Outdoor Activities": "アウトドア活動",
+    "Oyakodon": "親子丼（性的表現）",
+    "Pandemic": "パンデミック",
+    "Parenthood": "子育て・育児",
+    "Parkour": "パルクール",
+    "Parody": "パロディ",
+    "Pet Play": "ペットプレイ",
+    "Philosophy": "哲学",
+    "Photography": "写真",
+    "Pirates": "海賊",
+    "Poker": "ポーカー",
+    "Police": "警察",
+    "Politics": "政治",
+    "Polyamorous": "ポリアモリー",
+    "Post-Apocalyptic": "終末世界・ポスト・アポカリプス",
+    "POV": "一人称視点・POV",
+    "Pregnancy": "妊娠",
+    "Primarily Adult Cast": "成人メインの登場人物",
+    "Primarily Animal Cast": "動物メインの登場人物",
+    "Primarily Child Cast": "子供メインの登場人物",
+    "Primarily Female Cast": "女性メインの登場人物",
+    "Primarily Male Cast": "男性メインの登場人物",
+    "Primarily Teen Cast": "十代メインの登場人物",
+    "Prison": "刑務所・獄中",
+    "Prophecy": "予言",
+    "Prostitution": "売春",
+    "Proxy Battle": "代理戦争",
+    "Psychosexual": "心理性的",
+    "Public Sex": "野外露出・公共の場の性行為",
+    "Puppetry": "人形劇",
+    "Rakugo": "落語",
+    "Rape": "レイプ",
+    "Real Robot": "リアルロボット",
+    "Rehabilitation": "更生",
+    "Reincarnation": "転生",
+    "Religion": "宗教",
+    "Rescue": "救助",
+    "Restaurant": "飲食店・レストラン",
+    "Revenge": "復讐",
+    "Reverse Isekai": "逆異世界転移",
+    "Rimjob": "アナル舐め・リムジョブ",
+    "Robots": "ロボット",
+    "Rock Music": "ロック音楽",
+    "Rotoscoping": "ロトスコープ",
+    "Royal Affairs": "王室・皇室のゴシップ",
+    "Rugby": "ラグビー",
+    "Rural": "田舎",
+    "Sadism": "サディズム",
+    "Samurai": "侍",
+    "Satire": "風刺",
+    "Scat": "スカトロジー",
+    "School": "学校・学園",
+    "School Club": "部活動",
+    "Scissoring": "シザーリング",
+    "Scuba Diving": "スキューバダイビング",
+    "Seinen": "青年向け",
+    "Sex Toys": "セックスおもちゃ",
+    "Shapeshifting": "変身能力・シェイプシフト",
+    "Shimaidon": "姉妹丼",
+    "Ships": "船舶",
+    "Shogi": "将棋",
+    "Short-Form Chapter": "ショートチャプター",
+    "Shoujo": "少女向け",
+    "Shounen": "少年向け",
+    "Shrine Maiden": "巫女",
+    "Sixty-nine": "シックスティナイン",
+    "Skateboarding": "スケートボード",
+    "Skeleton": "スケルトン・骸骨",
+    "Slapstick": "スラップスティック・ドタバタ",
+    "Slavery": "奴隷制",
+    "Snowscape": "雪景色",
+    "Software Development": "ソフトウェア開発",
+    "Space": "宇宙",
+    "Space Opera": "スペースオペラ",
+    "Spearplay": "槍術",
+    "Squirting": "潮吹き",
+    "Steampunk": "スチームパンク",
+    "Stop Motion": "ストップモーション",
+    "Strap-on": "張形・ストラップオン",
+    "Succubus": "サキュバス",
+    "Suicide": "自殺",
+    "Sumata": "素股",
+    "Sumo": "相撲",
+    "Super Power": "超能力",
+    "Super Robot": "スーパーロボット",
+    "Superhero": "スーパーヒーロー",
+    "Surfing": "サーフィン",
+    "Surreal Comedy": "シュールギャグ・不条理コメディ",
+    "Survival": "サバイバル",
+    "Swapping": "スワッピング",
+    "Sweat": "汗",
+    "Swimming": "水泳",
+    "Swordplay": "剣術",
+    "Table Tennis": "卓球",
+    "Tanks": "戦車",
+    "Tanned Skin": "日焼け肌",
+    "Teacher": "教師",
+    "Teens' Love": "ティーンズラブ・TL",
+    "Tennis": "テニス",
+    "Tentacles": "触手",
+    "Terrorism": "テロリズム",
+    "Threesome": "スリーサム",
+    "Time Loop": "タイムループ",
+    "Time Manipulation": "時間操作",
+    "Time Skip": "時間経過・タイムスキップ",
+    "Tokusatsu": "特撮",
+    "Tomboy": "ボーイッシュ・お転婆",
+    "Torture": "拷問",
+    "Tragedy": "悲劇",
+    "Trains": "鉄道・電車",
+    "Transgender": "トランスジェンダー",
+    "Travel": "旅行",
+    "Triads": "三合会・マフィア",
+    "Tsundere": "ツンデレ",
+    "Twins": "双子",
+    "Unrequited Love": "片思い",
+    "Urban": "都会・アーバン",
+    "Urban Fantasy": "都市ファンタジー",
+    "Vampire": "吸血鬼・ヴァンパイア",
+    "Vertical Video": "縦型動画",
+    "Veterinarian": "獣医師",
+    "Video Games": "ビデオゲーム",
+    "Vikings": "バイキング",
+    "Villainess": "悪役令嬢",
+    "Virginity": "処女・童貞",
+    "Virtual World": "仮想世界",
+    "Vocal Synth": "歌声合成ソフト・ボカロ",
+    "Volleyball": "バレーボール",
+    "Vore": "ヴォア",
+    "Voyeur": "覗き見・ヴォワイアント",
+    "VTuber": "VTuber",
+    "War": "戦争",
+    "Watersports": "ウォータースポーツ・聖水プレイ",
+    "Werewolf": "人狼",
+    "Wilderness": "大自然・荒野",
+    "Witch": "魔女",
+    "Work": "仕事・職場",
+    "Wrestling": "プロレス・レスリング",
+    "Writing": "執筆",
+    "Wuxia": "武侠",
+    "Yakuza": "ヤクザ・極道",
+    "Yandere": "ヤンデレ",
+    "Youkai": "妖怪",
+    "Yuri": "百合",
+    "Zombie": "ゾンビ",
+    "Zoophilia": "動物性愛"
+};
