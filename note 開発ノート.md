@@ -1177,3 +1177,796 @@ async function fetchSyobocalTid(name) {
     ・シリーズ名変更時のキャッシュクリア
     ・同シリーズ時のタイトル名チェック
 
+### しょぼいカレンダーAPIからまとめて「TID」取得する変更
+- 現在、１タイトルに対して１リクエストを実施しているためレートリミット制限になってしまう。
+- この問題の対応するためリクエスト方法を変更：
+    - しょぼいカレンダーAPI：
+        - タイトル単位の「TID」取得のリクエストを廃止。
+        - 検索アクション時に１回、「TID」を取得するため下記URLで全タイトルを１リクエストでまとめて「タイトル」「TID」を取得。
+            https://cal.syoboi.jp/db?Command=TitleLookup&TID=*&Fields=TID,Title
+            レスポンス例：
+            ```html
+            <TitleLookupResponse>
+                <Result>
+                    <Code>200</Code>
+                    <Message/>
+                </Result>
+                <TitleItems>
+                    <TitleItem id="1">
+                    <TID>1</TID>
+                    <Title>魔法遣いに大切なこと</Title>
+                </TitleItem>
+                <TitleItem id="2">
+                    <TID>2</TID>
+                    <Title>ソニックＸ</Title>
+                </TitleItem>
+                <TitleItem id="3">
+                    <TID>3</TID>
+                    <Title>デ・ジ・キャラットにょ</Title>
+                </TitleItem>
+                <TitleItem id="1224">
+                    <TID>1224</TID>
+                    <Title>魔法先生ネギま！(実写版)</Title>
+                </TitleItem>
+                <TitleItem id="3601">
+                    <TID>3601</TID>
+                    <Title>新妹魔王の契約者</Title>
+                </TitleItem>
+                <TitleItem id="3588">
+                    <TID>3588</TID>
+                    <Title>アイドルマスター シンデレラガールズ</Title>
+                </TitleItem>
+                
+                省略
+                
+            </TitleLookupResponse>
+            ```
+        - 取得した「タイトル」「TID」を使ってマッチングし「TID」を特定
+        - 429、530HTTPエラーの対応は現状を維持
+    - AniListAPI：
+        - 現状維持
+
+#### 修正前ロジック：
+##### -- main.js ----------------------------------------------------------
+```js
+const MIN_API_INTERVAL = 2000;          // 最低2sの間隔を空けてサーバー負荷を抑制
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const aniListCache = new Map();         // リクエスト結果のキャッシュ：key: seriesName, value: genre
+const syobocalCache = new Map();        // リクエスト結果のキャッシュ：key: titleName, value: tid
+
+let currentCancelToken = null;          // キャンセル状態を管理するマップまたは変数
+let lastApiCallTime = 0;                // レートリミット管理用変数
+let lastSyobocalSeriesName = null;      // シリーズ名ベースのキャッシュおよび状態管理用
+let isAniListRateLimited = false;       // AniListAPIアクセス制限フラグ
+let isSyobocalRateLimited = false;      // しょぼいカレンダーAPIアクセス制限フラグ
+
+async function throttleApiCall(apiName = 'API') {
+    const now = Date.now();
+    const elapsed = now - lastApiCallTime;
+    if (elapsed < MIN_API_INTERVAL) {
+        const waitTime = MIN_API_INTERVAL - elapsed;
+        await delay(waitTime);
+    }
+    lastApiCallTime = Date.now();
+}
+
+// 高速再検索 / 同期（初回スキャン兼用版）
+ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) => {
+    const cancelToken = { canceled: false };
+    currentCancelToken = cancelToken;
+
+    // ★ 検索・再検索実行時にフラグをfalseでクリア
+    isAniListRateLimited = false;
+    isSyobocalRateLimited = false;
+
+    try {
+        const existingMap = new Map();
+        if (Array.isArray(existingItems)) {
+            existingItems.forEach(item => {
+                existingMap.set(item.filePath, item);
+            });
+        }
+
+        const playlistItems = await collectPlaylists(rootDir);
+        const total = playlistItems.length;
+        const results = [];
+        let current = 0;
+
+        for (const item of playlistItems) {
+            if (cancelToken.canceled) {
+                throw new Error('Canceled');
+            }
+
+            current++;
+            const { filePath, seriesInfo } = item;
+            const fileName = path.basename(filePath);
+
+            event.sender.send('scan:progress', {
+                current,
+                total,
+                message: `( ${current} / ${total} ) ${fileName}`
+            });
+
+            let fileStat;
+            try {
+                fileStat = await fs.stat(filePath);
+            } catch (e) {
+                continue;
+            }
+            const fileMtime = fileStat.mtimeMs;
+
+            const cachedItem = existingMap.get(filePath);
+
+            const baseFileName = path.basename(filePath, '.amppl');
+            const parsedTitle = parseTitleInfo(baseFileName);
+
+            const ampplContent = await fs.readFile(filePath, 'utf-8');
+            const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
+            const episodeCount = lines.length;
+
+            const lowerPath = filePath.toLowerCase();
+            const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
+
+            // --- プレフィックス除去用のヘルパー関数 ---
+            const removePrefix = (str) => {
+                let cleaned = str;
+                cleaned = cleaned.replace(/^[ぁ-んァ-ン]_/, '');           // 50音＋ "_"
+                cleaned = cleaned.replace(/^[\d\s～〜年月日]+_/, '');        // 放映期間＋ "_"
+                cleaned = cleaned.replace(/^[★☆]+_/, '');                 // 評価＋ "_"
+                return cleaned;
+            };
+
+            // --- 「分類」および「シリーズ情報」の算出ロジック ---
+            const relativePath = path.relative(rootDir, seriesInfo.folderPath);
+            const pathSegments = relativePath.split(path.sep).filter(Boolean);
+            
+            let category;
+            let rawFolderName;
+
+            if (pathSegments.length === 0) {
+                const rootFolderName = path.basename(rootDir);
+                category = removePrefix(rootFolderName);
+                rawFolderName = rootFolderName;
+            } else {
+                category = pathSegments[0];
+                rawFolderName = path.basename(seriesInfo.folderPath);
+            }
+
+            let seriesName = removePrefix(rawFolderName);
+
+            let genre = cachedItem ? cachedItem.genre : null;
+            let tid = cachedItem ? cachedItem.tid : null;
+            let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
+
+            const isMtimeUnchanged = cachedItem && 
+                                     cachedItem.folderMtime === seriesInfo.folderMtime && 
+                                     cachedItem.fileMtime === fileMtime &&
+                                     cachedItem.category === category &&
+                                     cachedItem.seriesName === seriesName;
+
+            const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
+            const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
+            const needsCheckStatus = !cachedItem || !playlistStatus;
+
+            let resultItem;
+            if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
+                resultItem = cachedItem;
+            } else {
+                if (!isAnimePath) {
+                    genre = '-';
+                    tid = '-';
+                } else {
+                    if (needsFetchGenre) {
+                        // ★ AniList制限中の判定：制限中ならキャッシュのジャンル、または '-' を返却
+                        if (isAniListRateLimited) {
+                            genre = cachedItem ? cachedItem.genre : '-';
+                        } else {
+                            genre = await fetchAniListWithFallback(seriesName, event, cachedItem ? cachedItem.genre : '-');
+                        }
+                    }
+                    if (needsFetchTid) {
+                        // ★ しょぼいカレンダー制限中の判定：制限中ならキャッシュのTID、または '-' を返却
+                        if (isSyobocalRateLimited) {
+                            tid = cachedItem ? cachedItem.tid : '-';
+                        } else {
+                            tid = await fetchSyobocalTidWithFallback(seriesName, parsedTitle.titleName, event, cachedItem ? cachedItem.tid : '-');
+                        }
+                    }
+                }
+
+                if (needsCheckStatus || !isMtimeUnchanged) {
+                    playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
+                }
+
+                resultItem = {
+                    id: `${seriesInfo.folderPath}__${filePath}`,
+                    folderPath: seriesInfo.folderPath,
+                    filePath,
+                    folderMtime: seriesInfo.folderMtime,
+                    fileMtime,
+                    tid,
+                    category, 
+                    seriesKana: seriesInfo.seriesKana,
+                    seriesPeriod: seriesInfo.seriesPeriod,
+                    seriesRating: seriesInfo.seriesRating,
+                    seriesName, 
+                    genre,
+                    titleKana: parsedTitle.titleKana,
+                    titleDate: parsedTitle.titleDate,
+                    titleRating: parsedTitle.titleRating,
+                    titleName: parsedTitle.titleName,
+                    episodeCount,
+                    playlistStatus,
+                    isSave: cachedItem ? cachedItem.isSave : false
+                };
+            }
+
+            results.push(resultItem);
+            event.sender.send('scan:item', resultItem);
+        }
+        return results;
+    } catch (error) {
+        if (error.message === 'Canceled') {
+            console.log('Sync/Scan canceled by user.');
+            return { canceled: true };
+        }
+        console.error('Sync/Scan error:', error);
+        throw error;
+    } finally {
+        if (currentCancelToken === cancelToken) {
+            currentCancelToken = null;
+        }
+    }
+});
+
+// しょぼカレンダーTID取得（アンマッチ時に「劇場版」「映画」を除外して再リクエスト）
+async function fetchSyobocalTidWithFallback(seriesName, titleName, event, cachedTid) {
+    if (isSyobocalRateLimited) return cachedTid || '-';
+
+    let tid = await fetchSyobocalTid(seriesName, titleName, event, cachedTid);
+    if (isSyobocalRateLimited) return cachedTid || '-';
+
+    if ((!tid || tid === '-') && (titleName.includes('劇場版') || titleName.includes('映画'))) {
+        const cleanedName = titleName.replace(/劇場版|映画/g, '').trim();
+        if (cleanedName && cleanedName !== titleName) {
+            tid = await fetchSyobocalTid(seriesName, cleanedName, event, cachedTid);
+        }
+    }
+    return tid;
+}
+
+// しょぼいカレンダーからTIDを取得する内部関数（シリーズ名とタイトル名を受け取る）
+async function fetchSyobocalTid(seriesName, titleName, event, cachedTid) {
+    if (isSyobocalRateLimited) {
+        return cachedTid || '-';
+    }
+
+    const effectiveSeriesName = seriesName || titleName;
+    const effectiveTitleName = titleName || seriesName;
+
+    if (!effectiveTitleName) return cachedTid || '-';
+
+    const normalizedTargetTitle = normalizeString(effectiveTitleName);
+
+    if (lastSyobocalSeriesName !== effectiveSeriesName) {
+        syobocalCache.clear();
+        lastSyobocalSeriesName = effectiveSeriesName;
+
+        const titles = await requestSyobocalTitleSearch(effectiveSeriesName, event, cachedTid);
+        if (isSyobocalRateLimited) return cachedTid || '-';
+
+        if (titles) {
+            let count = 0;
+            for (const tid in titles) {
+                if (count >= 10) break;
+                const item = titles[tid];
+                if (item.Title) syobocalCache.set(normalizeString(item.Title), tid);
+                if (item.ShortTitle) syobocalCache.set(normalizeString(item.ShortTitle), tid);
+                count++;
+            }
+        }
+    }
+
+    if (syobocalCache.has(normalizedTargetTitle)) {
+        return syobocalCache.get(normalizedTargetTitle);
+    }
+
+    const titles = await requestSyobocalTitleSearch(effectiveTitleName, event, cachedTid);
+    if (isSyobocalRateLimited) return cachedTid || '-';
+
+    if (titles) {
+        let foundTid = null;
+        let count = 0;
+        for (const tid in titles) {
+            const item = titles[tid];
+            const normTitle = item.Title ? normalizeString(item.Title) : '';
+            const normShort = item.ShortTitle ? normalizeString(item.ShortTitle) : '';
+
+            if (normTitle === normalizedTargetTitle || normShort === normalizedTargetTitle) {
+                if (!foundTid) foundTid = tid;
+            }
+
+            if (count < 10) {
+                if (item.Title) syobocalCache.set(normTitle, tid);
+                if (item.ShortTitle) syobocalCache.set(normShort, tid);
+                count++;
+            }
+        }
+
+        if (foundTid) {
+            return foundTid;
+        }
+    }
+
+    return cachedTid || '-';
+}
+
+// 共通のしょぼいカレンダーAPI検索実行関数（スペース分割・リトライ・スロットリングを維持）
+async function requestSyobocalTitleSearch(queryName, event, cachedTid) {
+    if (!queryName || isSyobocalRateLimited) return null;
+
+    const keywords = queryName.trim().split(/[ \u3000]+/).filter(Boolean);
+    if (keywords.length === 0) return null;
+
+    const searchQueries = [queryName.trim()];
+    if (keywords.length > 1) {
+        searchQueries.push(keywords[0]);
+    }
+
+    const maxRetries = 5;
+
+    for (const searchQuery of searchQueries) {
+        const encodedSearch = encodeURIComponent(searchQuery);
+        const url = `https://cal.syoboi.jp/json.php?Req=TitleSearch&Search=${encodedSearch}`;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await throttleApiCall('Syobocal');
+
+                const response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'xSearchApp/1.0 (DesktopApp)'
+                    }
+                });
+
+                // ★ 530 エラーの場合の制限中処理
+                if (response.status === 530) {
+                    if (!isSyobocalRateLimited) {
+                        isSyobocalRateLimited = true;
+                        event.sender.send('scan:toast', { message: 'しょぼいカレンダーAPI制限中', type: 'error' });
+                        console.warn('SyoboiAPI： 530エラー検知のため制限フラグをtrueに設定しました。');
+                    }
+                    return null;
+                }
+
+                if (response.status === 429) {
+                    if (attempt < maxRetries) {
+                        await delay(30000);
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (!response.ok) {
+                    break;
+                }
+
+                const data = await response.json();
+                if (data && data.Titles && Object.keys(data.Titles).length > 0) {
+                    return data.Titles;
+                }
+                break;
+            } catch (error) {
+                if (attempt === maxRetries) break;
+                await delay(3000);
+            }
+        }
+    }
+    return null;
+}
+```
+
+#### 修正後ロジック：
+##### -- main.js ----------------------------------------------------------
+```js
+const MIN_API_INTERVAL = 2000;          // 最低2sの間隔を空けてサーバー負荷を抑制
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const aniListCache = new Map();         // リクエスト結果のキャッシュ：key: seriesName, value: genre
+
+let currentCancelToken = null;          // キャンセル状態を管理するマップまたは変数
+let lastApiCallTime = 0;                // レートリミット管理用変数
+let isAniListRateLimited = false;       // AniListAPIアクセス制限フラグ
+let isSyobocalRateLimited = false;      // しょぼいカレンダーAPIアクセス制限フラグ
+let syobocalAllTitlesCache = null;      // 全タイトル一括取得用のMap (normalizedTitle -> TID)
+let syobocalAllTitlesFetched = false;   // 全タイトル一括取得用の既に一括取得を行ったかどうかのフラグ
+
+async function throttleApiCall(apiName = 'API') {
+    const now = Date.now();
+    const elapsed = now - lastApiCallTime;
+    if (elapsed < MIN_API_INTERVAL) {
+        const waitTime = MIN_API_INTERVAL - elapsed;
+        await delay(waitTime);
+    }
+    lastApiCallTime = Date.now();
+}
+
+// 高速再検索 / 同期（初回スキャン兼用版）
+ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) => {
+    const cancelToken = { canceled: false };
+    currentCancelToken = cancelToken;
+
+    // 検索・再検索実行時にフラグをクリアし、しょぼカレンダーの一括キャッシュもリセット
+    isAniListRateLimited = false;
+    isSyobocalRateLimited = false;
+    syobocalAllTitlesCache = null;
+    syobocalAllTitlesFetched = false;
+
+    try {
+        const existingMap = new Map();
+        if (Array.isArray(existingItems)) {
+            existingItems.forEach(item => {
+                existingMap.set(item.filePath, item);
+            });
+        }
+
+        const playlistItems = await collectPlaylists(rootDir);
+        const total = playlistItems.length;
+        const results = [];
+        let current = 0;
+
+        for (const item of playlistItems) {
+            if (cancelToken.canceled) {
+                throw new Error('Canceled');
+            }
+
+            current++;
+            const { filePath, seriesInfo } = item;
+            const fileName = path.basename(filePath);
+
+            event.sender.send('scan:progress', {
+                current,
+                total,
+                message: `( ${current} / ${total} ) ${fileName}`
+            });
+
+            let fileStat;
+            try {
+                fileStat = await fs.stat(filePath);
+            } catch (e) {
+                continue;
+            }
+            const fileMtime = fileStat.mtimeMs;
+
+            const cachedItem = existingMap.get(filePath);
+
+            const baseFileName = path.basename(filePath, '.amppl');
+            const parsedTitle = parseTitleInfo(baseFileName);
+
+            const ampplContent = await fs.readFile(filePath, 'utf-8');
+            const lines = ampplContent.split(/\r?\n/).filter(line => line.trim() !== '');
+            const episodeCount = lines.length;
+
+            const lowerPath = filePath.toLowerCase();
+            const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
+
+            // --- プレフィックス除去用のヘルパー関数 ---
+            const removePrefix = (str) => {
+                let cleaned = str;
+                cleaned = cleaned.replace(/^[ぁ-んァ-ン]_/, '');           // 50音＋ "_"
+                cleaned = cleaned.replace(/^[\d\s～〜年月日]+_/, '');        // 放映期間＋ "_"
+                cleaned = cleaned.replace(/^[★☆]+_/, '');                 // 評価＋ "_"
+                return cleaned;
+            };
+
+            // --- 「分類」および「シリーズ情報」の算出ロジック ---
+            const relativePath = path.relative(rootDir, seriesInfo.folderPath);
+            const pathSegments = relativePath.split(path.sep).filter(Boolean);
+            
+            let category;
+            let rawFolderName;
+
+            if (pathSegments.length === 0) {
+                const rootFolderName = path.basename(rootDir);
+                category = removePrefix(rootFolderName);
+                rawFolderName = rootFolderName;
+            } else {
+                category = pathSegments[0];
+                rawFolderName = path.basename(seriesInfo.folderPath);
+            }
+
+            let seriesName = removePrefix(rawFolderName);
+
+            let genre = cachedItem ? cachedItem.genre : null;
+            let tid = cachedItem ? cachedItem.tid : null;
+            let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
+
+            const isMtimeUnchanged = cachedItem && 
+                                     cachedItem.folderMtime === seriesInfo.folderMtime && 
+                                     cachedItem.fileMtime === fileMtime &&
+                                     cachedItem.category === category &&
+                                     cachedItem.seriesName === seriesName;
+
+            const needsFetchGenre = isAnimePath && (!cachedItem || !genre || genre === '-');
+            const needsFetchTid = isAnimePath && (!cachedItem || !tid || tid === '-');
+            const needsCheckStatus = !cachedItem || !playlistStatus;
+
+            let resultItem;
+            if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
+                resultItem = cachedItem;
+            } else {
+                if (!isAnimePath) {
+                    genre = '-';
+                    tid = '-';
+                } else {
+                    if (needsFetchGenre) {
+                        if (isAniListRateLimited) {
+                            genre = cachedItem ? cachedItem.genre : '-';
+                        } else {
+                            genre = await fetchAniListWithFallback(seriesName, event, cachedItem ? cachedItem.genre : '-');
+                        }
+                    }
+                    if (needsFetchTid) {
+                        if (isSyobocalRateLimited) {
+                            tid = cachedItem ? cachedItem.tid : '-';
+                        } else {
+                            // ★ cancelToken を引数として渡す
+                            tid = await fetchSyobocalTidWithBatch(seriesName, parsedTitle.titleName, event, cachedItem ? cachedItem.tid : '-', cancelToken);
+                        }
+                    }
+                }
+
+                if (needsCheckStatus || !isMtimeUnchanged) {
+                    playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
+                }
+
+                resultItem = {
+                    id: `${seriesInfo.folderPath}__${filePath}`,
+                    folderPath: seriesInfo.folderPath,
+                    filePath,
+                    folderMtime: seriesInfo.folderMtime,
+                    fileMtime,
+                    tid,
+                    category, 
+                    seriesKana: seriesInfo.seriesKana,
+                    seriesPeriod: seriesInfo.seriesPeriod,
+                    seriesRating: seriesInfo.seriesRating,
+                    seriesName, 
+                    genre,
+                    titleKana: parsedTitle.titleKana,
+                    titleDate: parsedTitle.titleDate,
+                    titleRating: parsedTitle.titleRating,
+                    titleName: parsedTitle.titleName,
+                    episodeCount,
+                    playlistStatus,
+                    isSave: cachedItem ? cachedItem.isSave : false
+                };
+            }
+
+            results.push(resultItem);
+            event.sender.send('scan:item', resultItem);
+        }
+        return results;
+    } catch (error) {
+        if (error.message === 'Canceled') {
+            console.log('Sync/Scan canceled by user.');
+            return { canceled: true };
+        }
+        console.error('Sync/Scan error:', error);
+        throw error;
+    } finally {
+        if (currentCancelToken === cancelToken) {
+            currentCancelToken = null;
+        }
+    }
+});
+
+// バッチキャッシュを用いたTID特定関数（cancelToken対応）
+async function fetchSyobocalTidWithBatch(seriesName, titleName, event, cachedTid, cancelToken) {
+    if (isSyobocalRateLimited) return cachedTid || '-';
+
+    if (cancelToken && cancelToken.canceled) {
+        throw new Error('Canceled');
+    }
+
+    // まだ全タイトルを取得していない場合は1回だけ取得する
+    if (!syobocalAllTitlesFetched) {
+        syobocalAllTitlesFetched = true;
+        syobocalAllTitlesCache = await requestSyobocalAllTitles(event, cancelToken);
+    }
+
+    if (!syobocalAllTitlesCache || isSyobocalRateLimited) {
+        return cachedTid || '-';
+    }
+
+    const effectiveSeriesName = seriesName || titleName;
+    const effectiveTitleName = titleName || seriesName;
+
+    let tid = searchTidFromCache(effectiveSeriesName, effectiveTitleName, syobocalAllTitlesCache);
+
+    if ((!tid || tid === '-') && (effectiveTitleName.includes('劇場版') || effectiveTitleName.includes('映画'))) {
+        const cleanedName = effectiveTitleName.replace(/劇場版|映画/g, '').trim();
+        if (cleanedName && cleanedName !== effectiveTitleName) {
+            tid = searchTidFromCache(seriesName, cleanedName, syobocalAllTitlesCache);
+        }
+    }
+
+    return tid || cachedTid || '-';
+}
+
+// 全タイトル一括取得関数（AbortController・タイムアウト・キャンセル連動・堅牢XMLパース対応）
+async function requestSyobocalAllTitles(event, cancelToken) {
+    const url = 'https://cal.syoboi.jp/db?Command=TitleLookup&TID=*&Fields=TID,Title';
+    const maxRetries = 5;
+    const timeoutMs = 15000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (cancelToken && cancelToken.canceled) {
+            throw new Error('Canceled');
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            await throttleApiCall('Syobocal');
+
+            if (cancelToken && cancelToken.canceled) {
+                throw new Error('Canceled');
+            }
+
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'xSearchApp/1.0 (DesktopApp)'
+                },
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (response.status === 530) {
+                if (!isSyobocalRateLimited) {
+                    isSyobocalRateLimited = true;
+                    event.sender.send('scan:toast', { message: 'しょぼいカレンダーAPI制限中', type: 'error' });
+                    console.warn('SyoboiAPI： 530エラー検知のため制限フラグをtrueに設定しました。');
+                }
+                return null;
+            }
+
+            if (response.status === 429) {
+                if (attempt < maxRetries) {
+                    await delay(30000);
+                    continue;
+                } else {
+                    break;
+                }
+            }
+
+            if (!response.ok) {
+                console.warn(`SyoboiAPI TitleLookup HTTP error: ${response.status} ${response.statusText}`);
+                break;
+            }
+
+            const xmlText = await response.text();
+            
+            if (!xmlText || !xmlText.trim()) {
+                console.warn('SyoboiAPI: Received empty response body for TitleLookup.');
+                break;
+            }
+
+            const titleMap = parseTitleLookupXml(xmlText);
+            if (titleMap && titleMap.size > 0) {
+                return titleMap;
+            } else {
+                console.warn('SyoboiAPI: TitleLookup returned 0 items or malformed XML structure.');
+            }
+            break;
+        } catch (error) {
+            clearTimeout(timeoutId);
+
+            if (cancelToken && cancelToken.canceled) {
+                throw new Error('Canceled');
+            }
+
+            if (error.name === 'AbortError') {
+                console.warn(`SyoboiAPI TitleLookup request timed out after ${timeoutMs}ms (attempt ${attempt}/${maxRetries})`);
+            } else {
+                console.error(`SyoboiAPI TitleLookup error (attempt ${attempt}/${maxRetries}):`, error);
+            }
+
+            if (attempt === maxRetries) break;
+            await delay(3000);
+        }
+    }
+    return null;
+}
+
+// 堅牢なXMLレスポンスパース関数
+function parseTitleLookupXml(xmlText) {
+    const titleMap = new Map();
+    try {
+        const codeMatch = /<Code>(.*?)<\/Code>/.exec(xmlText);
+        if (codeMatch) {
+            const code = codeMatch[1].trim();
+            if (code !== '200') {
+                const messageMatch = /<Message>(.*?)<\/Message>/.exec(xmlText);
+                const message = messageMatch ? messageMatch[1].trim() : 'Unknown error';
+                console.warn(`SyoboiAPI TitleLookup returned non-200 code: ${code}, Message: ${message}`);
+                return titleMap;
+            }
+        }
+
+        const itemRegex = /<TitleItem[^>]*>([\s\S]*?)<\/TitleItem>/g;
+        const tidRegex = /<TID>(.*?)<\/TID>/;
+        const titleRegex = /<Title>(.*?)<\/Title>/;
+
+        let match;
+        let count = 0;
+        while ((match = itemRegex.exec(xmlText)) !== null) {
+            const itemContent = match[1];
+            const tidMatch = tidRegex.exec(itemContent);
+            const titleMatch = titleRegex.exec(itemContent);
+
+            if (tidMatch && titleMatch) {
+                const tid = tidMatch[1].trim();
+                const title = titleMatch[1].trim();
+                const normalized = normalizeString(title);
+                if (normalized && tid) {
+                    titleMap.set(normalized, tid);
+                    count++;
+                }
+            }
+        }
+
+        if (count === 0 && xmlText.includes('<TitleLookupResponse>')) {
+            console.warn('SyoboiAPI: XML response contained root tag but no valid TitleItems found.');
+        }
+    } catch (e) {
+        console.error('Failed to parse TitleLookup XML safely:', e);
+    }
+    return titleMap;
+}
+```
+
+###### searchTidFromCache 変更前
+```js
+// キャッシュされたタイトル一覧から合致するTIDをあいまい検索するヘルパー
+function searchTidFromCache(seriesName, titleName, titleMap) {
+    const normalizedSeries = seriesName ? normalizeString(seriesName) : '';
+    const normalizedTitle = titleName ? normalizeString(titleName) : '';
+
+    if (normalizedTitle && titleMap.has(normalizedTitle)) {
+        return titleMap.get(normalizedTitle);
+    }
+    if (normalizedSeries && titleMap.has(normalizedSeries)) {
+        return titleMap.get(normalizedSeries);
+    }
+
+    for (const [normTitle, tid] of titleMap.entries()) {
+        if (normalizedTitle && (normTitle.includes(normalizedTitle) || normalizedTitle.includes(normTitle))) {
+            return tid;
+        }
+        if (normalizedSeries && (normTitle.includes(normalizedSeries) || normalizedSeries.includes(normTitle))) {
+            return tid;
+        }
+    }
+
+    return null;
+}
+```
+###### searchTidFromCache 変更後
+```js
+// キャッシュされたタイトル一覧から合致するTIDを完全一致検索するヘルパー（完全一致のみ）
+function searchTidFromCache(seriesName, titleName, titleMap) {
+    const normalizedSeries = seriesName ? normalizeString(seriesName) : '';
+    const normalizedTitle = titleName ? normalizeString(titleName) : '';
+
+    // 1. タイトル名での完全一致チェック
+    if (normalizedTitle && titleMap.has(normalizedTitle)) {
+        return titleMap.get(normalizedTitle);
+    }
+
+    // 完全一致するものが見つからない場合は null を返す
+    return null;
+}
+```
