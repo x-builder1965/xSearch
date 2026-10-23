@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.25.1';
+// version   = 'Ver1.27.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -57,6 +57,7 @@ let startTime = null;           // 処理開始時刻
 let recentFileTimes = [];       // 直近の処理時間を保持する配列
 let lastItemTime = null;        // 前回のアイテム受信時刻
 let activePopupMenu = null;     // アクティブなポップアップメニュー要素の保持
+let hasForceSaveItems = false;  // 「保存」がON設定のアイテムが含まれているか判定
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 🔲初期処理🔲
@@ -461,7 +462,7 @@ function registerWindowApiProgress() {
         if (!startTime) {
             startTime = now;
         }
-        showProgress(progress.current, progress.total, progress.message, now);
+        showProgress(progress.current, progress.total, progress.message, now, hasForceSaveItems);
     });
 
     // ★ サーバー制限時のトースト通知を受け取るリスナーを追加
@@ -552,6 +553,9 @@ function registerFastSearchBtnClick() {
 
         appState.isProcessing = true; // 処理開始
 
+        // 「保存」がON設定のアイテムが含まれているか確認
+        hasForceSaveItems = appState.rawItems.some(item => item.isSave);
+
         // ★【重要】クリアする前に、キャッシュ照合用の既存アイテムデータを待避しておく
         const existingItems = [...appState.rawItems]; // または appState.items
 
@@ -560,11 +564,19 @@ function registerFastSearchBtnClick() {
         appState.items = [];
         applyFilter();
 
-        showProgress(0, 100, '高速チェック中...');
+        // 進捗バーの色変更・テキストの制御用のフラグやスタイルを適用
+        const progressBar = document.getElementById('progress-bar');
+        if (hasForceSaveItems) {
+            progressBar.style.backgroundColor = '#d93838'; // 赤色
+        } else {
+            progressBar.style.backgroundColor = ''; // デフォルト（変数依存）
+        }
+
+        showProgress(0, 100, hasForceSaveItems ? '【強制検索中】 高速チェック中...' : '高速チェック中...', null, hasForceSaveItems);
 
         let isCanceled = false; // キャンセル判定用フラグ
         try {
-            // ★ 第二引数には待避しておいた existingItems を渡す！
+            // ★ existingItems を渡し、main側で「保存」ONのキャッシュを削除させる
             const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, existingItems);
             
             // キャンセルされた場合のチェック
@@ -584,6 +596,9 @@ function registerFastSearchBtnClick() {
         } finally {
             appState.isProcessing = false; // 処理終了フラグ
             hideProgress();
+
+            // 進捗バーの色を元に戻す
+            progressBar.style.backgroundColor = '';
 
             // キャンセルされていない場合のみトーストを表示
             if (!isCanceled) {
@@ -1036,7 +1051,7 @@ function registerChangelogCloseBtnClick() {
 
 // 🔲共通ヘルパー処理🔲
 // 進捗バー表示（完了予定日時の計算を含む）
-function showProgress(current, total, message, now) {
+function showProgress(current, total, message, now, isForceSave = false) {
     const container = document.getElementById('progress-container');
     const bar = document.getElementById('progress-bar');
     const text = document.getElementById('progress-text');
@@ -1078,10 +1093,11 @@ function showProgress(current, total, message, now) {
         const hours = String(etaDate.getHours()).padStart(2, '0');
         const minutes = String(etaDate.getMinutes()).padStart(2, '0');
 
-        etaString = `　⌚完了予定：${month}/${day} ${hours}:${minutes}`;
+        etaString = `完了予定：${month}/${day} ${hours}:${minutes}`;
     }
 
-    text.textContent = `${percent}% ( ${current} / ${total} )${etaString}`;
+    const forcePrefix = isForceSave ? '【強制検索中】' : '';
+    text.textContent = `${percent}% ( ${current} / ${total} )　${etaString}　${forcePrefix}`;
     status.textContent = message;
 }
 

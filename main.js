@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.26.1';
+// version   = 'Ver1.27.1';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -692,6 +692,7 @@ async function fetchSyobocalTid(seriesName, titleName, event, cachedTid) {
         }
 
         if (foundTid) {
+            console.log(`【情報】SyoboiAPI： ${effectiveTitleName} ${foundTid}`);
             return foundTid;
         }
     }
@@ -700,6 +701,7 @@ async function fetchSyobocalTid(seriesName, titleName, event, cachedTid) {
     syobocalCache.set(normalizedTargetTitle, '-');
 
     const fallbackTid = cachedTid || '-';
+    console.log(`【情報】SyoboiAPI： ${effectiveTitleName} ${cachedTid || '-'}`);
     return fallbackTid;
 }
 
@@ -909,18 +911,54 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                 existingMap.set(item.filePath, item);
             });
 
-            // existingItemsが存在する場合、electron-storeにTID, Titleを登録
+            // --- ★「保存」がON設定のタイトルのキャッシュ削除ロジック ---
+            try {
+                const storedSyobocalData = store.get('syoboiAPI_data') || { titles: {} };
+                const storedAniListData = store.get('anilistAPI_data') || { genres: {} };
+
+                let isStoreUpdated = false;
+
+                existingItems.forEach(item => {
+                    if (item.isSave) {
+                        // 保存がONのタイトルのキャッシュを削除
+                        if (item.tid && storedSyobocalData.titles && storedSyobocalData.titles[item.tid]) {
+                            delete storedSyobocalData.titles[item.tid];
+                            isStoreUpdated = true;
+                        }
+                        if (item.seriesName && storedAniListData.genres && storedAniListData.genres[item.seriesName]) {
+                            delete storedAniListData.genres[item.seriesName];
+                            isStoreUpdated = true;
+                        }
+                        // メモリキャッシュ側もクリア
+                        if (item.seriesName) {
+                            aniListCache.delete(item.seriesName);
+                        }
+                        if (item.titleName) {
+                            syobocalCache.delete(item.titleName);
+                        }
+                    }
+                });
+
+                if (isStoreUpdated) {
+                    store.set('syoboiAPI_data', storedSyobocalData);
+                    store.set('anilistAPI_data', storedAniListData);
+                }
+            } catch (e) {
+                console.error('【エラー】強制検索用キャッシュ削除に失敗:', e);
+            }
+
+            // existingItemsが存在する場合、electron-storeにTID, Titleを登録（既存処理）
             try {
                 const titlesMap = {};
                 const genresMap = {};
                 
                 existingItems.forEach(item => {
-                    if (item.tid && item.tid !== '-' && item.titleName) {
+                    if (item.tid && item.tid !== '-' && item.titleName && !item.isSave) {
                         titlesMap[item.tid] = {
                             Title: item.titleName
                         };
                     }
-                    if (item.seriesName && item.genre && item.genre !== '-') {
+                    if (item.seriesName && item.genre && item.genre !== '-' && !item.isSave) {
                        genresMap[item.seriesName] = item.genre;
                     }
                 });
@@ -934,17 +972,14 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                 const mergedTitles = { ...existingTitles, ...titlesMap };
                 const mergedGenres = { ...existingGenres, ...genresMap };
 
-                const titlesCount = Object.keys(titlesMap).length;
-                const genresCount = Object.keys(genresMap).length;
-
-                if (titlesCount > 0) {
+                if (Object.keys(titlesMap).length > 0) {
                     store.set('syoboiAPI_data', {
                         ...storedSyobocalData,
                         titles: mergedTitles
                     });
                 }
 
-                if (genresCount > 0) {
+                if (Object.keys(genresMap).length > 0) {
                     store.set('anilistAPI_data', {
                         ...storedAniListData,
                         genres: mergedGenres
@@ -969,6 +1004,8 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             const { filePath, seriesInfo } = item;
             const fileName = path.basename(filePath);
 
+            // ★ ここで進捗メッセージに強制検索中が含まれる場合の対応など、main側で調整可能ですが、
+            // renderer側から送られてくる進捗表示内容、または通常のメッセージ送信を行っています。
             event.sender.send('scan:progress', {
                 current,
                 total,
@@ -995,16 +1032,14 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             const lowerPath = filePath.toLowerCase();
             const isAnimePath = lowerPath.includes('アニメ') || lowerPath.includes('anime');
 
-            // --- プレフィックス除去用のヘルパー関数 ---
             const removePrefix = (str) => {
                 let cleaned = str;
-                cleaned = cleaned.replace(/^[ぁ-んァ-ン]_/, '');            // 50音＋ "_"
-                cleaned = cleaned.replace(/^[\d\s～〜年月日]+_/, '');        // 放映期間＋ "_"
-                cleaned = cleaned.replace(/^[★☆]+_/, '');                  // 評価＋ "_"
+                cleaned = cleaned.replace(/^[ぁ-んァ-ン]_/, '');
+                cleaned = cleaned.replace(/^[\d\s～〜年月日]+_/, '');
+                cleaned = cleaned.replace(/^[★☆]+_/, '');
                 return cleaned;
             };
 
-            // --- 「分類」および「シリーズ情報」の算出ロジック ---
             const relativePath = path.relative(rootDir, seriesInfo.folderPath);
             const pathSegments = relativePath.split(path.sep).filter(Boolean);
             
@@ -1022,18 +1057,23 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
 
             let seriesName = removePrefix(rawFolderName);
 
-            let genre = cachedItem ? cachedItem.genre : null;
-            let tid = cachedItem ? cachedItem.tid : null;
+            // ★ 「保存」がONのアイテムの場合は、キャッシュが存在しても強制的に再取得させるため、
+            // cachedItem のジャンルやTIDを強制的に null扱いにするか、条件分岐に組み込みます。
+            const isForced = cachedItem && cachedItem.isSave;
+
+            let genre = isForced ? null : (cachedItem ? cachedItem.genre : null);
+            let tid = isForced ? null : (cachedItem ? cachedItem.tid : null);
             let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
 
-            const isMtimeUnchanged = cachedItem && 
+            // 強制検索対象の場合は mtime が一致していても再取得させる
+            const isMtimeUnchanged = !isForced && cachedItem && 
                                      cachedItem.folderMtime === seriesInfo.folderMtime && 
                                      cachedItem.fileMtime === fileMtime &&
                                      cachedItem.category === category &&
                                      cachedItem.seriesName === seriesName;
 
-            const needsFetchGenre = isAnimePath && (!cachedItem || !genre);
-            const needsFetchTid = isAnimePath && (!cachedItem || !tid);
+            const needsFetchGenre = isAnimePath && (!cachedItem || !genre || isForced);
+            const needsFetchTid = isAnimePath && (!cachedItem || !tid || isForced);
             const needsCheckStatus = !cachedItem || !playlistStatus;
 
             let resultItem;
@@ -1045,7 +1085,6 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     tid = '-';
                 } else {
                     if (needsFetchGenre) {
-                        // ★ AniList制限中の判定：制限中ならキャッシュのジャンル、または '-' を返却
                         if (isAniListRateLimited) {
                             genre = cachedItem ? cachedItem.genre : '-';
                         } else {
@@ -1053,7 +1092,6 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                         }
                     }
                     if (needsFetchTid) {
-                        // ★ しょぼいカレンダー制限中の判定：制限中ならキャッシュのTID、または '-' を返却
                         if (isSyobocalRateLimited) {
                             tid = cachedItem ? cachedItem.tid : '-';
                         } else {
@@ -1085,6 +1123,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     titleName: parsedTitle.titleName,
                     episodeCount,
                     playlistStatus,
+                    // ★ 保存状態を引き継ぐ
                     isSave: cachedItem ? cachedItem.isSave : false
                 };
             }
@@ -1191,6 +1230,7 @@ async function fetchAniListData(query, event, cachedGenre) {
 
             if (!response.ok) {
                 aniListCache.set(query, cachedGenre || '-');
+                console.log(`【情報】AniListAPI： ${query} ${cachedGenre || '-'}`);
                 return cachedGenre || '-';
             }
 
@@ -1233,6 +1273,7 @@ async function fetchAniListData(query, event, cachedGenre) {
                 genres: updatedGenresMap
             });
 
+            console.log(`【情報】AniListAPI： ${query} ${resolvedGenre}`);
             return resolvedGenre;
         } catch (e) {
             if (attempt === maxRetries) break;

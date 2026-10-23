@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.25.1';
+ * version   = 'Ver1.27.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -247,8 +247,8 @@ button.secondary {
 .progress-bar {
     height: 100%;
     width: 0%;
-    background-color: var(--accent-color); /* 紫色 */
-    transition: width 0.1s ease;
+    background-color: var(--accent-color); /* 紫色（JSからインラインスタイルで動的変更可能） */
+    transition: width 0.1s ease, background-color 0.3s ease;
 }
 .progress-text {
     position: absolute;
