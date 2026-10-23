@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.25.1';
+// version   = 'Ver1.26.1';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -31,6 +31,436 @@ const GENRE_MAP = {
     'Sports': 'スポーツ',
     'Supernatural': '超自然・能力',
     'Thriller': 'スリラー'
+};
+const TAG_MAP = {
+    "4-koma": "4コマ",
+    "Achromatic": "モノクロ・無彩色",
+    "Achronological Order": "時系列順不同",
+    "Acrobatics": "アクロバット",
+    "Acting": "演劇・演技",
+    "Adoption": "養子・養親",
+    "Advertisement": "広告",
+    "Afterlife": "死後の世界・冥界",
+    "Age Gap": "年の差",
+    "Age Regression": "年齢退行・子供返り",
+    "Agender": "エイジェンダー",
+    "Agriculture": "農業",
+    "Ahegao": "アヘ顔",
+    "Airsoft": "サバイバルゲーム",
+    "Alchemy": "錬金術",
+    "Aliens": "宇宙人・エイリアン",
+    "Alternate Universe": "平行世界・異世界",
+    "American Football": "アメリカンフットボール",
+    "Amnesia": "記憶喪失",
+    "Amputation": "切断",
+    "Anachronism": "時代錯誤",
+    "Anal Sex": "アナルセックス",
+    "Ancient China": "古代中国",
+    "Angels": "天使",
+    "Animals": "動物",
+    "Anthology": "アンソロジー",
+    "Anthropomorphism": "擬人化",
+    "Anti-Hero": "アンチヒーロー",
+    "Archery": "アーチェリー・弓道",
+    "Armpits": "脇",
+    "Aromantic": "アロマンティック",
+    "Arranged Marriage": "政略結婚・お見合い",
+    "Artificial Intelligence": "人工知能・AI",
+    "Asexual": "アセクシャル",
+    "Ashikoki": "足コキ",
+    "Asphyxiation": "窒息",
+    "Assassins": "暗殺者",
+    "Astronomy": "天文学",
+    "Athletics": "陸上競技",
+    "Augmented Reality": "拡張現実・AR",
+    "Autobiographical": "自伝的",
+    "Aviation": "航空・飛行",
+    "Badminton": "バドミントン",
+    "Ballet": "バレエ",
+    "Band": "バンド",
+    "Bar": "バー",
+    "Baseball": "野球",
+    "Basketball": "バスケットボール",
+    "Battle Royale": "バトルロイヤル",
+    "Biographical": "伝記",
+    "Bisexual": "バイセクシャル",
+    "Blackmail": "脅迫",
+    "Board Game": "ボードゲーム",
+    "Boarding School": "全寮制学校",
+    "Body Horror": "ボディホラー",
+    "Body Image": "ボディイメージ・容姿",
+    "Body Swapping": "身体入れ替わり",
+    "Bondage": "拘束・ボンテージ",
+    "Boobjob": "パイズリ",
+    "Bowling": "ボウリング",
+    "Boxing": "ボクシング",
+    "Boys' Love": "ボーイズラブ・BL",
+    "Brainwashing": "洗脳",
+    "Bullying": "いじめ",
+    "Butler": "執事",
+    "Calligraphy": "書道",
+    "Camping": "キャンプ",
+    "Cannibalism": "人食い・カニバリズム",
+    "Card Battle": "カードバトル",
+    "Cars": "自動車",
+    "Centaur": "ケンタウロス",
+    "Cervix Penetration": "子宮口突き",
+    "CGI": "CGI・3DCG",
+    "Cheating": "浮気・不倫",
+    "Cheerleading": "チアリーダー",
+    "Chibi": "ちびキャラ",
+    "Chimera": "キメラ",
+    "Chuunibyou": "中二病",
+    "Circus": "サーカス",
+    "Class Struggle": "階級闘争",
+    "Classic Literature": "古典文学",
+    "Classical Music": "クラシック音楽",
+    "Clone": "クローン",
+    "Coastal": "沿岸・海岸",
+    "Cohabitation": "同居",
+    "College": "大学",
+    "Coming of Age": "成長物語・青春",
+    "Conspiracy": "陰謀",
+    "Cosmic Horror": "コズミックホラー",
+    "Cosplay": "コスプレ",
+    "Cowboys": "カウボーイ",
+    "Creature Taming": "魔物使い・モンスターテイマー",
+    "Crime": "犯罪",
+    "Criminal Organization": "犯罪組織",
+    "Crossdressing": "男装・女装",
+    "Crossover": "クロスオーバー",
+    "Cult": "カルト",
+    "Cultivation": "仙侠・修真",
+    "Cumflation": "中出し妊娠膨張",
+    "Cunnilingus": "クンニリングス",
+    "Curses": "呪い",
+    "Cute Boys Doing Cute Things": "可愛い男の子たちの日常",
+    "Cute Girls Doing Cute Things": "日常系・可愛い女の子たち",
+    "Cyberpunk": "サイバーパンク",
+    "Cyborg": "サイボーグ",
+    "Cycling": "サイクリング・自転車",
+    "Dancing": "ダンス",
+    "Death Game": "デスゲーム",
+    "Deepthroat": "ディープスロート",
+    "Defloration": "処女喪失",
+    "Delinquents": "不良",
+    "Demons": "悪魔",
+    "Denpa": "電波系",
+    "Desert": "砂漠",
+    "Detective": "探偵",
+    "DILF": "DILF（魅力的な中年男性）",
+    "Dinosaurs": "恐竜",
+    "Disability": "障害",
+    "Dissociative Identities": "多重人格・解離性障害",
+    "Double Penetration": "ダブルピストン・DP",
+    "Dragons": "ドラゴン",
+    "Drawing": "絵画・お絵描き",
+    "Drugs": "薬物",
+    "Dullahan": "デュラハン",
+    "Dungeon": "ダンジョン",
+    "Dystopian": "ディストピア",
+    "E-Sports": "eスポーツ",
+    "Eco-Horror": "エコホラー",
+    "Economics": "経済",
+    "Educational": "教育的",
+    "Elderly Protagonist": "高齢の主人公",
+    "Elf": "エルフ",
+    "Ensemble Cast": "群像劇",
+    "Environmental": "環境問題",
+    "Episodic": "一話完結型・オムニバス",
+    "Ero Guro": "エログロ",
+    "Erotic Piercings": "エロティックピアス",
+    "Espionage": "スパイ・諜報",
+    "Estranged Family": "確執のある家族",
+    "Exhibitionism": "露出症",
+    "Exiled": "追放",
+    "Exorcism": "悪魔払い・除霊",
+    "Facial": "顔射",
+    "Fairy": "妖精",
+    "Fairy Tale": "おとぎ話",
+    "Fake Relationship": "偽りの関係",
+    "Family Life": "家族生活",
+    "Fashion": "ファッション",
+    "Feet": "足フェティシズム",
+    "Fellatio": "フェラチオ",
+    "Female Harem": "女性向けハーレム・逆ハーレム",
+    "Female Protagonist": "女性主人公",
+    "Femboy": "フェムボーイ・女装男子",
+    "Femdom": "フェムドム・女王様",
+    "Fencing": "フェンシング",
+    "Filmmaking": "映画制作",
+    "Fingering": "フィンガーリング",
+    "Firefighters": "消防士",
+    "Fishing": "釣り",
+    "Fisting": "フィストファック",
+    "Fitness": "フィットネス",
+    "Flash": "フラッシュアニメ",
+    "Flat Chest": "貧乳・絶壁",
+    "Food": "料理・グルメ",
+    "Football": "サッカー",
+    "Foreign": "外国",
+    "Found Family": "血縁を超えた家族・擬似家族",
+    "Fugitive": "逃亡者",
+    "Full CGI": "フルCGI・フル3DCG",
+    "Full Color": "フルカラー",
+    "Futanari": "ふたなり",
+    "Gambling": "ギャンブル",
+    "Gangs": "ギャング・暴走族",
+    "Gekiga": "劇画",
+    "Gender Bending": "性転換",
+    "Ghost": "幽霊",
+    "Go": "囲碁",
+    "Goblin": "ゴブリン",
+    "Gods": "神々",
+    "Golf": "ゴルフ",
+    "Gore": "グロテスク・流血",
+    "Graduation Project": "卒業制作",
+    "Group Sex": "乱交",
+    "Guns": "銃器",
+    "Gyaru": "ギャル",
+    "Hair Pulling": "髪を引っ張る行為",
+    "Handball": "ハンドボール",
+    "Handjob": "手コキ",
+    "Henshin": "変身",
+    "Heterosexual": "異性愛",
+    "Hikikomori": "引きこもり",
+    "Hip-hop Music": "ヒップホップ",
+    "Historical": "歴史・時代劇",
+    "Homeless": "ホームレス",
+    "Horticulture": "園芸・栽培",
+    "Human Experimentation": "人体実験",
+    "Human Pet": "人間ペット",
+    "Hypersexuality": "過剰性欲",
+    "Ice Sports": "アイススポーツ",
+    "Idol": "アイドル",
+    "Incest": "近親相姦",
+    "Indigenous Cultures": "先住民族文化",
+    "Inn": "旅館・宿屋",
+    "Inseki": "いんせき・隕石",
+    "Interspecies": "異種間恋愛",
+    "Irrumatio": "イラマチオ",
+    "Isekai": "異世界",
+    "Iyashikei": "癒し系",
+    "Jazz Music": "ジャズ",
+    "Josei": "女性向け",
+    "Judo": "柔道",
+    "Kabuki": "歌舞伎",
+    "Kaiju": "怪獣",
+    "Karuta": "かるた",
+    "Kemonomimi": "ケモノ耳",
+    "Kids": "子供向け",
+    "Kingdom Management": "国家運営",
+    "Konbini": "コンビニ",
+    "Kuudere": "クーデレ",
+    "Lacrosse": "ラクロス",
+    "Lactation": "母乳・搾乳",
+    "Language Barrier": "言葉の壁",
+    "Large Breasts": "巨乳",
+    "LGBTQ+ Themes": "LGBTQ+テーマ",
+    "Long Strip": "縦スクロールマンガ",
+    "Lost Civilization": "失われた文明",
+    "Love Triangle": "三角関係",
+    "Mafia": "マフィア",
+    "Magic": "魔法",
+    "Mahjong": "麻雀",
+    "Maids": "メイド",
+    "Makeup": "メイクアップ",
+    "Male Harem": "男性向けハーレム",
+    "Male Pregnancy": "男の妊娠",
+    "Male Protagonist": "男性主人公",
+    "Manzai": "漫才",
+    "Marriage": "結婚",
+    "Martial Arts": "武術・格闘技",
+    "Masochism": "マゾヒズム",
+    "Masturbation": "マスターベーション",
+    "Matchmaking": "お見合い・縁談",
+    "Mating Press": "マッティングプレス",
+    "Matriarchy": "母系社会",
+    "Medicine": "医学・医療",
+    "Medieval": "中世",
+    "Memory Manipulation": "記憶操作",
+    "Mermaid": "人魚",
+    "Meta": "メタフィクション",
+    "Metal Music": "ヘヴィメタル",
+    "Middle East": "中東",
+    "MILF": "MILF（魅力的な母親）",
+    "Military": "ミリタリー・軍事",
+    "Mixed Gender Harem": "男女混合ハーレム",
+    "Mixed Media": "メディアミックス",
+    "Modeling": "モデル",
+    "Monster Boy": "モンスター少年",
+    "Monster Girl": "モンスター娘",
+    "Mopeds": "原付バイク",
+    "Motorcycles": "バイク・オートバイ",
+    "Mountaineering": "登山",
+    "Musical Theater": "ミュージカル",
+    "Mythology": "神話",
+    "Nakadashi": "中出し",
+    "Natural Disaster": "自然災害",
+    "Necromancy": "死霊術・ネクロマンシー",
+    "Nekomimi": "猫耳",
+    "Netorare": "寝取られ・NTR",
+    "Netorase": "寝取らせ",
+    "Netori": "寝取り",
+    "Ninja": "忍者",
+    "No Dialogue": "セリフなし",
+    "Noir": "フィルム・ノワール",
+    "Non-fiction": "ノンフィクション",
+    "Nudity": "ヌード・露出",
+    "Nun": "修女・シスター",
+    "Office": "オフィス・職場",
+    "Office Lady": "OL（オフィスレディ）",
+    "Oiran": "花魁",
+    "Ojou-sama": "お嬢様",
+    "Omegaverse": "オメガバース",
+    "Orphan": "孤児",
+    "Otaku Culture": "オタクカルチャー",
+    "Outdoor Activities": "アウトドア活動",
+    "Oyakodon": "親子丼（性的表現）",
+    "Pandemic": "パンデミック",
+    "Parenthood": "子育て・育児",
+    "Parkour": "パルクール",
+    "Parody": "パロディ",
+    "Pet Play": "ペットプレイ",
+    "Philosophy": "哲学",
+    "Photography": "写真",
+    "Pirates": "海賊",
+    "Poker": "ポーカー",
+    "Police": "警察",
+    "Politics": "政治",
+    "Polyamorous": "ポリアモリー",
+    "Post-Apocalyptic": "終末世界・ポスト・アポカリプス",
+    "POV": "一人称視点・POV",
+    "Pregnancy": "妊娠",
+    "Primarily Adult Cast": "成人メインの登場人物",
+    "Primarily Animal Cast": "動物メインの登場人物",
+    "Primarily Child Cast": "子供メインの登場人物",
+    "Primarily Female Cast": "女性メインの登場人物",
+    "Primarily Male Cast": "男性メインの登場人物",
+    "Primarily Teen Cast": "十代メインの登場人物",
+    "Prison": "刑務所・獄中",
+    "Prophecy": "予言",
+    "Prostitution": "売春",
+    "Proxy Battle": "代理戦争",
+    "Psychosexual": "心理性的",
+    "Public Sex": "野外露出・公共の場の性行為",
+    "Puppetry": "人形劇",
+    "Rakugo": "落語",
+    "Rape": "レイプ",
+    "Real Robot": "リアルロボット",
+    "Rehabilitation": "更生",
+    "Reincarnation": "転生",
+    "Religion": "宗教",
+    "Rescue": "救助",
+    "Restaurant": "飲食店・レストラン",
+    "Revenge": "復讐",
+    "Reverse Isekai": "逆異世界転移",
+    "Rimjob": "アナル舐め・リムジョブ",
+    "Robots": "ロボット",
+    "Rock Music": "ロック音楽",
+    "Rotoscoping": "ロトスコープ",
+    "Royal Affairs": "王室・皇室のゴシップ",
+    "Rugby": "ラグビー",
+    "Rural": "田舎",
+    "Sadism": "サディズム",
+    "Samurai": "侍",
+    "Satire": "風刺",
+    "Scat": "スカトロジー",
+    "School": "学校・学園",
+    "School Club": "部活動",
+    "Scissoring": "シザーリング",
+    "Scuba Diving": "スキューバダイビング",
+    "Seinen": "青年向け",
+    "Sex Toys": "セックスおもちゃ",
+    "Shapeshifting": "変身能力・シェイプシフト",
+    "Shimaidon": "姉妹丼",
+    "Ships": "船舶",
+    "Shogi": "将棋",
+    "Short-Form Chapter": "ショートチャプター",
+    "Shoujo": "少女向け",
+    "Shounen": "少年向け",
+    "Shrine Maiden": "巫女",
+    "Sixty-nine": "シックスティナイン",
+    "Skateboarding": "スケートボード",
+    "Skeleton": "スケルトン・骸骨",
+    "Slapstick": "スラップスティック・ドタバタ",
+    "Slavery": "奴隷制",
+    "Snowscape": "雪景色",
+    "Software Development": "ソフトウェア開発",
+    "Space": "宇宙",
+    "Space Opera": "スペースオペラ",
+    "Spearplay": "槍術",
+    "Squirting": "潮吹き",
+    "Steampunk": "スチームパンク",
+    "Stop Motion": "ストップモーション",
+    "Strap-on": "張形・ストラップオン",
+    "Succubus": "サキュバス",
+    "Suicide": "自殺",
+    "Sumata": "素股",
+    "Sumo": "相撲",
+    "Super Power": "超能力",
+    "Super Robot": "スーパーロボット",
+    "Superhero": "スーパーヒーロー",
+    "Surfing": "サーフィン",
+    "Surreal Comedy": "シュールギャグ・不条理コメディ",
+    "Survival": "サバイバル",
+    "Swapping": "スワッピング",
+    "Sweat": "汗",
+    "Swimming": "水泳",
+    "Swordplay": "剣術",
+    "Table Tennis": "卓球",
+    "Tanks": "戦車",
+    "Tanned Skin": "日焼け肌",
+    "Teacher": "教師",
+    "Teens' Love": "ティーンズラブ・TL",
+    "Tennis": "テニス",
+    "Tentacles": "触手",
+    "Terrorism": "テロリズム",
+    "Threesome": "スリーサム",
+    "Time Loop": "タイムループ",
+    "Time Manipulation": "時間操作",
+    "Time Skip": "時間経過・タイムスキップ",
+    "Tokusatsu": "特撮",
+    "Tomboy": "ボーイッシュ・お転婆",
+    "Torture": "拷問",
+    "Tragedy": "悲劇",
+    "Trains": "鉄道・電車",
+    "Transgender": "トランスジェンダー",
+    "Travel": "旅行",
+    "Triads": "三合会・マフィア",
+    "Tsundere": "ツンデレ",
+    "Twins": "双子",
+    "Unrequited Love": "片思い",
+    "Urban": "都会・アーバン",
+    "Urban Fantasy": "都市ファンタジー",
+    "Vampire": "吸血鬼・ヴァンパイア",
+    "Vertical Video": "縦型動画",
+    "Veterinarian": "獣医師",
+    "Video Games": "ビデオゲーム",
+    "Vikings": "バイキング",
+    "Villainess": "悪役令嬢",
+    "Virginity": "処女・童貞",
+    "Virtual World": "仮想世界",
+    "Vocal Synth": "歌声合成ソフト・ボカロ",
+    "Volleyball": "バレーボール",
+    "Vore": "ヴォア",
+    "Voyeur": "覗き見・ヴォワイアント",
+    "VTuber": "VTuber",
+    "War": "戦争",
+    "Watersports": "ウォータースポーツ・聖水プレイ",
+    "Werewolf": "人狼",
+    "Wilderness": "大自然・荒野",
+    "Witch": "魔女",
+    "Work": "仕事・職場",
+    "Wrestling": "プロレス・レスリング",
+    "Writing": "執筆",
+    "Wuxia": "武侠",
+    "Yakuza": "ヤクザ・極道",
+    "Yandere": "ヤンデレ",
+    "Youkai": "妖怪",
+    "Yuri": "百合",
+    "Zombie": "ゾンビ",
+    "Zoophilia": "動物性愛"
 };
 
 const MIN_API_INTERVAL = 2000;          // 最低2sの間隔を空けてサーバー負荷を抑制
@@ -124,7 +554,7 @@ async function fetchAniListWithFallback(name, event, cachedGenre) {
     return genre;
 }
 
-// 共通のしょぼいカレンダーAPI検索実行関数（スペース分割・リトライ・スロットリングを維持）
+// 共通のしょぼいカレンダーAPI検索実行関数（警告・エラー判定のログ出力を追加）
 async function requestSyobocalTitleSearch(queryName, event, cachedTid) {
     if (!queryName || isSyobocalRateLimited) return null;
 
@@ -152,26 +582,28 @@ async function requestSyobocalTitleSearch(queryName, event, cachedTid) {
                     }
                 });
 
-                // ★ 530 エラーの場合の制限中処理
                 if (response.status === 530) {
                     if (!isSyobocalRateLimited) {
                         isSyobocalRateLimited = true;
                         event.sender.send('scan:toast', { message: 'しょぼいカレンダーAPI制限中', type: 'error' });
-                        console.warn('【警告】SyoboiAPI： 530エラー検知のため制限フラグを設定。');
+                        console.warn('【警告】SyoboiAPI： 530エラー検知のため制限フラグを設定');
                     }
                     return null;
                 }
 
                 if (response.status === 429) {
                     if (attempt < maxRetries) {
+                        console.warn(`【警告】SyoboiAPI： 429エラー検知リトライ（${attempt}/${maxRetries}） URL: ${url}`);
                         await delay(30000);
                         continue;
                     } else {
+                        console.warn(`【警告】SyoboiAPI： 429エラー検知オーバー（${attempt}/${maxRetries}） URL: ${url}`);
                         break;
                     }
                 }
 
                 if (!response.ok) {
+                    console.warn(`【警告】SyoboiAPI： ${response.status}エラー検知 (${response.statusText}) URL: ${url}`);
                     break;
                 }
 
@@ -181,6 +613,7 @@ async function requestSyobocalTitleSearch(queryName, event, cachedTid) {
                 }
                 break;
             } catch (error) {
+                console.error(`【エラー】SyoboiAPI： リクエスト中に例外が発生（試行回数 ${attempt}/${maxRetries}）:`, error.message);
                 if (attempt === maxRetries) break;
                 await delay(3000);
             }
@@ -476,7 +909,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                 existingMap.set(item.filePath, item);
             });
 
-            // existingItemsが存在する場合、electron-storeにTID, Title、および「ジャンル」を登録
+            // existingItemsが存在する場合、electron-storeにTID, Titleを登録
             try {
                 const titlesMap = {};
                 const genresMap = {};
@@ -488,7 +921,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                         };
                     }
                     if (item.seriesName && item.genre && item.genre !== '-') {
-                        genresMap[item.seriesName] = item.genre;
+                       genresMap[item.seriesName] = item.genre;
                     }
                 });
             
@@ -683,7 +1116,9 @@ ipcMain.handle('scan:cancel', () => {
 
 // AniList API からジャンルを取得し日本語に変換（リトライ・ルール適用版）
 async function fetchAniListData(query, event, cachedGenre) {
-    if (!query || isAniListRateLimited) return cachedGenre || '-';
+    if (!query || isAniListRateLimited) {
+        return cachedGenre || '-';
+    }
 
     // electron-store からジャンルマップを取得
     const storedAniListData = store.get('anilistAPI_data') || {};
@@ -704,10 +1139,14 @@ async function fetchAniListData(query, event, cachedGenre) {
         }
     }
 
+    // ★ queries に genres と tags (name) を追加取得するよう変更
     const graphqlQuery = `
         query ($search: String) {
             Media (search: $search, type: ANIME) {
                 genres
+                tags {
+                    name
+                }
             }
         }
     `;
@@ -721,8 +1160,7 @@ async function fetchAniListData(query, event, cachedGenre) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'User-Agent': 'xSearchApp/1.0 (DesktopApp)'
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                     query: graphqlQuery,
@@ -734,7 +1172,7 @@ async function fetchAniListData(query, event, cachedGenre) {
                 if (!isAniListRateLimited) {
                     isAniListRateLimited = true;
                     event.sender.send('scan:toast', { message: 'AniListAPI制限中', type: 'error' });
-                    console.warn('【警告】AniListAPI： 403エラー検知のため制限フラグを設定。');
+                    console.warn('【警告】AniListAPI： 403エラー検知のため制限フラグを設定');
                 }
                 aniListCache.set(query, cachedGenre || '-');
                 return cachedGenre || '-';
@@ -742,9 +1180,11 @@ async function fetchAniListData(query, event, cachedGenre) {
 
             if (response.status === 429) {
                 if (attempt < maxRetries) {
+                    console.warn(`【警告】AniListAPI： 429エラー検知リトライ（${attempt}/${maxRetries}）`);
                     await delay(30000);
                     continue;
                 } else {
+                    console.warn(`【警告】AniListAPI： 429エラー検知オーバー（${attempt}/${maxRetries}）`);
                     break;
                 }
             }
@@ -758,9 +1198,30 @@ async function fetchAniListData(query, event, cachedGenre) {
             const media = result?.data?.Media;
 
             let resolvedGenre = '-';
-            if (media && media.genres && media.genres.length > 0) {
-                const translatedGenres = media.genres.map(g => GENRE_MAP[g] || g);
-                resolvedGenre = translatedGenres.join(', ');
+            if (media) {
+                const combinedItems = [];
+
+                // 1. ジャンルの日本語化＆追加
+                if (media.genres && media.genres.length > 0) {
+                    const translatedGenres = media.genres.map(g => GENRE_MAP[g] || g);
+                    combinedItems.push(...translatedGenres);
+                }
+
+                // 2. タグの取得、TAG_MAPによる日本語化、先頭への"#"付加＆追加
+                if (media.tags && media.tags.length > 0) {
+                    const translatedTags = media.tags.map(t => {
+                        const tagName = t.name;
+                        const translatedName = TAG_MAP[tagName] || tagName;
+                        return `#${translatedName}`;
+                    });
+                    combinedItems.push(...translatedTags);
+                }
+
+                // 3. 重複を除外してカンマ区切りの文字列に統合
+                if (combinedItems.length > 0) {
+                    const uniqueItems = [...new Set(combinedItems)];
+                    resolvedGenre = uniqueItems.join(', ');
+                }
             }
 
             // 2. メモリキャッシュおよび electron-store へ保存・更新
@@ -775,6 +1236,7 @@ async function fetchAniListData(query, event, cachedGenre) {
             return resolvedGenre;
         } catch (e) {
             if (attempt === maxRetries) break;
+            console.error(`【エラー】AniListAPI： リクエスト中に例外が発生（試行回数 ${attempt}/${maxRetries}）:`, error.message);
             await delay(3000);
         }
     }
