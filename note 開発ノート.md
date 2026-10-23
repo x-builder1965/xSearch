@@ -1015,5 +1015,3 @@ function renderTable() {
 }
 ```
 
-
-

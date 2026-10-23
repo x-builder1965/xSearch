@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.27.1';
+// version   = 'Ver1.28.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -1248,12 +1248,16 @@ function filterItems(items, query) {
 
     // 2. 各項（ORグループ）ごとの条件リストを構築する
     const orGroups = [];
+    let currentFieldContext = '[全]'; // 直前のフィールドを保持するコンテキスト
+
     for (let part of orParts) {
-        // 各項は完全に独立してパースする（前の項のフィールドを引き継がない）
-        const conditions = parseAndConditions(part, '[全]');
-        if (conditions.length > 0) {
-            orGroups.push(conditions);
+        // 直前の項のフィールドを引き継いでパースする
+        const parsed = parseAndConditions(part, currentFieldContext);
+        if (parsed.conditions.length > 0) {
+            orGroups.push(parsed.conditions);
         }
+        // 次の項へフィールドを引き継ぐために更新
+        currentFieldContext = parsed.lastField;
     }
 
     if (orGroups.length === 0) {
@@ -1261,7 +1265,6 @@ function filterItems(items, query) {
     }
 
     // 3. ベースデータ（items）の元の並び順を維持したままフィルタリング
-    // 各項のいずれか（OR）にヒットするかを判定しつつ、上から順のインデックスを保持する
     return items.filter(item => {
         return orGroups.some(orGroup => {
             // グループ内のすべての条件（AND）を満たすか
@@ -1297,7 +1300,11 @@ function parseAndConditions(partStr, defaultField) {
         }
     }
 
-    return conditions;
+    // 条件リストと、このブロックの処理終了時点のフィールドを返す
+    return {
+        conditions: conditions,
+        lastField: currentField
+    };
 }
 
 // 個別の条件評価
