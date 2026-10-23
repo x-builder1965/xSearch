@@ -2,13 +2,12 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.24.1';
+// version   = 'Ver1.25.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
     '[全]': 'all',
-    '[TID]': 'tid',
     '[分類]': 'category',
     '[S音]': 'seriesKana',
     '[放映期間]': 'seriesPeriod',
@@ -16,6 +15,7 @@ const fieldMappings = {
     '[シリーズ]': 'seriesName',
     '[ジャンル]': 'genre',
     '[保存]': 'isSave',
+    '[TID]': 'tid',
     '[T音]': 'titleKana',
     '[放映年月]': 'titleDate',
     '[T評価]': 'titleRating',
@@ -23,9 +23,8 @@ const fieldMappings = {
     '[話数]': 'episodeCount',
     '[状態]': 'playlistStatus'
 };
-// thに対応する項目指定記号のマッピング（テーブルの列順に対応）
+// thに対応する項目指定記号のマッピング（新しいテーブルの列順に対応）
 const thSymbols = [
-    '[TID]', 
     '[分類]',
     '[S音]', 
     '[放映期間]', 
@@ -33,6 +32,7 @@ const thSymbols = [
     '[シリーズ]', 
     '[ジャンル]', 
     '[保存]',
+    '[TID]', 
     '[T音]', 
     '[放映年月]', 
     '[T評価]', 
@@ -276,25 +276,26 @@ function renderTable() {
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
 
-        // 各フィールドの定義（列順に合わせて調整）
+        // 各フィールドの定義（新しい列順に合わせて調整）
         const fields = [
-            item.tid,           // index 0: TID
-            item.category,      // index 1: 分類
-            item.seriesKana,    // index 2: S音
-            item.seriesPeriod,  // index 3: 放映期間
-            item.seriesRating,  // index 4: 評価
-            item.seriesName,    // index 5: シリーズ
-            item.genre,         // index 6: ジャンル
-            item.titleKana,     // index 7: T音
-            item.titleDate,     // index 8: 放映年月
-            item.titleRating,   // index 9: T評価
-            item.titleName,     // index 10: タイトル
-            item.episodeCount,  // index 11: 話数
-            getStatusIcon(item.playlistStatus) // index 12: 状態
+            item.category,      // index 0: 分類
+            item.seriesKana,    // index 1: S音
+            item.seriesPeriod,  // index 2: 放映期間
+            item.seriesRating,  // index 3: 評価
+            item.seriesName,    // index 4: シリーズ
+            item.genre,         // index 5: ジャンル
+            null,               // index 6: 保存対象（チェックボックス用プレースホルダー）
+            item.tid,           // index 7: TID
+            item.titleKana,     // index 8: T音
+            item.titleDate,     // index 9: 放映年月
+            item.titleRating,   // index 10: T評価
+            item.titleName,     // index 11: タイトル
+            item.episodeCount,  // index 12: 話数
+            getStatusIcon(item.playlistStatus) // index 13: 状態
         ];
 
-        // --- 0〜6番目の描画（TIDは index 0、シリーズは index 5） ---
-        for (let i = 0; i <= 6; i++) {
+        // --- 0〜5番目の描画（分類 〜 ジャンル） ---
+        for (let i = 0; i <= 5; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
@@ -302,7 +303,7 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
-            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
+            // リストデータ右クリックイベントの登録
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -310,26 +311,14 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    // 記号と値（val）をそれぞれそのまま渡す
                     insertFilterItem(symbol, val);
                 }
             });
 
-            // TID列（index 0）のクリックイベント
-            if (i === 0 && textVal && textVal !== '-') {
-                td.style.cursor = 'pointer';
-                td.style.color = '#4da6ff';
-                td.addEventListener('click', () => {
-                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
-                    window.api.openExternalUrl(tidUrl);
-                });
-            }
-
-            // シリーズ列（index 5）のクリックイベント
-            if (i === 5) {
+            // シリーズ列（index 4）のクリックイベント
+            if (i === 4) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
-                    // プレイヤーアプリが未設定の場合の挙動
                     if (!appState.playerAppPath) {
                         if (item.folderPath) {
                             await window.api.showInFolder(item.folderPath);
@@ -346,17 +335,15 @@ function renderTable() {
                     }
                 });
             }
-            
 
             tr.appendChild(td);
         }
 
-        // 保存対象（チェックボックス）列の追加（7番目の列）
+        // --- 6番目：保存対象（チェックボックス）列の追加 ---
         const saveTd = document.createElement('td');
         saveTd.style.textAlign = 'center';
         
-        // 保存列の右クリックイベント
-        const saveSymbol = thSymbols[7]; // '[保存]'
+        const saveSymbol = thSymbols[6]; // '[保存]'
         saveTd.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -382,17 +369,16 @@ function renderTable() {
         saveTd.appendChild(checkbox);
         tr.appendChild(saveTd);
 
-        // --- 7番目以降の描画（ fields[7] 以降） ---
+        // --- 7番目以降の描画（TID以降：fields[7]〜） ---
         for (let i = 7; i < fields.length; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
 
-            // thSymbolsのインデックスは保存列（index 7）の分だけ +1 シフトする
-            const symbol = thSymbols[i + 1];
+            const symbol = thSymbols[i];
 
-            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
+            // リストデータ右クリックイベントの登録
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -400,16 +386,24 @@ function renderTable() {
 
                 if (symbol) {
                     const val = getFilterValue(symbol, textVal, item);
-                    // 記号と値（val）をそれぞれそのまま渡す
                     insertFilterItem(symbol, val);
                 }
             });
 
-            // タイトル列（fieldsのindex 10にあたる）のクリックイベント
-            if (i === 10) { 
+            // TID列（fieldsのindex 7にあたる）のクリックイベント
+            if (i === 7 && textVal && textVal !== '-') {
+                td.style.cursor = 'pointer';
+                td.style.color = '#4da6ff';
+                td.addEventListener('click', () => {
+                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
+                    window.api.openExternalUrl(tidUrl);
+                });
+            }
+
+            // タイトル列（fieldsのindex 11にあたる）のクリックイベント
+            if (i === 11) { 
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
-                    // プレイヤーアプリが未設定の場合の挙動
                     if (!appState.playerAppPath) {
                         if (item.filePath) {
                             await window.api.showInFolder(item.filePath);
@@ -427,8 +421,8 @@ function renderTable() {
                 });
             }
 
-            // 話数や状態などのテキスト中央揃えなど
-            if (i === 11 || i === 12) {
+            // 話数(12)や状態(13)などのテキスト中央揃え
+            if (i === 12 || i === 13) {
                 td.style.textAlign = 'center';
             }
             tr.appendChild(td);
@@ -1374,91 +1368,6 @@ function splitByOr(query) {
     }
     result.push(current);
     return result;
-}
-
-// AND条件グループをパースする簡易パーサー
-function parseAndConditions(groupStr) {
-    // ざっくり正規表現やスペース区切りで分解しつつ、[項目記号] 比較演算子 値 のペアを抽出
-    // 例: "[S音]>あ <お" や "[シリーズ]ああああ"
-    const regex = /(\[[\s\S]*?\])?\s*([><!=]?)([^\[\s]+)/g;
-    let match;
-    const conditions = [];
-
-    // もし上記正規表現でパースしきれないシンプルな文字列（スペース区切りの単語など）の場合のフォールバック
-    // ここでは簡易的にスペースやAND演算子で分割して処理する構造にします
-    const tokens = groupStr.split(/[\s ]+|&&|＆＆/).filter(Boolean);
-    
-    let currentField = '[全]';
-    let subConditions = [];
-
-    for (let token of tokens) {
-        if (token.startsWith('[') && token.endsWith(']')) {
-            currentField = token;
-        } else {
-            subConditions.push({ field: currentField, expression: token });
-        }
-    }
-    return subConditions;
-}
-
-// 個別の条件評価
-function evaluateCondition(item, cond) {
-    const internalField = fieldMappings[cond.field] || 'all';
-    const expr = cond.expression;
-
-    // 比較式の抽出 (>値, <値, =値 or 値, !値)
-    let op = '=';
-    let val = expr;
-    if (expr.startsWith('>')) {
-        op = '>';
-        val = expr.slice(1);
-    } else if (expr.startsWith('<')) {
-        op = '<';
-        val = expr.slice(1);
-    } else if (expr.startsWith('=')) {
-        op = '=';
-        val = expr.slice(1);
-    } else if (expr.startsWith('!')) {
-        op = '!';
-        val = expr.slice(1);
-    }
-
-    // ★ 保存対象（[保存] / isSave）の特殊判定
-    if (internalField === 'isSave') {
-        const upperVal = val.toUpperCase();
-        if (upperVal === 'ON' || upperVal === 'OFF') {
-            const expectedBool = (upperVal === 'ON');
-            const actualBool = Boolean(item.isSave);
-            return op === '!' ? (actualBool !== expectedBool) : (actualBool === expectedBool);
-        }
-        // 誤った指定可能値（ON/OFF以外）が指定された場合は条件無効（falseを返す）
-        return false;
-    }
-
-    // ターゲットの値を取得
-    const targetValues = internalField === 'all' 
-        ? Object.values(item) 
-        : [item[internalField]];
-
-    return targetValues.some(itemVal => {
-        if (itemVal === undefined || itemVal === null) return false;
-        const strVal = String(itemVal);
-        const numVal = Number(itemVal);
-        const targetNum = Number(val);
-        const isNumeric = !isNaN(numVal) && !isNaN(targetNum) && val !== '';
-
-        switch (op) {
-            case '>':
-                return isNumeric ? numVal >= targetNum : strVal >= val;
-            case '<':
-                return isNumeric ? numVal <= targetNum : strVal <= val;
-            case '!':
-                return !strVal.includes(val);
-            case '=':
-            default:
-                return strVal.includes(val);
-        }
-    });
 }
 
 // リアルタイムフィルタリングと件数表示の更新

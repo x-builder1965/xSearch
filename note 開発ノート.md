@@ -1412,3 +1412,303 @@ const TAG_MAP = {
     "Zombie": "ゾンビ",
     "Zoophilia": "動物性愛"
 };
+
+
+
+
+
+
+
+
+
+
+
+## 2026-10-XX Ver1.XX.1 「TID」の列位置を「保存対象」の右に移動。
+・下記ロジックで「TID」の列位置を「保存対象」の右に移動。
+### -- index.html ---------------------------------------------------
+```html
+            <!-- リストパネル -->
+            <main class="table-container">
+                <table id="playlist-table">
+                    <thead class="table-header">
+                        <tr>
+                            <th>TID</th>
+                            <th>分類</th>
+                            <th>音</th>
+                            <th>放映期間</th>
+                            <th>評価</th>
+                            <th>シリーズ</th>
+                            <th>ジャンル</th>
+                            <th><input type="checkbox" id="select-all-save" title="全選択/全解除"></th>
+                            <th>音</th>
+                            <th>放映年月</th>
+                            <th>評価</th>
+                            <th>タイトル</th>
+                            <th>話数</th>
+                            <th>状態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- 動的生成 -->
+                    </tbody>
+                </table>
+            </main>
+```
+
+/* -- styles.css --------------------------------------------------------
+```css
+/* リストテーブル固有設定 (#playlist-table) */
+#playlist-table {
+    table-layout: fixed;
+    width: 100%;
+}
+.table-header th {
+    background-color: #731d97;
+    color: #ffffff;
+}
+/* 各列の幅・テキスト配置指定 */
+#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 70px;  text-align: center; } /* TID */
+#playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 130px; }                     /* 分類 */
+#playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: 24px;  text-align: center; } /* S50音 */
+#playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: 140px; text-align: center; } /* S放映期間 */
+#playlist-table th:nth-child(5),  #playlist-table td:nth-child(5)  { width: 96px;  text-align: center; } /* S評価 */
+/* ※ 6番目（シリーズ）は自動拡大 */
+#playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 300px; }                     /* ジャンル */
+#playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: 40px;  text-align: center; } /* 保存対象（チェックBOX） */
+#playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 24px;  text-align: center; } /* T50音 */
+#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 82px;  text-align: center; } /* T放映年月 */
+#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 96px;  text-align: center; } /* T評価 */
+/* ※ 12番目（タイトル）は自動拡大 */
+#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 54px;  text-align: center; } /* 話数 */
+#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 54px;  text-align: center; } /* 状態 */
+/* 自動拡大列・省略表示の調整 */
+#playlist-table td:nth-child(6),  /* シリーズ名 */
+#playlist-table td:nth-child(12) {/* タイトル名 */
+    max-width: 0;
+    min-width: 20px;
+}
+#playlist-table td:nth-child(7) { /* ジャンル */
+    max-width: 0;
+}
+```
+
+// -- renderer.js ------------------------------------------------------
+```js
+// 項目指定記号と内部プロパティのマッピング定義
+const fieldMappings = {
+    '[全]': 'all',
+    '[TID]': 'tid',
+    '[分類]': 'category',
+    '[S音]': 'seriesKana',
+    '[放映期間]': 'seriesPeriod',
+    '[S評価]': 'seriesRating',
+    '[シリーズ]': 'seriesName',
+    '[ジャンル]': 'genre',
+    '[保存]': 'isSave',
+    '[T音]': 'titleKana',
+    '[放映年月]': 'titleDate',
+    '[T評価]': 'titleRating',
+    '[タイトル]': 'titleName',
+    '[話数]': 'episodeCount',
+    '[状態]': 'playlistStatus'
+};
+// thに対応する項目指定記号のマッピング（テーブルの列順に対応）
+const thSymbols = [
+    '[TID]', 
+    '[分類]',
+    '[S音]', 
+    '[放映期間]', 
+    '[S評価]', 
+    '[シリーズ]', 
+    '[ジャンル]', 
+    '[保存]',
+    '[T音]', 
+    '[放映年月]', 
+    '[T評価]', 
+    '[タイトル]', 
+    '[話数]', 
+    '[状態]'
+];
+
+// 🔲グルーバル共通変数🔲
+let appState = {                // localStorage管理情報
+    selectedDir: '',            // 検索フォルダパス
+    rawItems: [],               // ベースリスト管理
+    items: [],                  // リスト管理
+    theme: 'dark',              // テーマ管理
+    isProcessing: false,        // 処理中フラグ
+    playerAppPath: ''           // プレイヤーアプリのパス
+};
+
+// リスト描画
+function renderTable() {
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+
+    appState.items.forEach((item, index) => {
+        const tr = document.createElement('tr');
+
+        // 各フィールドの定義（列順に合わせて調整）
+        const fields = [
+            item.tid,           // index 0: TID
+            item.category,      // index 1: 分類
+            item.seriesKana,    // index 2: S音
+            item.seriesPeriod,  // index 3: 放映期間
+            item.seriesRating,  // index 4: 評価
+            item.seriesName,    // index 5: シリーズ
+            item.genre,         // index 6: ジャンル
+            item.titleKana,     // index 7: T音
+            item.titleDate,     // index 8: 放映年月
+            item.titleRating,   // index 9: T評価
+            item.titleName,     // index 10: タイトル
+            item.episodeCount,  // index 11: 話数
+            getStatusIcon(item.playlistStatus) // index 12: 状態
+        ];
+
+        // --- 0〜6番目の描画（TIDは index 0、シリーズは index 5） ---
+        for (let i = 0; i <= 6; i++) {
+            const td = document.createElement('td');
+            const textVal = fields[i] ?? '';
+            td.textContent = textVal;
+            td.title = textVal;
+
+            const symbol = thSymbols[i];
+
+            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closePopupMenu();
+
+                if (symbol) {
+                    const val = getFilterValue(symbol, textVal, item);
+                    // 記号と値（val）をそれぞれそのまま渡す
+                    insertFilterItem(symbol, val);
+                }
+            });
+
+            // TID列（index 0）のクリックイベント
+            if (i === 0 && textVal && textVal !== '-') {
+                td.style.cursor = 'pointer';
+                td.style.color = '#4da6ff';
+                td.addEventListener('click', () => {
+                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
+                    window.api.openExternalUrl(tidUrl);
+                });
+            }
+
+            // シリーズ列（index 5）のクリックイベント
+            if (i === 5) {
+                td.style.cursor = 'pointer';
+                td.addEventListener('click', async () => {
+                    // プレイヤーアプリが未設定の場合の挙動
+                    if (!appState.playerAppPath) {
+                        if (item.folderPath) {
+                            await window.api.showInFolder(item.folderPath);
+                        }
+                        return;
+                    }
+            
+                    const result = await window.api.launchPlayer({
+                        appPath: appState.playerAppPath,
+                        targetPath: item.folderPath
+                    });
+                    if (result && !result.success && result.error) {
+                        showToast(result.error, 'error');
+                    }
+                });
+            }
+            
+
+            tr.appendChild(td);
+        }
+
+        // 保存対象（チェックボックス）列の追加（7番目の列）
+        const saveTd = document.createElement('td');
+        saveTd.style.textAlign = 'center';
+        
+        // 保存列の右クリックイベント
+        const saveSymbol = thSymbols[7]; // '[保存]'
+        saveTd.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closePopupMenu();
+
+            if (saveSymbol) {
+                const val = getFilterValue(saveSymbol, null, item);
+                insertFilterItem(saveSymbol, `${saveSymbol} ${val}, `);
+            }
+        });
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'save-checkbox';
+        checkbox.checked = item.isSave ?? false;
+        checkbox.dataset.index = index;
+
+        checkbox.addEventListener('change', (e) => {
+            item.isSave = e.target.checked;
+            saveToLocalStorage();
+            updateSelectAllCheckbox();
+        });
+        saveTd.appendChild(checkbox);
+        tr.appendChild(saveTd);
+
+        // --- 7番目以降の描画（ fields[7] 以降） ---
+        for (let i = 7; i < fields.length; i++) {
+            const td = document.createElement('td');
+            const textVal = fields[i] ?? '';
+            td.textContent = textVal;
+            td.title = textVal;
+
+            // thSymbolsのインデックスは保存列（index 7）の分だけ +1 シフトする
+            const symbol = thSymbols[i + 1];
+
+            // リストデータ右クリックイベントの登録（項目記号の省略を廃止し、常にsymbolを付与）
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closePopupMenu();
+
+                if (symbol) {
+                    const val = getFilterValue(symbol, textVal, item);
+                    // 記号と値（val）をそれぞれそのまま渡す
+                    insertFilterItem(symbol, val);
+                }
+            });
+
+            // タイトル列（fieldsのindex 10にあたる）のクリックイベント
+            if (i === 10) { 
+                td.style.cursor = 'pointer';
+                td.addEventListener('click', async () => {
+                    // プレイヤーアプリが未設定の場合の挙動
+                    if (!appState.playerAppPath) {
+                        if (item.filePath) {
+                            await window.api.showInFolder(item.filePath);
+                        }
+                        return;
+                    }
+            
+                    const result = await window.api.launchPlayer({
+                        appPath: appState.playerAppPath,
+                        targetPath: item.filePath
+                    });
+                    if (result && !result.success && result.error) {
+                        showToast(result.error, 'error');
+                    }
+                });
+            }
+
+            // 話数や状態などのテキスト中央揃えなど
+            if (i === 11 || i === 12) {
+                td.style.textAlign = 'center';
+            }
+            tr.appendChild(td);
+        }
+
+        tbody.appendChild(tr);
+    });
+
+    updateSelectAllCheckbox();
+}
+```

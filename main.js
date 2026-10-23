@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.23.0';
+// version   = 'Ver1.25.1';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -634,7 +634,6 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                 }
 
                 resultItem = {
-                    id: `${seriesInfo.folderPath}__${filePath}`,
                     folderPath: seriesInfo.folderPath,
                     filePath,
                     folderMtime: seriesInfo.folderMtime,
@@ -646,6 +645,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     seriesRating: seriesInfo.seriesRating,
                     seriesName, 
                     genre,
+                    id: `${seriesInfo.folderPath}__${filePath}`,
                     titleKana: parsedTitle.titleKana,
                     titleDate: parsedTitle.titleDate,
                     titleRating: parsedTitle.titleRating,
