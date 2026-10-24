@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.27.1';
+// version   = 'Ver1.29.1';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -908,6 +908,8 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
         const existingMap = new Map();
         if (Array.isArray(existingItems)) {
             existingItems.forEach(item => {
+                // ★ スキャン開始時に一度フラグをリセットしておく（前回の青表示を引き継がない場合）
+                item.isUpdated = false;
                 existingMap.set(item.filePath, item);
             });
 
@@ -1004,8 +1006,6 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             const { filePath, seriesInfo } = item;
             const fileName = path.basename(filePath);
 
-            // ★ ここで進捗メッセージに強制検索中が含まれる場合の対応など、main側で調整可能ですが、
-            // renderer側から送られてくる進捗表示内容、または通常のメッセージ送信を行っています。
             event.sender.send('scan:progress', {
                 current,
                 total,
@@ -1020,6 +1020,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             }
             const fileMtime = fileStat.mtimeMs;
 
+            // リマインダーから渡されたリスト情報（existingItems）に基づく既存アイテムの取得
             const cachedItem = existingMap.get(filePath);
 
             const baseFileName = path.basename(filePath, '.amppl');
@@ -1057,15 +1058,12 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
 
             let seriesName = removePrefix(rawFolderName);
 
-            // ★ 「保存」がONのアイテムの場合は、キャッシュが存在しても強制的に再取得させるため、
-            // cachedItem のジャンルやTIDを強制的に null扱いにするか、条件分岐に組み込みます。
             const isForced = cachedItem && cachedItem.isSave;
 
             let genre = isForced ? null : (cachedItem ? cachedItem.genre : null);
             let tid = isForced ? null : (cachedItem ? cachedItem.tid : null);
             let playlistStatus = cachedItem ? cachedItem.playlistStatus : null;
 
-            // 強制検索対象の場合は mtime が一致していても再取得させる
             const isMtimeUnchanged = !isForced && cachedItem && 
                                      cachedItem.folderMtime === seriesInfo.folderMtime && 
                                      cachedItem.fileMtime === fileMtime &&
@@ -1077,8 +1075,11 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
             const needsCheckStatus = !cachedItem || !playlistStatus;
 
             let resultItem;
+            let isUpdated = false;
+
             if (isMtimeUnchanged && !needsFetchGenre && !needsFetchTid && !needsCheckStatus) {
                 resultItem = cachedItem;
+                isUpdated = cachedItem.isUpdated || false;
             } else {
                 if (!isAnimePath) {
                     genre = '-';
@@ -1104,6 +1105,21 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
                 }
 
+                // --- ★ リマインダーから渡されたリスト情報（existingItems）と見比べて内容が変わったか、新規追加かを判定 ---
+                if (!cachedItem) {
+                    isUpdated = true; // 新規追加
+                } else {
+                    isUpdated = (
+                        cachedItem.tid !== tid ||
+                        cachedItem.genre !== genre ||
+                        cachedItem.playlistStatus !== playlistStatus ||
+                        cachedItem.episodeCount !== episodeCount ||
+                        cachedItem.titleName !== parsedTitle.titleName ||
+                        cachedItem.seriesName !== seriesName ||
+                        cachedItem.category !== category
+                    );
+                }
+
                 resultItem = {
                     folderPath: seriesInfo.folderPath,
                     filePath,
@@ -1123,8 +1139,8 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     titleName: parsedTitle.titleName,
                     episodeCount,
                     playlistStatus,
-                    // ★ 保存状態を引き継ぐ
-                    isSave: cachedItem ? cachedItem.isSave : false
+                    isSave: cachedItem ? cachedItem.isSave : false,
+                    isUpdated
                 };
             }
 

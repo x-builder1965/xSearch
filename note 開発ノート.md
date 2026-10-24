@@ -369,6 +369,16 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
 
 ---
 
+## 2026-10-XX Ver1.XX.1 検索で情報を更新したタイトルの「状態」に別に🟩, 🟥, 🟨, 🟪（UPDATE）を表示。
+- 検索・再検索時情報を追加・変更したタイトルの状態に'UPDATE'を返却
+- リストに'UPDATE'が返却されたタイトルの「状態」に🟩, 🟥, 🟨, 🟪を表示
+    - 🟩：状態OK + UPDATE
+    - 🟥：状態NG + UPDATE
+    - 🟨：状態BLANK + UPDATE
+    - 🟪：状態OVERLAP + UPDATE
+
+---
+
 ## 2026-10-XX Ver1.XX.0 ダッシュボード表示機能の追加。
 ### 要件説明
 ・下記データ例を使っての統計結果をダッシュボードを表示する処理作成
@@ -1014,4 +1024,6 @@ function renderTable() {
     updateSelectAllCheckbox();
 }
 ```
+
+---
 

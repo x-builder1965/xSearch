@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.28.1';
+// version   = 'Ver1.29.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -21,7 +21,7 @@ const fieldMappings = {
     '[T評価]': 'titleRating',
     '[タイトル]': 'titleName',
     '[話数]': 'episodeCount',
-    '[状態]': 'playlistStatus'
+    '[状態]': 'playlistStatus' // 内部的に playlistStatus として扱いつつ条件評価で isUpdated も見る
 };
 // thに対応する項目指定記号のマッピング（新しいテーブルの列順に対応）
 const thSymbols = [
@@ -241,7 +241,17 @@ function loadFromLocalStorage() {
 }
 
 // ステータスに応じたアイコンを返すヘルパー関数
-function getStatusIcon(status) {
+function getStatusIcon(status, item) {
+    // ★ リスト情報の内容に変更・追加があった（isUpdatedがtrue）場合は🔲で表示
+    if (item && item.isUpdated) {
+        switch (status) {
+            case 'OK': return '🟩';
+            case 'NG': return '🟥';
+            case 'OVERLAP': return '🟪';
+            default: return '🟨'; // BLANK など
+        }
+    }
+
     switch (status) {
         case 'OK': return '🟢';
         case 'NG': return '🔴';
@@ -253,6 +263,18 @@ function getStatusIcon(status) {
 // リストデータ右クリック時の値変換ヘルパー関数
 function getFilterValue(symbol, rawValue, item) {
     if (symbol === '[状態]') {
+        // ★ 状態列で右クリックされた際、UPDATE（🔲）であれば 'UPDATE' として扱う
+        if (item && item.isUpdated) {
+            switch (rawValue) {
+                case '🟩': return 'OK UPDATE';
+                case '🟥': return 'NG UPDATE';
+                case '🟨': return 'BLANK UPDATE';
+                case '🟪': return 'OVERLAP UPDATE';
+                default: {
+                    return '';
+                }
+            }
+        }
         switch (rawValue) {
             case '🟢': return 'OK';
             case '🔴': return 'NG';
@@ -292,7 +314,7 @@ function renderTable() {
             item.titleRating,   // index 10: T評価
             item.titleName,     // index 11: タイトル
             item.episodeCount,  // index 12: 話数
-            getStatusIcon(item.playlistStatus) // index 13: 状態
+            getStatusIcon(item.playlistStatus, item) // index 13: 状態（★ itemを渡して判定）
         ];
 
         // --- 0〜5番目の描画（分類 〜 ジャンル） ---
@@ -1335,8 +1357,49 @@ function evaluateSingleCondition(item, internalField, expr) {
         return false;
     }
 
+    // --- [状態] フィールド（internalField === 'playlistStatus'）の固有判定 ---
+    if (internalField === 'playlistStatus') {
+        const upperVal = val.toUpperCase();
+        const isUpdated = Boolean(item.isUpdated);
+        const status = item.playlistStatus || 'BLANK';
+
+        // 汎用的な更新指定（UPDATE または 🟩, 🟥, 🟪, 🟨）の場合
+        if (upperVal === 'UPDATE' || val === '🟩' || val === '🟥' || val === '🟪' || val === '🟨') {
+            return op === '!' ? !isUpdated : isUpdated;
+        }
+
+        // 四角アイコン・ステータス名による固有判定
+        let matches = false;
+        if (isUpdated) {
+            if (val === '🟩' || upperVal === 'OK') matches = (status === 'OK');
+            else if (val === '🟥' || upperVal === 'NG') matches = (status === 'NG');
+            else if (val === '🟪' || upperVal === 'OVERLAP') matches = (status === 'OVERLAP');
+            else if (val === '🟨' || upperVal === 'BLANK') matches = (status === 'BLANK' || !status);
+        } else {
+            if (val === '🟢' || upperVal === 'OK') matches = (status === 'OK');
+            else if (val === '🔴' || upperVal === 'NG') matches = (status === 'NG');
+            else if (val === '🟣' || upperVal === 'OVERLAP') matches = (status === 'OVERLAP');
+            else if (val === '🟡' || upperVal === 'BLANK') matches = (status === 'BLANK' || !status);
+        }
+
+        // 上記の固有アイコン・ステータスに一致した場合は判定を返す
+        if (val === '🟩' || val === '🟥' || val === '🟪' || val === '🟨' || 
+            val === '🟢' || val === '🔴' || val === '🟣' || val === '🟡' ||
+            ['OK', 'NG', 'OVERLAP', 'BLANK'].includes(upperVal)) {
+            return op === '!' ? !matches : matches;
+        }
+    }
+
+    // --- ターゲット値の収集（[全] の場合は item.isUpdated が true なら 'UPDATE' や対応アイコン文字列を候補に追加） ---
     const targetValues = internalField === 'all' 
-        ? Object.values(item) 
+        ? [
+            ...Object.values(item), 
+            item.isUpdated ? 'UPDATE' : '',
+            item.isUpdated ? '🟩' : '🟢',
+            item.isUpdated ? '🟥' : '🔴',
+            item.isUpdated ? '🟪' : '🟣',
+            item.isUpdated ? '🟨' : '🟡'
+          ] 
         : [item[internalField]];
 
     return targetValues.some(itemVal => {
@@ -1360,7 +1423,7 @@ function evaluateSingleCondition(item, internalField, expr) {
     });
 }
 
-// 括弧内のカンマやOR演算子を無視して分割するヘルパー関数
+// 括弧内のカンマやOR演算子を無視して分割するヘルパー関数（未使用）
 function splitByOr(query) {
     const result = [];
     let current = '';
@@ -1503,7 +1566,8 @@ function getHeaderMenuItems(symbol) {
                 "OK, ",
                 "NG, ",
                 "BLANK, ",
-                "OVERLAP, "
+                "OVERLAP, ",
+                "UPDATE, ",
             ];
         }
         default:
