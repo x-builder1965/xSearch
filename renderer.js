@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.29.1';
+// version   = 'Ver1.30.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -965,14 +965,15 @@ function registerPlaylistTableThContextmenu() {
             menu.appendChild(headerItem);
 
             // 各メニューアイテムの追加
-            items.forEach((itemVal) => {
+            items.forEach((itemObj) => {
                 const menuItem = document.createElement('div');
                 menuItem.className = 'menu-item';
-                menuItem.textContent = itemVal;
+                // 表示にはラベル（絵文字付き）を使う
+                menuItem.textContent = itemObj.label; 
                 menuItem.addEventListener('click', (event) => {
                     event.stopPropagation();
-                    insertFilterItem(symbol, itemVal);
-                    // メニューは表示したまま
+                    // フィルタ挿入には実際の値を使う
+                    insertFilterItem(symbol, itemObj.value);
                 });
                 menu.appendChild(menuItem);
             });
@@ -1498,76 +1499,79 @@ function closePopupMenu() {
 function getHeaderMenuItems(symbol) {
     switch (symbol) {
         case '[分類]': {
-            // リストの「分類」列内の値を重複を除いて設定（値の末尾に", "を追加）
+            // リストの「分類」列内の値を重複を除いて設定（label, value 形式に変更）
             const categories = Array.from(
                 new Set(appState.items.map(item => item.category).filter(Boolean))
             );
-            return categories.map(cat => `${cat}, `);
+            return categories.map(cat => ({
+                label: `${cat}, `,
+                value: `${cat}, `
+            }));
         }
         case '[S音]':
         case '[T音]': {
             // 50音（シリーズ）/ 50音（タイトル）
             return [
-                "あ, い, う, え, お, ",
-                "か, き, く, け, こ, ",
-                "さ, し, す, せ, そ, ",
-                "た, ち, つ, て, と, ",
-                "な, に, ぬ, ね, の, ",
-                "は, ひ, ふ, へ, ほ, ",
-                "ま, み, む, め, も, ",
-                "や, ゆ, よ, ら, り, ",
-                "ら, り, る, れ, ろ, ",
-                "わ, を, ん, "
+                { label: "あ, い, う, え, お, ", value: "あ, い, う, え, お, " },
+                { label: "か, き, く, け, こ, ", value: "か, き, く, け, こ, " },
+                { label: "さ, し, す, せ, そ, ", value: "さ, し, す, せ, そ, " },
+                { label: "た, ち, つ, て, と, ", value: "た, ち, つ, て, と, " },
+                { label: "な, に, ぬ, ね, の, ", value: "な, に, ぬ, ね, の, " },
+                { label: "は, ひ, ふ, へ, ほ, ", value: "は, ひ, ふ, へ, ほ, " },
+                { label: "ま, み, む, め, も, ", value: "ま, み, む, め, も, " },
+                { label: "や, ゆ, よ, ら, り, ", value: "や, ゆ, よ, ら, り, " },
+                { label: "ら, り, る, れ, ろ, ", value: "ら, り, る, れ, ろ, " },
+                { label: "わ, を, ん, ",         value: "わ, を, ん, " },
             ];
         }
         case '[S評価]':
         case '[T評価]': {
             // 評価（シリーズ）/ 評価（タイトル）
             return [
-                "☆☆☆☆☆, ",
-                "★☆☆☆☆, ",
-                "★★☆☆☆, ",
-                "★★★☆☆, ",
-                "★★★★☆, ",
-                "★★★★★, "
+                { label: "☆☆☆☆☆, ", value: "☆☆☆☆☆, " },
+                { label: "★☆☆☆☆, ", value: "★☆☆☆☆, " },
+                { label: "★★☆☆☆, ", value: "★★☆☆☆, " },
+                { label: "★★★☆☆, ", value: "★★★☆☆, " },
+                { label: "★★★★☆, ", value: "★★★★☆, " },
+                { label: "★★★★★, ", value: "★★★★★, " },
             ];
         }
         case '[ジャンル]': {
             return [
-                "アクション, ",
-                "アドベンチャー, ",
-                "コメディ, ",
-                "ドラマ, ",
-                "エッチ, ",
-                "ファンタジー, ",
-                "成人向け, ",
-                "ホラー, ",
-                "魔法少女, ",
-                "メカ・ロボット, ",
-                "音楽, ",
-                "ミステリー, ",
-                "サスペンス・心理, ",
-                "恋愛・ラブコメ, ",
-                "SF, ",
-                "日常・ほのぼの, ",
-                "スポーツ, ",
-                "超自然・能力, ",
-                "スリラー, "
+                { label: "アクション, ",       value: "アクション, " },
+                { label: "アドベンチャー, ",   value: "アドベンチャー, " },
+                { label: "コメディ, ",         value: "コメディ, " },
+                { label: "ドラマ, ",           value: "ドラマ, " },
+                { label: "エッチ, ",           value: "エッチ, " },
+                { label: "ファンタジー, ",     value: "ファンタジー, " },
+                { label: "成人向け, ",         value: "成人向け, " },
+                { label: "ホラー, ",           value: "ホラー, " },
+                { label: "魔法少女, ",         value: "魔法少女, " },
+                { label: "メカ・ロボット, ",    value: "メカ・ロボット, " },
+                { label: "音楽, ",             value: "音楽, " },
+                { label: "ミステリー, ",       value: "ミステリー, " },
+                { label: "サスペンス・心理, ",  value: "サスペンス・心理, " },
+                { label: "恋愛・ラブコメ, ",    value: "恋愛・ラブコメ, " },
+                { label: "SF, ",               value: "SF, " },
+                { label: "日常・ほのぼの, ",    value: "日常・ほのぼの, " },
+                { label: "スポーツ, ",         value: "スポーツ, " },
+                { label: "超自然・能力, ",      value: "超自然・能力, " },
+                { label: "スリラー, ",         value: "スリラー, " },
             ];
         }
         case '[保存]': {
             return [
-                "ON, ",
-                "OFF, "
+                { label: "ON, ",  value: "ON, " }, 
+                { label: "OFF, ", value: "OFF, " },
             ];
         }
         case '[状態]': {
             return [
-                "OK, ",
-                "NG, ",
-                "BLANK, ",
-                "OVERLAP, ",
-                "UPDATE, ",
+                { label: "🟢: OK, ",         value: "OK, " },
+                { label: "🔴: NG, ",         value: "NG, " },
+                { label: "🟡: BLANK, ",      value: "BLANK, " },
+                { label: "🟣: OVERLAP, ",    value: "OVERLAP, " },
+                { label: "🟩～🟪: UPDATE, ", value: "UPDATE, " },
             ];
         }
         default:

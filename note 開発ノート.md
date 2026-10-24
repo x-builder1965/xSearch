@@ -379,6 +379,10 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
 
 ---
 
+## 2026-10-XX Ver1.XX.0 見出し「状態」クリック時に表示されるメニューの表示内容を変更。
+
+---
+
 ## 2026-10-XX Ver1.XX.0 ダッシュボード表示機能の追加。
 ### 要件説明
 ・下記データ例を使っての統計結果をダッシュボードを表示する処理作成
@@ -404,14 +408,14 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
                     夏シーズン：06月～08月
                     秋シーズン：09月～11月
                 ・５年単位は1970年開始で＋５年毎の単位
-            ・評価／シリーズ50音／ジャンルの切替ドロップダウン
+            ・評価／シリーズ50音／ジャンル（タグを除く）の切替ドロップダウン
             ・集計単位のタイトル数の横棒グラフ（評価／シリーズ50音／ジャンルの多層グラフ）
         ・（下部50%右側25%配置）選択期間の統計：
-            ・評価・シリーズ50音・ジャンルの統計
+            ・評価・シリーズ50音・ジャンル（タグを除く）の統計
             ・カードタイトルに「期間統計（選択された期間）」を表示
             ・選択期間の評価のドーナッツグラフ
             ・選択期間のシリーズ50音のドーナッツグラフ
-            ・選択期間のジャンルのドーナッツグラフ
+            ・選択期間のジャンル（タグを除く）のドーナッツグラフ
     ・ダッシュボード用の新規コードは別ファイル"renderer_dashboard.js"に作成
 
 ### 配置イメージ
@@ -463,6 +467,7 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
 ### 変更前ロジック：
 #### -- styles.css --------------------------------------------------------
 ```css
+/* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
  :root {
     --app-color: #be98ce; /* 紫色 */
@@ -523,6 +528,7 @@ H:\Download\テスト\アダルト\AV_★★★☆☆.amppl
     --text-muted: #777777;
     --sub-item-text: #546e7a;
 }
+
 
 /* 🔲全体共通🔲 */
 * {
@@ -608,7 +614,7 @@ body {
                             <th>放映期間</th>
                             <th>評価</th>
                             <th>シリーズ</th>
-                            <th>ジャンル</th>
+                            <th>ジャンル・#タグ</th>
                             <th><input type="checkbox" id="select-all-save" title="全選択/全解除"></th>
                             <th>TID</th>
                             <th>音</th>
@@ -624,9 +630,9 @@ body {
                     </tbody>
                 </table>
             </main>
---- ここまで
             <!-- ステータスパネル -->
             <div class="status-display" id="status-display">ステータス表示</div>
+--- ここまで
         </div>
         <!-- ヘルプ -->
         <div class="help-container">
@@ -658,6 +664,7 @@ body {
 ```
 #### -- renderer.js ------------------------------------------------------
 ```js
+// 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
 const fieldMappings = {
     '[全]': 'all',
@@ -674,9 +681,9 @@ const fieldMappings = {
     '[T評価]': 'titleRating',
     '[タイトル]': 'titleName',
     '[話数]': 'episodeCount',
-    '[状態]': 'playlistStatus'
+    '[状態]': 'playlistStatus' // 内部的に playlistStatus として扱いつつ条件評価で isUpdated も見る
 };
-// thに対応する項目指定記号のマッピング（テーブルの列順に対応）
+// thに対応する項目指定記号のマッピング（新しいテーブルの列順に対応）
 const thSymbols = [
     '[分類]',
     '[S音]', 
@@ -710,6 +717,7 @@ let startTime = null;           // 処理開始時刻
 let recentFileTimes = [];       // 直近の処理時間を保持する配列
 let lastItemTime = null;        // 前回のアイテム受信時刻
 let activePopupMenu = null;     // アクティブなポップアップメニュー要素の保持
+let hasForceSaveItems = false;  // 「保存」がON設定のアイテムが含まれているか判定
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 🔲初期処理🔲
@@ -745,7 +753,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerScanCancelBtnClick();
     // ESCキー押下によるキャンセル処理のリスナー登録
     registerWindowKeydown();
-     // リストヘッダーの全選択・全解除の変更イベントのリスナー登録
+     // リストヘッダーの全選択 / 全解除の変更イベントのリスナー登録
     registerSelectAllSaveChange();
     // メニュー外のクリック（左右クリック）でメニューを閉じる
     registerDocumentMousedown();
@@ -864,9 +872,7 @@ function renderTable() {
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
 
-        // 各フィールドの定義（列順の変更に合わせる）
-        // 変更後の順序: 
-        // 0: 分類, 1: S音, 2: 放映期間, 3: 評価, 4: シリーズ, 5: ジャンル, 6: 保存(checkbox), 7: TID, 8: T音, 9: 放映年月, 10: T評価, 11: タイトル, 12: 話数, 13: 状態
+        // 各フィールドの定義（新しい列順に合わせて調整）
         const fields = [
             item.category,      // index 0: 分類
             item.seriesKana,    // index 1: S音
@@ -874,17 +880,17 @@ function renderTable() {
             item.seriesRating,  // index 3: 評価
             item.seriesName,    // index 4: シリーズ
             item.genre,         // index 5: ジャンル
-            // [index 6は保存対象チェックボックスとして別途挿入]
-            item.tid,           // index 7: TID（ここに移動）
+            null,               // index 6: 保存対象（チェックボックス用プレースホルダー）
+            item.tid,           // index 7: TID
             item.titleKana,     // index 8: T音
             item.titleDate,     // index 9: 放映年月
             item.titleRating,   // index 10: T評価
             item.titleName,     // index 11: タイトル
             item.episodeCount,  // index 12: 話数
-            getStatusIcon(item.playlistStatus) // index 13: 状態
+            getStatusIcon(item.playlistStatus, item) // index 13: 状態（★ itemを渡して判定）
         ];
 
-        // --- 前半部分の描画（分類からジャンルまで: index 0〜5） ---
+        // --- 0〜5番目の描画（分類 〜 ジャンル） ---
         for (let i = 0; i <= 5; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
@@ -893,6 +899,7 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
+            // リストデータ右クリックイベントの登録
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -928,11 +935,11 @@ function renderTable() {
             tr.appendChild(td);
         }
 
-        // --- 保存対象（チェックボックス）列の挿入（6番目の列） ---
+        // --- 6番目：保存対象（チェックボックス）列の追加 ---
         const saveTd = document.createElement('td');
         saveTd.style.textAlign = 'center';
         
-        const saveSymbol = thSymbols[6]; 
+        const saveSymbol = thSymbols[6]; // '[保存]'
         saveTd.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -958,17 +965,16 @@ function renderTable() {
         saveTd.appendChild(checkbox);
         tr.appendChild(saveTd);
 
-        // --- 後半部分の描画（TID および 7番目以降: fields[6] 以降） ---
-        // fieldsのインデックス 6 以降（TID = fields[6]）を描画
-        for (let i = 6; i < fields.length; i++) {
+        // --- 7番目以降の描画（TID以降：fields[7]〜） ---
+        for (let i = 7; i < fields.length; i++) {
             const td = document.createElement('td');
             const textVal = fields[i] ?? '';
             td.textContent = textVal;
             td.title = textVal;
 
-            // thSymbols のインデックス対応（保存列が挟まった分を考慮）
-            const symbol = thSymbols[i + 1];
+            const symbol = thSymbols[i];
 
+            // リストデータ右クリックイベントの登録
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -980,8 +986,8 @@ function renderTable() {
                 }
             });
 
-            // TID列（fieldsのindex 6にあたる）のクリックイベント
-            if (i === 6 && textVal && textVal !== '-') {
+            // TID列（fieldsのindex 7にあたる）のクリックイベント
+            if (i === 7 && textVal && textVal !== '-') {
                 td.style.cursor = 'pointer';
                 td.style.color = '#4da6ff';
                 td.addEventListener('click', () => {
@@ -990,8 +996,8 @@ function renderTable() {
                 });
             }
 
-            // タイトル列（fieldsのindex 10にあたる）のクリックイベント
-            if (i === 10) { 
+            // タイトル列（fieldsのindex 11にあたる）のクリックイベント
+            if (i === 11) { 
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
                     if (!appState.playerAppPath) {
@@ -1011,8 +1017,8 @@ function renderTable() {
                 });
             }
 
-            // 話数や状態などのテキスト中央揃え
-            if (i === 11 || i === 12) {
+            // 話数(12)や状態(13)などのテキスト中央揃え
+            if (i === 12 || i === 13) {
                 td.style.textAlign = 'center';
             }
             tr.appendChild(td);
