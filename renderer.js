@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.32.1';
+// version   = 'Ver1.33.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -54,7 +54,7 @@ let appState = {                // localStorage管理情報
     dashMetricType: 'rating',       // ダッシュボード：選択要素
     dashSelectedPeriodKey: null,    // ダッシュボード：選択期間
     activeView: 'list',             // 現在の表示ビュー
-    lastScanTimestamp: ''           // 🔴 追加：検索・再検索の実行日時（例: "2026年10月25日(日) 16:30時点"）
+    lastScanTimestamp: ''           // 検索・再検索の実行日時（例: "2026年10月25日(日) 16:30時点"）
 };
 let toastTimer = null;          // トースター表示タイマー
 let toastStartTime = 0;         // トースター表示開始時間
@@ -1165,7 +1165,7 @@ function registerViewToggleEvents() {
         listContainer.style.display = 'none';
         dashContainer.style.display = 'block';
 
-        // 🔴 状態を保存してローカルストレージに書き込み
+        // 状態を保存してローカルストレージに書き込み
         appState.activeView = 'dashboard';
         window.appState = appState;
         if (typeof saveToLocalStorage === 'function') {
@@ -1185,7 +1185,7 @@ function registerViewToggleEvents() {
         dashContainer.style.display = 'none';
         listContainer.style.display = 'flex';
 
-        // 🔴 状態を保存してローカルストレージに書き込み
+        // 状態を保存してローカルストレージに書き込み
         appState.activeView = 'list';
         window.appState = appState;
         if (typeof saveToLocalStorage === 'function') {

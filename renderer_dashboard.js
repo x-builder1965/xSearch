@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.32.1';
+// version   = 'Ver1.33.1';
 // ---------------------------------------------------------------------
 let categoryChartInstance = null;
 let ratingDonutInstance = null;
@@ -122,7 +122,7 @@ function renderSummaryTable() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const rawItems = (window.appState && window.appState.rawItems) ? window.appState.rawItems : [];
+    const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
 
     // カテゴリ一貫リストの抽出（「全て」＋重複のない分類一覧）
     const categories = ['全て'];
@@ -260,7 +260,7 @@ function renderCategoryChart() {
     const ctx = document.getElementById('categoryChart')?.getContext('2d');
     if (!ctx) return;
 
-    const rawItems = (window.appState && window.appState.rawItems) ? window.appState.rawItems : [];
+    const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
     const items = (selectedCategory === '全て') ? rawItems : rawItems.filter(i => i.category === selectedCategory);
 
     const unit = document.getElementById('period-unit-select').value;
@@ -384,7 +384,7 @@ function renderCategoryChart() {
 // 3. 選択期間の統計（ドーナッツグラフ 3種）
 // -------------------------------------------------------------
 function renderPeriodDonutCharts() {
-    const rawItems = (window.appState && window.appState.rawItems) ? window.appState.rawItems : [];
+    const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
     let items = (selectedCategory === '全て') ? rawItems : rawItems.filter(i => i.category === selectedCategory);
 
     const unit = document.getElementById('period-unit-select').value;
