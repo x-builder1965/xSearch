@@ -20,7 +20,7 @@
     --scrollbar-thumb: #999999;
     --scrollbar-thumb-hover: #777777;
     /* ヘルプ・修正履歴用の変数追加（参考例より保持） */
-    --heading-color: #a333d380;
+    --heading-color: #762699;
     --heading-shadow: rgba(132, 0, 255, 0.24);
     --close-btn-bg: rgba(0, 0, 0, 0.5);
     --close-btn-text: #ff6b6b;
@@ -419,7 +419,7 @@ th, td {
     text-overflow: ellipsis;    /* はみ出た部分を「…」にする */
 }
 th {
-    background-color: var(--panel-bg);
+    /* background-color: var(--panel-bg); */
     position: sticky;
     top: 0;
     z-index: 10;
