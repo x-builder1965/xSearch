@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.33.1';
+// version   = 'Ver1.34.4';
 // ---------------------------------------------------------------------
 let categoryChartInstance = null;
 let ratingDonutInstance = null;
@@ -20,13 +20,38 @@ const STATUS_COLORS = {
     purple: '#9c27b0'
 };
 
-const RATING_KEYS = ['★★★★★', '★★★★☆', '★★★☆☆', '★★☆☆☆', '★☆☆☆☆', '評価なし'];
-const RATING_COLORS = ['#e91e63', '#ff9800', '#ffeb3b', '#4caf50', '#2196f3', '#9e9e9e'];
+// 評価
+const RATING_KEYS = ['★★★★★', '★★★★☆', '★★★☆☆', '★★☆☆☆', '★☆☆☆☆', '不明'];
+const RATING_COLORS = ['#e91e63', '#ff9800', '#ffeb3b', '#4caf50', '#2196f3', '#607d8b'];
 
-const KANA_GROUPS = ['あ', 'か', 'さ', 'た', 'な', 'は', 'ま', 'や', 'ら', 'わ', 'その他'];
-const KANA_COLORS = [
+// 50音個別
+const KANA_INDIVIDUAL = ['あ', 'い', 'う', 'え', 'お', 'か', 'き', 'く', 'け', 'こ', 'さ', 'し', 'す', 'せ', 'そ', 'た', 'ち', 'つ', 'て', 'と', 'な', 'に', 'ぬ', 'ね', 'の', 'は', 'ひ', 'ふ', 'へ', 'ほ', 'ま', 'み', 'む', 'め', 'も', 'や', 'ゆ', 'よ', 'ら', 'り', 'る', 'れ', 'ろ', 'わ', 'を', 'ん'];
+const KANA_INDIVIDUAL_KEYS = [...KANA_INDIVIDUAL, '不明', 'その他'];
+const KANA_INDIVIDUAL_COLORS = [
+    ...KANA_INDIVIDUAL.map((_, idx) => `hsl(${(idx * 7.5) % 360}, 65%, 55%)`),
+    '#607d8b', // 不明
+    '#795548'  // その他
+];
+
+// 50音グループ定義
+const KANA_GROUP_MAP = {
+    'あグループ': ['あ', 'い', 'う', 'え', 'お'],
+    'かグループ': ['か', 'き', 'く', 'け', 'こ'],
+    'さグループ': ['さ', 'し', 'す', 'せ', 'そ'],
+    'たグループ': ['た', 'ち', 'つ', 'て', 'と'],
+    'なグループ': ['な', 'に', 'ぬ', 'ね', 'の'],
+    'はグループ': ['は', 'ひ', 'ふ', 'へ', 'ほ'],
+    'まグループ': ['ま', 'み', 'む', 'め', 'も'],
+    'やグループ': ['や', 'ゆ', 'よ'],
+    'らグループ': ['ら', 'り', 'る', 'れ', 'ろ'],
+    'わグループ': ['わ', 'を', 'ん']
+};
+const KANA_GROUP_KEYS = [...Object.keys(KANA_GROUP_MAP), '不明', 'その他'];
+const KANA_GROUP_COLORS = [
     '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
-    '#2196f3', '#00bcd4', '#009688', '#4caf50', '#ff9800', '#795548'
+    '#2196f3', '#00bcd4', '#009688', '#4caf50', '#ff9800',
+    '#607d8b', // 不明
+    '#795548'  // その他
 ];
 
 // 初期化関数
@@ -103,6 +128,7 @@ function setupDashboardEventListeners() {
                 if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
             }
             renderCategoryChart();
+            renderPeriodDonutCharts();
         });
     }
 }
@@ -284,8 +310,11 @@ function renderCategoryChart() {
         subKeys = RATING_KEYS;
         subColors = RATING_COLORS;
     } else if (metric === 'seriesKana') {
-        subKeys = KANA_GROUPS;
-        subColors = KANA_COLORS;
+        subKeys = KANA_INDIVIDUAL_KEYS;
+        subColors = KANA_INDIVIDUAL_COLORS;
+    } else if (metric === 'seriesKanaGroup') {
+        subKeys = KANA_GROUP_KEYS;
+        subColors = KANA_GROUP_COLORS;
     } else if (metric === 'genre') {
         const genreSet = new Set();
         items.forEach(i => {
@@ -296,24 +325,44 @@ function renderCategoryChart() {
             }
         });
         subKeys = Array.from(genreSet);
-        if (subKeys.length === 0) subKeys = ['未設定'];
-        subColors = subKeys.map((_, idx) => `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
+        if (!subKeys.includes('不明')) {
+            subKeys.push('不明');
+        }
+        subColors = subKeys.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
     }
 
     const datasets = subKeys.map((subKey, idx) => {
         const data = sortedPeriods.map(pKey => {
             const pItems = periodMap.get(pKey) || [];
             if (metric === 'rating') {
-                return pItems.filter(i => (i.titleRating || '評価なし') === subKey).length;
+                return pItems.filter(i => {
+                    const r = i.titleRating || '評価なし';
+                    if (subKey === '不明') return r === '-';
+                    return r === subKey;
+                }).length;
             } else if (metric === 'seriesKana') {
                 return pItems.filter(i => {
                     const k = i.seriesKana || i.titleKana || '';
-                    if (subKey === 'その他') return !KANA_GROUPS.slice(0, 10).includes(k);
+                    if (subKey === '不明') return k === '-' || !k;
+                    if (subKey === 'その他') return k !== '-' && k && !KANA_INDIVIDUAL.includes(k);
                     return k === subKey;
+                }).length;
+            } else if (metric === 'seriesKanaGroup') {
+                return pItems.filter(i => {
+                    const k = i.seriesKana || i.titleKana || '';
+                    if (subKey === '不明') return k === '-' || !k;
+                    if (subKey === 'その他') {
+                        if (k === '-' || !k) return false;
+                        const allGroupChars = Object.values(KANA_GROUP_MAP).flat();
+                        return !allGroupChars.includes(k);
+                    }
+                    const groupChars = KANA_GROUP_MAP[subKey] || [];
+                    return groupChars.includes(k);
                 }).length;
             } else if (metric === 'genre') {
                 return pItems.filter(i => {
-                    if (!i.genre || i.genre === '-') return subKey === '未設定';
+                    if (subKey === '不明') return !i.genre || i.genre === '-';
+                    if (!i.genre || i.genre === '-') return false;
                     const genres = i.genre.split(',').map(g => g.trim()).filter(g => !g.startsWith('#'));
                     return genres.includes(subKey);
                 }).length;
@@ -388,6 +437,7 @@ function renderPeriodDonutCharts() {
     let items = (selectedCategory === '全て') ? rawItems : rawItems.filter(i => i.category === selectedCategory);
 
     const unit = document.getElementById('period-unit-select').value;
+    const metric = document.getElementById('metric-type-select').value;
 
     const periodMap = new Map();
     items.forEach(item => {
@@ -421,23 +471,53 @@ function renderPeriodDonutCharts() {
     const textColor = isDark ? '#d4d4d4' : '#333333';
 
     // 1. 評価ドーナッツ
-    const ratingCounts = RATING_KEYS.map(key => items.filter(i => (i.titleRating || '評価なし') === key).length);
-    ratingDonutInstance = createDonutChart(ratingDonutInstance, 'ratingDonutChart', RATING_KEYS, ratingCounts, RATING_COLORS, textColor);
-
-    // 2. シリーズ50音ドーナッツ
-    const kanaCounts = KANA_GROUPS.map(subKey => {
+    const ratingCounts = RATING_KEYS.map(key => {
         return items.filter(i => {
-            const k = i.seriesKana || i.titleKana || '';
-            if (subKey === 'その他') return !KANA_GROUPS.slice(0, 10).includes(k);
-            return k === subKey;
+            const r = i.titleRating || '評価なし';
+            if (key === '不明') return r === '-';
+            return r === key;
         }).length;
     });
-    seriesKanaDonutInstance = createDonutChart(seriesKanaDonutInstance, 'seriesKanaDonutChart', KANA_GROUPS, kanaCounts, KANA_COLORS, textColor);
+    ratingDonutInstance = createDonutChart(ratingDonutInstance, 'ratingDonutChart', RATING_KEYS, ratingCounts, RATING_COLORS, textColor);
+
+    // 2. シリーズ50音 / 50音グループ ドーナッツ（metricに応じて切り替え）
+    let kanaKeys = KANA_INDIVIDUAL_KEYS;
+    let kanaColors = KANA_INDIVIDUAL_COLORS;
+
+    if (metric === 'seriesKanaGroup') {
+        kanaKeys = KANA_GROUP_KEYS;
+        kanaColors = KANA_GROUP_COLORS;
+    }
+
+    const kanaCounts = kanaKeys.map(subKey => {
+        return items.filter(i => {
+            const k = i.seriesKana || i.titleKana || '';
+            if (metric === 'seriesKanaGroup') {
+                if (subKey === '不明') return k === '-' || !k;
+                if (subKey === 'その他') {
+                    if (k === '-' || !k) return false;
+                    const allGroupChars = Object.values(KANA_GROUP_MAP).flat();
+                    return !allGroupChars.includes(k);
+                }
+                const groupChars = KANA_GROUP_MAP[subKey] || [];
+                return groupChars.includes(k);
+            } else {
+                if (subKey === '不明') return k === '-' || !k;
+                if (subKey === 'その他') return k !== '-' && k && !KANA_INDIVIDUAL.includes(k);
+                return k === subKey;
+            }
+        }).length;
+    });
+    seriesKanaDonutInstance = createDonutChart(seriesKanaDonutInstance, 'seriesKanaDonutChart', kanaKeys, kanaCounts, kanaColors, textColor);
 
     // 3. ジャンル（タグ除く）ドーナッツ
     const genreMap = new Map();
+    genreMap.set('不明', 0);
+
     items.forEach(i => {
-        if (i.genre && i.genre !== '-') {
+        if (!i.genre || i.genre === '-') {
+            genreMap.set('不明', (genreMap.get('不明') || 0) + 1);
+        } else {
             i.genre.split(',').map(g => g.trim()).forEach(g => {
                 if (g && !g.startsWith('#')) {
                     genreMap.set(g, (genreMap.get(g) || 0) + 1);
@@ -448,7 +528,7 @@ function renderPeriodDonutCharts() {
 
     const genreLabels = Array.from(genreMap.keys());
     const genreCounts = Array.from(genreMap.values());
-    const genreColors = genreLabels.map((_, idx) => `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
+    const genreColors = genreLabels.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
 
     genreDonutInstance = createDonutChart(genreDonutInstance, 'genreDonutChart', genreLabels, genreCounts, genreColors, textColor);
 }

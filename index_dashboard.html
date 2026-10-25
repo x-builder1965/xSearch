@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-';
- version   = 'Ver1.31.1';
+ version   = 'Ver1.34.1';
  ------------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -27,7 +27,7 @@
                             <th>タイトル件数</th>
                             <th>話数件数</th>
                             <th>🟢:正常</th>
-                            <th>🔴:不在</th>
+                            <th>🔴:不明</th>
                             <th>🟡:空</th>
                             <th>🟣:重複</th>
                         </tr>
@@ -55,7 +55,8 @@
                         </select>
                         <select id="metric-type-select" class="dash-select">
                             <option value="rating">評価</option>
-                            <option value="seriesKana">50音</option>
+                            <option value="seriesKana">50音個別</option>
+                            <option value="seriesKanaGroup">50音グループ</option>
                             <option value="genre">ジャンル</option>
                         </select>
                     </div>
