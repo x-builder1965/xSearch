@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.31.1';
+// version   = 'Ver1.32.1';
 // ---------------------------------------------------------------------
 let categoryChartInstance = null;
 let ratingDonutInstance = null;
@@ -31,25 +31,50 @@ const KANA_COLORS = [
 
 // 初期化関数
 function initDashboard() {
+    // 🔴 起動時に appState から保存された選択状態を復元・反映
+    if (window.appState) {
+        if (window.appState.dashSelectedCategory) {
+            selectedCategory = window.appState.dashSelectedCategory;
+        }
+        if (window.appState.dashSelectedPeriodKey !== undefined) {
+            selectedPeriodKey = window.appState.dashSelectedPeriodKey;
+        }
+
+        const periodUnitSelect = document.getElementById('period-unit-select');
+        const metricTypeSelect = document.getElementById('metric-type-select');
+
+        if (periodUnitSelect && window.appState.dashPeriodUnit) {
+            periodUnitSelect.value = window.appState.dashPeriodUnit;
+        }
+        if (metricTypeSelect && window.appState.dashMetricType) {
+            metricTypeSelect.value = window.appState.dashMetricType;
+        }
+    }
+
+    const titleEl = document.getElementById('category-stats-title');
+    if (titleEl) {
+        titleEl.textContent = `分類統計（${selectedCategory}）`;
+    }
+
     updateDashboardTimestamp();
     setupDashboardEventListeners();
     refreshDashboard();
 }
 
-// タイムスタンプ更新（例：2026年10月22日(木) 15:00時点）
+// タイムスタンプ更新
 function updateDashboardTimestamp() {
-    const now = new Date();
-    const days = ['日', '月', '火', '水', '木', '金', '土'];
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const day = days[now.getDay()];
-    const hh = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-
     const tsEl = document.getElementById('summary-timestamp');
-    if (tsEl) {
-        tsEl.textContent = `${yyyy}年${mm}月${dd}日(${day}) ${hh}:${min}時点`;
+    if (!tsEl) return;
+
+    // appState に保存されている検索実行日時を取得
+    const savedTimestamp = (window.appState && window.appState.lastScanTimestamp) 
+        ? window.appState.lastScanTimestamp 
+        : null;
+
+    if (savedTimestamp) {
+        tsEl.textContent = savedTimestamp;
+    } else {
+        tsEl.textContent = '----年--月--日(-) --:--時点（未検索）';
     }
 }
 
@@ -61,6 +86,11 @@ function setupDashboardEventListeners() {
     if (periodUnitSelect) {
         periodUnitSelect.addEventListener('change', () => {
             selectedPeriodKey = null; // 集計単位変更時は選択期間リセット
+            if (window.appState) {
+                window.appState.dashPeriodUnit = periodUnitSelect.value;
+                window.appState.dashSelectedPeriodKey = null;
+                if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+            }
             renderCategoryChart();
             renderPeriodDonutCharts();
         });
@@ -68,6 +98,10 @@ function setupDashboardEventListeners() {
 
     if (metricTypeSelect) {
         metricTypeSelect.addEventListener('change', () => {
+            if (window.appState) {
+                window.appState.dashMetricType = metricTypeSelect.value;
+                if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+            }
             renderCategoryChart();
         });
     }
@@ -118,27 +152,23 @@ function renderSummaryTable() {
             const isUpdated = Boolean(i.isUpdated);
             const status = (i.playlistStatus || 'BLANK').toUpperCase();
 
-            // renderer.js の判定ロジックに準拠
             let isGreen = false;
             let isRed = false;
             let isPurple = false;
             let isYellow = false;
 
             if (isUpdated) {
-                // 更新状態 (🟩, 🟥, 🟪, 🟨)
                 isGreen = (status === 'OK' || i.playlistStatus === '🟩');
                 isRed = (status === 'NG' || i.playlistStatus === '🟥');
                 isPurple = (status === 'OVERLAP' || i.playlistStatus === '🟪');
                 isYellow = (status === 'BLANK' || !status || i.playlistStatus === '🟨');
             } else {
-                // 通常状態 (🟢, 🔴, 🟣, 🟡)
                 isGreen = (status === 'OK' || i.playlistStatus === '🟢');
                 isRed = (status === 'NG' || i.playlistStatus === '🔴');
                 isPurple = (status === 'OVERLAP' || i.playlistStatus === '🟣');
                 isYellow = (status === 'BLANK' || !status || i.playlistStatus === '🟡');
             }
 
-            // 絵文字そのものがplaylistStatusに直接格納されているケースのフォールバック
             if (i.playlistStatus === '🟢' || i.playlistStatus === '🟩') isGreen = true;
             if (i.playlistStatus === '🔴' || i.playlistStatus === '🟥') isRed = true;
             if (i.playlistStatus === '🟣' || i.playlistStatus === '🟪') isPurple = true;
@@ -155,7 +185,6 @@ function renderSummaryTable() {
             tr.classList.add('selected-row');
         }
 
-        // 状態別件数をそれぞれ独立した列に割り当て
         tr.innerHTML = `
             <td class="cat-cell">${cat}</td>
             <td>${seriesCount.toLocaleString()}</td>
@@ -167,7 +196,7 @@ function renderSummaryTable() {
             <td>${purple.toLocaleString()}</td>
         `;
 
-        // 行クリックで選択分類を変更
+        // 行クリックで選択分類を変更 & localStorage保存
         tr.addEventListener('click', () => {
             selectedCategory = cat;
             document.querySelectorAll('#summary-table-body tr').forEach(r => r.classList.remove('selected-row'));
@@ -175,6 +204,14 @@ function renderSummaryTable() {
 
             document.getElementById('category-stats-title').textContent = `分類統計（${selectedCategory}）`;
             selectedPeriodKey = null;
+
+            // 🔴 状態保存
+            if (window.appState) {
+                window.appState.dashSelectedCategory = selectedCategory;
+                window.appState.dashSelectedPeriodKey = null;
+                if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+            }
+
             renderCategoryChart();
             renderPeriodDonutCharts();
         });
@@ -184,7 +221,7 @@ function renderSummaryTable() {
 }
 
 // -------------------------------------------------------------
-// 2. 選択分類の統計（横棒積層グラフ）
+// 2. 選択分類の統計グラフ内でのクリック（選択期間の変更）
 // -------------------------------------------------------------
 function getPeriodKey(dateStr, unit) {
     if (!dateStr || dateStr === '-') return '不明';
@@ -198,7 +235,6 @@ function getPeriodKey(dateStr, unit) {
         case 'monthly':
             return cleanDate.length >= 6 ? cleanDate.substring(0, 6) : `${year}01`;
         case 'season': {
-            // 冬: 前年12月～02月, 春: 03月～05月, 夏: 06月～08月, 秋: 09月～11月
             if (month === 12) return `${year}冬`;
             if (month === 1 || month === 2) return `${year - 1}冬`;
             if (month >= 3 && month <= 5) return `${year}春`;
@@ -209,7 +245,6 @@ function getPeriodKey(dateStr, unit) {
         case 'year':
             return `${year}年`;
         case '5year': {
-            // 1970年開始、5年単位
             if (year < 1970) return '1970年以前';
             const startYear = 1970 + Math.floor((year - 1970) / 5) * 5;
             return `${startYear}～${startYear + 4}年`;
@@ -231,7 +266,6 @@ function renderCategoryChart() {
     const unit = document.getElementById('period-unit-select').value;
     const metric = document.getElementById('metric-type-select').value;
 
-    // 期間ごとのデータバケット作成
     const periodMap = new Map();
     items.forEach(item => {
         const key = getPeriodKey(item.titleDate || item.seriesPeriod, unit);
@@ -241,10 +275,8 @@ function renderCategoryChart() {
         periodMap.get(key).push(item);
     });
 
-    // 期間ソート
     const sortedPeriods = Array.from(periodMap.keys()).sort();
 
-    // 内訳要素の定義
     let subKeys = [];
     let subColors = [];
 
@@ -255,7 +287,6 @@ function renderCategoryChart() {
         subKeys = KANA_GROUPS;
         subColors = KANA_COLORS;
     } else if (metric === 'genre') {
-        // ジャンル抽出（カンマ区切り分解、タグ除外）
         const genreSet = new Set();
         items.forEach(i => {
             if (i.genre && i.genre !== '-') {
@@ -266,11 +297,9 @@ function renderCategoryChart() {
         });
         subKeys = Array.from(genreSet);
         if (subKeys.length === 0) subKeys = ['未設定'];
-        // カラーパレットの生成
         subColors = subKeys.map((_, idx) => `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
     }
 
-    // Chart.js データセット構築
     const datasets = subKeys.map((subKey, idx) => {
         const data = sortedPeriods.map(pKey => {
             const pItems = periodMap.get(pKey) || [];
@@ -310,21 +339,20 @@ function renderCategoryChart() {
     categoryChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: sortedPeriods, // X軸に期間を設定
+            labels: sortedPeriods,
             datasets: datasets
         },
         options: {
-            // indexAxis: 'y' を削除することでデフォルトの縦棒グラフになります
             responsive: true,
             maintainAspectRatio: false,
             scales: {
                 x: {
-                    stacked: true, // X軸側も積層にする場合（期間ごとに並べるため積み上げOK）
+                    stacked: true,
                     ticks: { color: textColor },
                     grid: { color: gridColor }
                 },
                 y: {
-                    stacked: true, // Y軸側を積層（タイトル数）にする
+                    stacked: true,
                     ticks: { color: textColor },
                     grid: { color: gridColor }
                 }
@@ -338,6 +366,13 @@ function renderCategoryChart() {
                 if (elements.length > 0) {
                     const index = elements[0].index;
                     selectedPeriodKey = sortedPeriods[index];
+
+                    // 🔴 グラフ内の期間バーをクリックした際に選択期間を保存
+                    if (window.appState) {
+                        window.appState.dashSelectedPeriodKey = selectedPeriodKey;
+                        if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+                    }
+
                     renderPeriodDonutCharts();
                 }
             }
@@ -354,7 +389,6 @@ function renderPeriodDonutCharts() {
 
     const unit = document.getElementById('period-unit-select').value;
 
-    // 分類統計（横棒グラフ）と同様の手順で期間キーの一覧を抽出・ソート
     const periodMap = new Map();
     items.forEach(item => {
         const key = getPeriodKey(item.titleDate || item.seriesPeriod, unit);
@@ -365,9 +399,13 @@ function renderPeriodDonutCharts() {
     });
     const sortedPeriods = Array.from(periodMap.keys()).sort();
 
-    // 期間が未選択の場合、分類統計の最新期間（ソート後の最後尾）をデフォルト選択
     if (!selectedPeriodKey && sortedPeriods.length > 0) {
         selectedPeriodKey = sortedPeriods[sortedPeriods.length - 1];
+        // 最初のデフォルト決定時も保持
+        if (window.appState) {
+            window.appState.dashSelectedPeriodKey = selectedPeriodKey;
+            if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+        }
     }
 
     const titleEl = document.getElementById('period-stats-title');
@@ -437,7 +475,7 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    display: false // ドーナッツが小さいため凡例は非表示にし省スペース化
+                    display: false
                 }
             }
         }

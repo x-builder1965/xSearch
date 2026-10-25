@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.31.1';
+// version   = 'Ver1.32.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -48,7 +48,13 @@ let appState = {                // localStorage管理情報
     items: [],                  // リスト管理
     theme: 'dark',              // テーマ管理
     isProcessing: false,        // 処理中フラグ
-    playerAppPath: ''           // プレイヤーアプリのパス
+    playerAppPath: '',          // プレイヤーアプリのパス
+    dashSelectedCategory: '全て',   // ダッシュボード：選択分類
+    dashPeriodUnit: 'monthly',      // ダッシュボード：選択期間単位
+    dashMetricType: 'rating',       // ダッシュボード：選択要素
+    dashSelectedPeriodKey: null,    // ダッシュボード：選択期間
+    activeView: 'list',             // 現在の表示ビュー
+    lastScanTimestamp: ''           // 🔴 追加：検索・再検索の実行日時（例: "2026年10月25日(日) 16:30時点"）
 };
 let toastTimer = null;          // トースター表示タイマー
 let toastStartTime = 0;         // トースター表示開始時間
@@ -262,6 +268,38 @@ function loadFromLocalStorage() {
                 appState.playerAppPath = '';
                 if (btn) btn.style.backgroundColor = '';
             }
+
+            // ダッシュボード側の変数にも同期
+            if (typeof selectedCategory !== 'undefined') {
+                selectedCategory = appState.dashSelectedCategory || '全て';
+            }
+            if (typeof selectedPeriodKey !== 'undefined') {
+                selectedPeriodKey = appState.dashSelectedPeriodKey || null;
+            }
+
+            // 起動時のビュー切替復元（'dashboard' または 'list'）
+            const dashBtn = document.getElementById('toggle-dashboard-btn');
+            const listBtn = document.getElementById('toggle-list-btn');
+            const listContainer = document.getElementById('list-view-container');
+            const dashContainer = document.getElementById('dashboard-view-container');
+
+            if (appState.activeView === 'dashboard') {
+                if (dashBtn) dashBtn.classList.add('active');
+                if (listBtn) listBtn.classList.remove('active');
+                if (listContainer) listContainer.style.display = 'none';
+                if (dashContainer) dashContainer.style.display = 'block';
+
+                if (typeof initDashboard === 'function') {
+                    window.appState = appState;
+                    initDashboard();
+                }
+            } else {
+                if (listBtn) listBtn.classList.add('active');
+                if (dashBtn) dashBtn.classList.remove('active');
+                if (dashContainer) dashContainer.style.display = 'none';
+                if (listContainer) listContainer.style.display = 'flex';
+            }
+
         } catch (e) {
             console.error('Failed to load localStorage:', e);
         }
@@ -569,7 +607,14 @@ function registerSelectDirBtnClick() {
         try {
             // ★ 第二引数を渡さなければ、自動的にフルスキャンとして動作します
             const scanResults = await window.api.fastSyncDirectory(dirPath);
-            
+                        
+            // 検索・再検索実行時の一例
+            appState.lastScanTimestamp = generateScanTimestamp();
+            window.appState = appState;
+            if (typeof saveToLocalStorage === 'function') {
+                saveToLocalStorage();
+            }
+
             if (scanResults && scanResults.canceled) {
                 isCanceled = true;
                 return;
@@ -629,6 +674,13 @@ function registerFastSearchBtnClick() {
             // ★ existingItems を渡し、main側で「保存」ONのキャッシュを削除させる
             const syncedItems = await window.api.fastSyncDirectory(appState.selectedDir, existingItems);
             
+            // 検索・再検索実行時の一例
+            appState.lastScanTimestamp = generateScanTimestamp();
+            window.appState = appState;
+            if (typeof saveToLocalStorage === 'function') {
+                saveToLocalStorage();
+            }
+
             // キャンセルされた場合のチェック
             if (syncedItems && syncedItems.canceled) {
                 isCanceled = true;
@@ -1113,9 +1165,16 @@ function registerViewToggleEvents() {
         listContainer.style.display = 'none';
         dashContainer.style.display = 'block';
 
+        // 🔴 状態を保存してローカルストレージに書き込み
+        appState.activeView = 'dashboard';
+        window.appState = appState;
+        if (typeof saveToLocalStorage === 'function') {
+            saveToLocalStorage();
+        }
+
         // ダッシュボード初期表示・再描画
         if (typeof initDashboard === 'function') {
-            window.appState = appState;     // window 側に紐付け
+            window.appState = appState;
             initDashboard();
         }
     });
@@ -1125,6 +1184,13 @@ function registerViewToggleEvents() {
         dashBtn.classList.remove('active');
         dashContainer.style.display = 'none';
         listContainer.style.display = 'flex';
+
+        // 🔴 状態を保存してローカルストレージに書き込み
+        appState.activeView = 'list';
+        window.appState = appState;
+        if (typeof saveToLocalStorage === 'function') {
+            saveToLocalStorage();
+        }
     });
 }
 
@@ -1660,4 +1726,17 @@ function insertFilterItem(symbol, val) {
     filterInput.setSelectionRange(newCursorPos, newCursorPos);
 
     applyFilter();
+}
+
+// 検索・再検索実行日時文字列を生成するヘルパー関数
+function generateScanTimestamp() {
+    const now = new Date();
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const day = days[now.getDay()];
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    return `${yyyy}年${mm}月${dd}日(${day}) ${hh}:${min}時点`;
 }
