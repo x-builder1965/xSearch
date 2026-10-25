@@ -774,17 +774,25 @@ caption {
     min-height: 0;
 }
 /* スクロールバーのカスタマイズ */
-.summary-table-wrapper::-webkit-scrollbar {
+.summary-table-wrapper::-webkit-scrollbar,
+.category-stats-card::-webkit-scrollbar,
+.period-stats-card::-webkit-scrollbar {
     width: 8px;
 }
-.summary-table-wrapper::-webkit-scrollbar-track {
+.summary-table-wrapper::-webkit-scrollbar-track,
+.category-stats-card::-webkit-scrollbar-track,
+.period-stats-card::-webkit-scrollbar-track {
     background: var(--scrollbar-track);
 }
-.summary-table-wrapper::-webkit-scrollbar-thumb {
+.summary-table-wrapper::-webkit-scrollbar-thumb,
+.category-stats-card::-webkit-scrollbar-thumb,
+.period-stats-card::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb);
     border-radius: 4px;
 }
-.summary-table-wrapper::-webkit-scrollbar-thumb:hover {
+.summary-table-wrapper::-webkit-scrollbar-thumb:hover,
+.category-stats-card::-webkit-scrollbar-thumb:hover,
+.period-stats-card::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
 }
 .summary-table {
@@ -815,13 +823,13 @@ caption {
 }
 /* 各列の幅・テキスト寄せ指定 */
 .summary-table th:nth-child(1), .summary-table td:nth-child(1) { width: auto; text-align: left; }     /* 分類：可変幅、左寄せ */
-.summary-table th:nth-child(2), .summary-table td:nth-child(2) { width: 280px; text-align: center; }  /* シリーズ件数：可変（基準幅）、中央寄せ */
-.summary-table th:nth-child(3), .summary-table td:nth-child(3) { width: 280px; text-align: center; }  /* タイトル件数：可変（基準幅）、中央寄せ */
-.summary-table th:nth-child(4), .summary-table td:nth-child(4) { width: 280px; text-align: center; }  /* 話数件数：可変（基準幅）、中央寄せ */
-.summary-table th:nth-child(5), .summary-table td:nth-child(5) { width: 100px; text-align: center; }   /* 🟢：固定幅、中央寄せ (アイコン+数値用に見やすい幅に調整) */
-.summary-table th:nth-child(6), .summary-table td:nth-child(6) { width: 100px; text-align: center; }   /* 🔴：固定幅、中央寄せ */
-.summary-table th:nth-child(7), .summary-table td:nth-child(7) { width: 100px; text-align: center; }   /* 🟡：固定幅、中央寄せ */
-.summary-table th:nth-child(8), .summary-table td:nth-child(8) { width: 100px; text-align: center; }   /* 🟣：固定幅、中央寄せ */
+.summary-table th:nth-child(2), .summary-table td:nth-child(2) { width: 15%; text-align: center; }  /* シリーズ件数：可変（基準幅）、中央寄せ */
+.summary-table th:nth-child(3), .summary-table td:nth-child(3) { width: 15%; text-align: center; }  /* タイトル件数：可変（基準幅）、中央寄せ */
+.summary-table th:nth-child(4), .summary-table td:nth-child(4) { width: 15%; text-align: center; }  /* 話数件数：可変（基準幅）、中央寄せ */
+.summary-table th:nth-child(5), .summary-table td:nth-child(5) { width: 5%; text-align: center; }   /* 🟢：固定幅、中央寄せ (アイコン+数値用に見やすい幅に調整) */
+.summary-table th:nth-child(6), .summary-table td:nth-child(6) { width: 5%; text-align: center; }   /* 🔴：固定幅、中央寄せ */
+.summary-table th:nth-child(7), .summary-table td:nth-child(7) { width: 5%; text-align: center; }   /* 🟡：固定幅、中央寄せ */
+.summary-table th:nth-child(8), .summary-table td:nth-child(8) { width: 5%; text-align: center; }   /* 🟣：固定幅、中央寄せ */
 /* 分類名のセルだけは左寄せを強制 */
 .summary-table td.cat-cell {
     text-align: left;
