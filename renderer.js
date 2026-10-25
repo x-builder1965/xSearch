@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.30.1';
+// version   = 'Ver1.31.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -61,6 +61,8 @@ let hasForceSaveItems = false;  // 「保存」がON設定のアイテムが含�
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 🔲初期処理🔲
+    // chart.jsロード
+    await setupChartJpLoad();
     // HTMLロード
     await setupHTMLLoad();
     // ローカルストレージから状態を復元
@@ -117,11 +119,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerVerTitleClick();
     // ❌ヘルプのクローズクリックイベントのリスナー登録
     registerHelpCloseBtnClick();
-    // ❌変更履歴のクローズクリックイベントのリスナー登録
+    // ❌修正履歴のクローズクリックイベントのリスナー登録
     registerChangelogCloseBtnClick();
+    // ダッシュボード切替のクリックイベントのリスナー登録
+    registerViewToggleEvents();
 });
 
 // 🔲初期処理🔲
+// chart.jsロード
+function setupChartJpLoad() {
+    // Chart.jsスクリプトの動的読み込み (npm packageまたはローカル参照)
+    const chartScript = document.createElement('script');
+    chartScript.src = './node_modules/chart.js/dist/chart.umd.js'; // またはローカルの Chart.js パス
+    document.head.appendChild(chartScript);
+
+    // ダッシュボードスクリプトの読み込み
+    const dashScript = document.createElement('script');
+    dashScript.src = 'renderer_dashboard.js';
+    document.head.appendChild(dashScript);
+}
+
 // HTMLロード
 async function setupHTMLLoad() {
     // 初期化処理 (HTML読み込み & 設定値反映)
@@ -129,6 +146,7 @@ async function setupHTMLLoad() {
         const helpTableContainer = document.getElementById('helpTableContainer');
         const appConfigContainer = document.getElementById('appConfigContainer');
         const changelogContent = document.getElementById('changelogContent');
+
         // [処理1] index_helpTable.html の読み込みと流し込み
         const helpRes = await fetch('index_helpTable.html');
         if (helpRes.ok) {
@@ -190,14 +208,24 @@ async function setupHTMLLoad() {
                 helpTitle.textContent = `${appName} ${version} ヘルプ`;
             }
 
-            // 設定３: 変更履歴画面の <h1> 設定 (appName + ' ' + version)
+            // 設定３: 修正履歴画面の <h1> 設定 (appName + ' ' + version)
             if (changelogTitle) {
-                changelogTitle.textContent = `${appName} ${version} 変更履歴`;
+                changelogTitle.textContent = `${appName} ${version} 修正履歴`;
             }
 
             // dataset 経由で data-* 属性の値を取得
             if (copyrightText) copyrightText.textContent = appConfig.dataset.copyright || '';
             if (emailText) emailText.textContent = appConfig.dataset.email || '';
+        }
+
+        // [処理4] ダッシュボード の読み込みと画面への反映
+        const res = await fetch('index_dashboard.html');
+        if (res.ok) {
+            const htmlText = await res.text();
+            const dashContainer = document.getElementById('dashboard-view-container');
+            if (dashContainer) {
+                dashContainer.innerHTML = htmlText;
+            }
         }
     } catch (error) {
         console.error('初期化データの読み込みに失敗しました:', error);
@@ -1061,7 +1089,7 @@ function registerHelpCloseBtnClick() {
     });
 }
 
-// ❌変更履歴のクローズクリックイベントのリスナー登録
+// ❌修正履歴のクローズクリックイベントのリスナー登録
 function registerChangelogCloseBtnClick() {
     const changelogCloseBtn = document.getElementById('changelogCloseBtn');
     changelogCloseBtn?.addEventListener('click', () => {
@@ -1069,6 +1097,34 @@ function registerChangelogCloseBtnClick() {
         const changelogContainer = document.querySelector('.changelog-container');
         if (mainContainer) mainContainer.style.display = 'flex';
         if (changelogContainer) changelogContainer.style.display = 'none';
+    });
+}
+
+// ダッシュボード切替のクリックイベントのリスナー登録
+function registerViewToggleEvents() {
+    const dashBtn = document.getElementById('toggle-dashboard-btn');
+    const listBtn = document.getElementById('toggle-list-btn');
+    const listContainer = document.getElementById('list-view-container');
+    const dashContainer = document.getElementById('dashboard-view-container');
+
+    dashBtn.addEventListener('click', () => {
+        dashBtn.classList.add('active');
+        listBtn.classList.remove('active');
+        listContainer.style.display = 'none';
+        dashContainer.style.display = 'block';
+
+        // ダッシュボード初期表示・再描画
+        if (typeof initDashboard === 'function') {
+            window.appState = appState;     // window 側に紐付け
+            initDashboard();
+        }
+    });
+
+    listBtn.addEventListener('click', () => {
+        listBtn.classList.add('active');
+        dashBtn.classList.remove('active');
+        dashContainer.style.display = 'none';
+        listContainer.style.display = 'flex';
     });
 }
 
@@ -1136,6 +1192,9 @@ function hideProgress() {
 // テーマ適用
 function applyTheme() {
     document.documentElement.setAttribute('data-theme', appState.theme);
+    if (typeof refreshDashboard === 'function') {
+        refreshDashboard();
+    }
 }
 
 // localStorage保存

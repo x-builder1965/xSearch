@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-;
- version   = 'Ver1.26.1';
+ version   = 'Ver1.31.1';
  --------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja" data-theme="dark">
@@ -10,6 +10,7 @@
     <meta charset="UTF-8">
     <title>プレイリスト検索</title>
     <link rel="stylesheet" href="style.css">
+    <script src="node_modules/chart.js/dist/chart.umd.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -24,61 +25,69 @@
                     <div class="ver-title">Ver1.00.0</div>
                 </div>
                 <div class="right-controls">
+                    <div class="view-toggle-container">
+                        <button id="toggle-dashboard-btn" class="toggle-btn">ダッシュボード</button>
+                        <button id="toggle-list-btn" class="toggle-btn active">リスト</button>
+                    </div>
                     <button id="theme-toggle-btn">☀️</button>
                 </div>
             </div>
             <!-- トースト通知用コンテナ -->
             <div id="toast-container"></div>
-            <!-- コントロールパネル -->
-            <header class="toolbar">
-                <button id="select-dir-btn">📁</button>
-                <button id="fast-search-btn">🔎</button>
-                <span id="current-dir-path" class="path-label">フォルダが選択されていません</span>
-                <button id="save-btn">💾</button>
-                <button id="player-config-btn" title="プレイヤーアプリ設定">⚙️</button>
-                <button id="import-btn" title="設定インポート">📥</button>
-                <button id="export-btn" title="設定エクスポート">📤</button>
-            </header>
-            <!-- 進捗パネル -->
-            <div id="progress-container" class="progress-container" style="display: none;">
-                <div id="progress-bar" class="progress-bar"></div>
-                <span id="progress-text" class="progress-text">(0/0)</span>
-                <button id="scan-cancel-btn" class="scan-cancel-btn" title="キャンセル">❌</button>
+            <div id="list-view-container">
+                <!-- コントロールパネル -->
+                <header class="toolbar">
+                    <button id="select-dir-btn">📁</button>
+                    <button id="fast-search-btn">🔎</button>
+                    <span id="current-dir-path" class="path-label">フォルダが選択されていません</span>
+                    <button id="save-btn">💾</button>
+                    <button id="player-config-btn" title="プレイヤーアプリ設定">⚙️</button>
+                    <button id="import-btn" title="設定インポート">📥</button>
+                    <button id="export-btn" title="設定エクスポート">📤</button>
+                </header>
+                <!-- 進捗パネル -->
+                <div id="progress-container" class="progress-container" style="display: none;">
+                    <div id="progress-bar" class="progress-bar"></div>
+                    <span id="progress-text" class="progress-text">(0/0)</span>
+                    <button id="scan-cancel-btn" class="scan-cancel-btn" title="キャンセル">❌</button>
+                </div>
+                <!-- フィルタパネル -->
+                <div id="filter-container" class="filter-container">
+                    <div id="filter-count" class="filter-count">(0/0)</div>
+                    <input type="text" id="filter-input" class="filter-input" placeholder="フィルタ条件を入力... (例: [シリーズ]ああああ, [話数]>10)">
+                    <button id="filter-clear-btn" class="filter-clear-btn" title="入力クリア">🆑</button>
+                </div>
+                <!-- リストパネル -->
+                <main class="table-container">
+                    <table id="playlist-table">
+                        <thead class="table-header">
+                            <tr>
+                                <th>分類</th>
+                                <th>音</th>
+                                <th>放映期間</th>
+                                <th>評価</th>
+                                <th>シリーズ</th>
+                                <th>ジャンル・#タグ</th>
+                                <th><input type="checkbox" id="select-all-save" title="全選択/全解除"></th>
+                                <th>TID</th>
+                                <th>音</th>
+                                <th>放映年月</th>
+                                <th>評価</th>
+                                <th>タイトル</th>
+                                <th>話数</th>
+                                <th>状態</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- 動的生成 -->
+                        </tbody>
+                    </table>
+                </main>
+                <!-- ステータスパネル -->
+                <div class="status-display" id="status-display">ステータス表示</div>
             </div>
-            <!-- フィルタパネル -->
-            <div id="filter-container" class="filter-container">
-                <div id="filter-count" class="filter-count">(0/0)</div>
-                <input type="text" id="filter-input" class="filter-input" placeholder="フィルタ条件を入力... (例: [シリーズ]ああああ, [話数]>10)">
-                <button id="filter-clear-btn" class="filter-clear-btn" title="入力クリア">🆑</button>
-            </div>
-            <!-- リストパネル -->
-            <main class="table-container">
-                <table id="playlist-table">
-                    <thead class="table-header">
-                        <tr>
-                            <th>分類</th>
-                            <th>音</th>
-                            <th>放映期間</th>
-                            <th>評価</th>
-                            <th>シリーズ</th>
-                            <th>ジャンル・#タグ</th>
-                            <th><input type="checkbox" id="select-all-save" title="全選択/全解除"></th>
-                            <th>TID</th>
-                            <th>音</th>
-                            <th>放映年月</th>
-                            <th>評価</th>
-                            <th>タイトル</th>
-                            <th>話数</th>
-                            <th>状態</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body">
-                        <!-- 動的生成 -->
-                    </tbody>
-                </table>
-            </main>
-            <!-- ステータスパネル -->
-            <div class="status-display" id="status-display">ステータス表示</div>
+            <!-- ダッシュボード -->
+            <div id="dashboard-view-container" style="display: none;"></div>
         </div>
         <!-- ヘルプ -->
         <div class="help-container">
@@ -88,14 +97,14 @@
             </div>
             <div id="helpTableContainer" class="help-table-container"></div>
         </div>
-        <!-- 変更履歴 -->
+        <!-- 修正履歴 -->
         <div class="changelog-container">
             <div class="header-row">
-                <h1>xSearch -プレイリスト検索- Ver1.00.0 変更履歴</h1>
-                <button id="changelogCloseBtn" class="btn-Close" title="変更履歴閉じる（Escape）">❌</button>
+                <h1>xSearch -プレイリスト検索- Ver1.00.0 修正履歴</h1>
+                <button id="changelogCloseBtn" class="btn-Close" title="修正履歴閉じる（Escape）">❌</button>
             </div>
             <div id="appConfigContainer" class="app-config-container" style="display: none;"></div>
-            <div id="changelogHeader" class="changelog-header">変更日付 バージョン 変更内容</div>
+            <div id="changelogHeader" class="changelog-header">変更日付　バージョン　変更内容</div>
             <div id="changelogContent" class="changelog-Content"></div>
         </div>
         <!-- copyright＆email -->

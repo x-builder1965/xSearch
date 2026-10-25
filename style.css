@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.27.1';
+ * version   = 'Ver1.31.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -19,9 +19,9 @@
     --scrollbar-track: #121212;
     --scrollbar-thumb: #999999;
     --scrollbar-thumb-hover: #777777;
-    /* ヘルプ・変更履歴用の変数追加（参考例より保持） */
-    --heading-color: #cfaaff;
-    --heading-shadow: rgba(132, 0, 255, 0.5);
+    /* ヘルプ・修正履歴用の変数追加（参考例より保持） */
+    --heading-color: #a333d380;
+    --heading-shadow: rgba(132, 0, 255, 0.24);
     --close-btn-bg: rgba(0, 0, 0, 0.5);
     --close-btn-text: #ff6b6b;
     --close-btn-border: #555555;
@@ -49,8 +49,8 @@
     --scrollbar-track: #f1f1f1;
     --scrollbar-thumb: #747474;
     --scrollbar-thumb-hover: #575656;
-    /* ヘルプ・変更履歴用の変数追加（ライトモード用調整） */
-    --heading-color: #470099;
+    /* ヘルプ・修正履歴用の変数追加（ライトモード用調整） */
+    --heading-color: #cfaaff;
     --heading-shadow: rgba(88, 0, 204, 0.2);
     --close-btn-bg: rgba(255, 255, 255, 0.8);
     --close-btn-text: #d93838;
@@ -87,6 +87,7 @@ body {
     height: 100%;
     padding: 12px;
     gap: 12px;
+    overflow: hidden;
 }
 /* ボタン共通 */
 button {
@@ -108,12 +109,12 @@ button.secondary {
 
 /* 🔲メインコンテナ🔲 */
 .main-container {
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    height: 97%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     background-color: var(--bg-color);
     color: var(--text-color);
+    overflow: hidden;
 }
 
 /* 🔲メイン：ヘッダー🔲 */
@@ -154,6 +155,38 @@ button.secondary {
     color: #d2d2d2;
     cursor: pointer;
 }
+.right-controls {
+    display: flex;
+    align-items: center;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-right: 8px;
+}
+/* 表示切替コンテナ */
+.view-toggle-container {
+    display: flex;
+    align-items: center;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-right: 8px;
+}
+/* ダッシュノード／リスト切替ボタン */
+.toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.toggle-btn.active {
+    background-color: var(--accent-color);
+    color: #ffffff;
+}
 /* ☀️／🌙テーマ切替 */
 #theme-toggle-btn {
     background-color: var(--panel-bg);
@@ -172,8 +205,6 @@ button.secondary {
     gap: 10px; /* トースト同士の間隔 */
     pointer-events: none; /* コンテナ自体のマウス操作を無効化し、中のトーストだけ有効にする */
 }
-
-/* 🔲 メイン：トースト単体 🔲 */
 .toast {
     color: #fff;
     padding: 10px 20px;
@@ -185,7 +216,6 @@ button.secondary {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     white-space: pre-line;
 }
-
 /* メッセージタイプ別スタイル */
 .toast.toast-info {
     background-color: rgba(20, 80, 160, 0.95);
@@ -199,11 +229,20 @@ button.secondary {
     background-color: rgba(180, 20, 20, 0.95);
     box-shadow: 0 4px 12px rgba(90, 10, 10, 0.7);
 }
-
 /* 非表示状態 */
 .toast.hidden {
     opacity: 0;
     transform: translateY(-10px);
+}
+
+/* 🔲 リストビューコンテナ 🔲 */
+#list-view-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0; /* 必須：これが無いと子要素が縮小できずスクロールや下部要素が消える */
+    gap: 8px;
+    overflow: hidden;
 }
 
 /* 🔲メイン：コントロールパネル🔲 */
@@ -340,7 +379,7 @@ button.secondary {
 /* リストテーブルコンテナ設定 */
 .table-container {
     flex: 1;
-    height: 100%;
+    min-height: 0; /* 必須：テーブルがはみ出してスクロール範囲を壊すのを防ぐ */
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -396,8 +435,8 @@ th {
     width: 100%;
 }
 .table-header th {
-    background-color: #731d97;
-    color: #ffffff;
+    background-color: var(--heading-color);
+    color: var(--text-color);
 }
 /* 各列の幅・テキスト配置指定 */
 #playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 130px; }                     /* 分類 */
@@ -465,15 +504,16 @@ th {
 
 /* 🔲メイン：ステータスパネル🔲 */
 .status-display {
-    color: var(--status-color);
-    font-size: 0.85em;
-    min-height: 1.2em;
-    flex-shrink: 0;
-    margin-top: 2px;
+    flex-shrink: 0; /* 潰されるのを防ぐ */
+    padding: 6px 10px;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9em;
 }
 
-/* 🔲ヘルプ、変更履歴🔲 */
-/* ヘルプ、変更履歴共通 */
+/* 🔲ヘルプ、修正履歴🔲 */
+/* ヘルプ、修正履歴共通 */
 .help-container,
 .changelog-container {
     width: 100%;
@@ -595,8 +635,8 @@ table {
     transition: background-color 0.3s ease;
 }
 .header-table th {
-    background-color: #731d97;
-    color: var(--primary-text);
+    background-color: var(--heading-color);
+    color: var(--text-color);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     padding: 0.5em 0.5em;
@@ -645,11 +685,11 @@ caption {
     font-size: 1.4em; 
 }
 
-/* 🔲変更履歴🔲 */
+/* 🔲修正履歴🔲 */
 .changelog-header {
-    background-color: #731d97;
-    font-size: 1.4rem;
+    background-color: var(--heading-color);
     color: var(--text-color);
+    font-size: 1.4rem;
 }
 .changelog-Content {
     overflow-y: auto;
@@ -684,4 +724,177 @@ caption {
     justify-content: space-between;     /* 子要素を両端（左端と右端）に配置 */
     align-items: center;                /* 上下の縦中央揃え */
     width: 100%;                        /* 親要素の幅を画面（または親要素）いっぱいに広げる */
+}
+
+/* 🔲ダッシュボードパネル🔲 */
+/*  ダッシュボードビューコンテナ */
+#dashboard-view-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 12px;
+    overflow: hidden;
+}
+.dashboard-section {
+    display: flex;
+    gap: 12px;
+}
+.summary-section {
+    height: 35%; /* 必要に応じて高さ調整 */
+    display: flex;
+    flex-direction: column;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    min-height: 0;
+}
+.summary-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+.summary-timestamp {
+    font-size: 0.9em;
+    color: var(--text-color);
+}
+/* サマリーカードのリスト部（縦スクロール対応） */
+.summary-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+/* スクロールバーのカスタマイズ */
+.summary-table-wrapper::-webkit-scrollbar {
+    width: 8px;
+}
+.summary-table-wrapper::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+.summary-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+}
+.summary-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--table-bg);
+    table-layout: fixed; /* 列幅の固定・可変制御を有効化 */
+}
+.summary-table th, 
+.summary-table td {
+    border: 1px solid var(--border-color);
+    padding: 6px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.summary-table th {
+    background-color: var(--heading-color);
+    color: var(--text-color);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: center;
+}
+.summary-table tr.selected-row {
+    background-color: var(--table-hover-bg);
+    outline: 2px solid var(--accent-color);
+}
+/* 各列の幅・テキスト寄せ指定 */
+.summary-table th:nth-child(1), .summary-table td:nth-child(1) { width: auto; text-align: left; }     /* 分類：可変幅、左寄せ */
+.summary-table th:nth-child(2), .summary-table td:nth-child(2) { width: 280px; text-align: center; }  /* シリーズ件数：可変（基準幅）、中央寄せ */
+.summary-table th:nth-child(3), .summary-table td:nth-child(3) { width: 280px; text-align: center; }  /* タイトル件数：可変（基準幅）、中央寄せ */
+.summary-table th:nth-child(4), .summary-table td:nth-child(4) { width: 280px; text-align: center; }  /* 話数件数：可変（基準幅）、中央寄せ */
+.summary-table th:nth-child(5), .summary-table td:nth-child(5) { width: 100px; text-align: center; }   /* 🟢：固定幅、中央寄せ (アイコン+数値用に見やすい幅に調整) */
+.summary-table th:nth-child(6), .summary-table td:nth-child(6) { width: 100px; text-align: center; }   /* 🔴：固定幅、中央寄せ */
+.summary-table th:nth-child(7), .summary-table td:nth-child(7) { width: 100px; text-align: center; }   /* 🟡：固定幅、中央寄せ */
+.summary-table th:nth-child(8), .summary-table td:nth-child(8) { width: 100px; text-align: center; }   /* 🟣：固定幅、中央寄せ */
+/* 分類名のセルだけは左寄せを強制 */
+.summary-table td.cat-cell {
+    text-align: left;
+}
+.stats-section {
+    flex: 1;
+    min-height: 0;
+}
+/* 分類統計カード（グラフ部：必要に応じて縦スクロール／overflow許可） */
+.category-stats-card {
+    width: 85%;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto; /* 🔴 縦スクロール対応 */
+}
+/* 期間統計カード（グラフ部：3つのドーナッツグラフが並ぶエリアの縦スクロール対応） */
+.period-stats-card {
+    width: 15%;
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto; /* 🔴 縦スクロール対応 */
+}
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+.dash-select {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+.chart-container {
+    flex: 1;
+    position: relative;
+    min-height: 200px; /* グラフが押しつぶされないように最小高さを確保 */
+}
+.donut-charts-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+.donut-chart-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 150px; /* 各ドーナッツグラフ用の最小高さを確保 */
+}
+.donut-chart-box .chart-title {
+    font-size: 1.2em;
+    color: var(--text-color);
+    flex-shrink: 0;
+}
+.donut-chart-box .canvas-box {
+    flex: 1;
+    width: 100%;
+    position: relative;
+    min-height: 120px;
 }

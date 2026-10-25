@@ -1,6 +1,6 @@
 {
     "name": "xsearch",
-    "version": "1.30.1",
+    "version": "1.31.1",
     "description": "xSearch playlist search tool",
     "main": "main.js",
     "author": "x-builder",
@@ -17,6 +17,7 @@
     },
     "dependencies": {
         "archiver": "^7.0.1",
+        "chart.js": "^4.6.1",
         "cheerio": "^1.2.0",
         "electron-store": "^8.1.0"
     },
@@ -41,7 +42,10 @@
             "index.html",
             "index_helpTable.html",
             "index_changelog.html",
+            "index_dashboard.html",
             "renderer.js",
+            "renderer_dashboard.js",
+            "node_modules/chart.js/dist/chart.umd.js",
             "xSearch.png",
             "xSearch.ico"
         ],
