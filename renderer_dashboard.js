@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.37.4';
+// version   = 'Ver1.38.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -585,10 +585,16 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
         canvas.parentElement.style.position = 'relative';
     }
 
+    // 既存インスタンスがある場合は、作り直さずにデータを更新する
     if (instance) {
-        instance.destroy();
+        instance.data.labels = labels;
+        instance.data.datasets[0].data = data;
+        instance.data.datasets[0].backgroundColor = colors;
+        instance.update(); // アニメーション付きで更新される
+        return instance;
     }
 
+    // 初回生成時のみ new Chart を行う
     return new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -602,6 +608,10 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                animateRotate: true,
+                duration: 1000
+            },
             plugins: {
                 legend: {
                     display: false
