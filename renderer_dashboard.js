@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.39.4';
+// version   = 'Ver1.40.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -108,6 +108,7 @@ function setupDashboardEventListeners() {
     const periodUnitSelect = document.getElementById('period-unit-select');
     const metricTypeSelect = document.getElementById('metric-type-select');
     const scaleRange = document.getElementById('category-scale-range');
+    const scrollContainer = document.getElementById('category-chart-scroll-container');
 
     if (periodUnitSelect) {
         periodUnitSelect.addEventListener('change', () => {
@@ -133,9 +134,8 @@ function setupDashboardEventListeners() {
         });
     }
 
-    // 縮尺スライダーのイベントリスナー設定（ダッシュボード初期化時などに紐付け）
+    // 縮尺スライダーのイベントリスナー設定
     if (scaleRange) {
-        // 多重登録防止のため既存のリスナーがあれば置き換え、またはイベントを一度だけ付与
         scaleRange.oninput = (e) => {
             const val = parseFloat(e.target.value);
             if (window.appState) {
@@ -146,6 +146,23 @@ function setupDashboardEventListeners() {
             }
             renderCategoryChart();
         };
+    }
+
+    // 分類統計グラフの横スクロール位置変更時の保存処理
+    if (scrollContainer) {
+        let scrollTimeout;
+        scrollContainer.addEventListener('scroll', () => {
+            // スクロールイベント頻発による負荷軽減のため簡易デバウンス処理
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                if (window.appState) {
+                    window.appState.dashCategoryScrollLeft = scrollContainer.scrollLeft;
+                    if (typeof saveToLocalStorage === 'function') {
+                        saveToLocalStorage();
+                    }
+                }
+            }, 150);
+        });
     }
 }
 
@@ -338,15 +355,6 @@ function renderCategoryChart() {
     const scaleRange = document.getElementById('category-scale-range');
     const scaleValueSpan = document.getElementById('category-scale-value');
 
-    // 現在のスクロール位置と比率を保存（表示位置維持のため）
-    let scrollRatio = 0;
-    if (scrollContainer) {
-        const maxScrollLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
-        if (maxScrollLeft > 0) {
-            scrollRatio = scrollContainer.scrollLeft / maxScrollLeft;
-        }
-    }
-
     const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
     const items = (selectedCategory === '全て') ? rawItems : rawItems.filter(i => i.category === selectedCategory);
 
@@ -375,10 +383,9 @@ function renderCategoryChart() {
         currentScale = window.appState.dashCategoryScale;
     }
 
-    // インナーコンテナの横幅を動的に変更（1倍時は親コンテナ幅に合わせ、2倍以上は割合に応じて拡大）
+    // インナーコンテナの横幅を動的に変更
     if (innerContainer && scrollContainer) {
         const baseWidth = scrollContainer.clientWidth;
-        // 期間の数に応じて基本幅を調整するか、scaleに応じてコンテナ幅を増やす
         const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
         innerContainer.style.width = `${dynamicWidth}px`;
     }
@@ -497,13 +504,11 @@ function renderCategoryChart() {
         }
     });
 
-    // グラフ描画完了後、保存した表示位置（スクロール位置）を復元
+    // グラフ描画完了後、保存されているスクロール位置（dashCategoryScrollLeft）を復元
     setTimeout(() => {
-        if (scrollContainer) {
-            const newMaxScrollLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
-            if (newMaxScrollLeft > 0) {
-                scrollContainer.scrollLeft = newMaxScrollLeft * scrollRatio;
-            }
+        if (scrollContainer && window.appState) {
+            const savedScrollLeft = window.appState.dashCategoryScrollLeft || 0;
+            scrollContainer.scrollLeft = savedScrollLeft;
         }
     }, 0);
 }
