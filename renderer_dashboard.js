@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.40.4';
+// version   = 'Ver1.41.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -47,6 +47,7 @@ const KANA_GROUP_COLORS = [
 ];
 
 let categoryChartInstance = null;
+let categoryYAxisInstance = null; // 追加：Y軸専用チャートのインスタンス
 let ratingDonutInstance = null;
 let seriesKanaDonutInstance = null;
 let genreDonutInstance = null;
@@ -347,8 +348,9 @@ function getPeriodKey(dateStr, unit) {
 }
 
 function renderCategoryChart() {
-    const ctx = document.getElementById('categoryChart')?.getContext('2d');
-    if (!ctx) return;
+    const ctxMain = document.getElementById('categoryChart')?.getContext('2d');
+    const ctxYAxis = document.getElementById('categoryChartYAxis')?.getContext('2d');
+    if (!ctxMain || !ctxYAxis) return;
 
     const scrollContainer = document.getElementById('category-chart-scroll-container');
     const innerContainer = document.getElementById('category-chart-inner');
@@ -385,7 +387,11 @@ function renderCategoryChart() {
 
     // インナーコンテナの横幅を動的に変更
     if (innerContainer && scrollContainer) {
-        const baseWidth = scrollContainer.clientWidth;
+        const parentCard = scrollContainer.closest('.category-stats-card');
+        const cardWidth = parentCard ? parentCard.clientWidth : scrollContainer.clientWidth;
+        
+        // カード全体の幅からY軸幅(50px)とパディング等を差し引く
+        const baseWidth = Math.max(200, cardWidth - 50 - 30);
         const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
         innerContainer.style.width = `${dynamicWidth}px`;
     }
@@ -454,15 +460,54 @@ function renderCategoryChart() {
         };
     });
 
-    if (categoryChartInstance) {
-        categoryChartInstance.destroy();
-    }
+    // 既存のインスタンスを破棄
+    if (categoryChartInstance) categoryChartInstance.destroy();
+    if (categoryYAxisInstance) categoryYAxisInstance.destroy();
 
     const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
     const textColor = isDark ? '#d4d4d4' : '#333333';
     const gridColor = isDark ? '#404040' : '#cccccc';
 
-    categoryChartInstance = new Chart(ctx, {
+    // 共通のY軸スケール設定
+    const sharedYScale = {
+        stacked: true,
+        ticks: { color: textColor },
+        grid: { color: gridColor }
+    };
+
+    // 【対策】メインチャートには下部にX軸ラベルのスペースがあるため、
+    // Y軸専用チャート側にも下部に同じくらいの余白（例: 30px〜40px程度）を強制的に持たせることで、
+    // 0の底面位置を完全に一致させる。
+
+    // 1. Y軸専用チャートの生成
+    categoryYAxisInstance = new Chart(ctxYAxis, {
+        type: 'bar',
+        data: {
+            labels: sortedPeriods,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            // メイン側のX軸ラベル分の高さをパディングとして下部に追加する
+            layout: {
+                padding: {
+                    bottom: 50 // メインのX軸ラベルや目盛りが収まる高さに合わせる（環境により25〜35で微調整）
+                }
+            },
+            scales: {
+                x: { display: false },
+                y: sharedYScale
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            }
+        }
+    });
+
+    // 2. メインのスクロール用チャートの生成
+    categoryChartInstance = new Chart(ctxMain, {
         type: 'bar',
         data: {
             labels: sortedPeriods,
@@ -478,9 +523,8 @@ function renderCategoryChart() {
                     grid: { color: gridColor }
                 },
                 y: {
-                    stacked: true,
-                    ticks: { color: textColor },
-                    grid: { color: gridColor }
+                    ...sharedYScale,
+                    display: false // メイン側のY軸は非表示
                 }
             },
             plugins: {
@@ -504,7 +548,7 @@ function renderCategoryChart() {
         }
     });
 
-    // グラフ描画完了後、保存されているスクロール位置（dashCategoryScrollLeft）を復元
+    // グラフ描画完了後、保存されているスクロール位置を復元
     setTimeout(() => {
         if (scrollContainer && window.appState) {
             const savedScrollLeft = window.appState.dashCategoryScrollLeft || 0;

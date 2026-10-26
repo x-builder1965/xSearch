@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.39.1';
+ * version   = 'Ver1.41.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -898,13 +898,43 @@ caption {
     overflow-x: auto;
     overflow-y: hidden;
 }
+/* 外側のラッパー（全体のレイアウト基準） */
+.category-chart-wrapper {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    min-height: 200px;
+    overflow: hidden;
+}
+/* 左側に固定するY軸エリア */
+.category-chart-y-axis-fixed {
+    position: sticky;
+    left: 0;
+    z-index: 20; /* メイングラフより手前に表示 */
+    width: 50px;
+    min-width: 50px;
+    height: 100%;
+    background-color: var(--panel-bg); /* 背景色を敷いて背面のグラフを隠す */
+    pointer-events: none; /* マウスイベントを透過 */
+    flex-shrink: 0;
+}
+/* グラフコンテナ全体（水平スクロール対応） */
+.category-chart-scroll-container {
+    position: relative;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-width: 0; /* Flexbox内で子要素がはみ出すのを防ぐ */
+}
 /* 実際のcanvasを内包するラッパー（縮尺変更に追従して横幅を可変させる） */
 .category-chart-inner {
     position: relative;
     height: 100%;
     min-height: 100%;
-    min-width: 100%;
+    overflow: hidden;
 }
+
 /* 縮尺スライダーのコントロール部分 */
 .scale-control-wrapper {
     display: flex !important;

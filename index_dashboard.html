@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-';
- version   = 'Ver1.39.1';
+ version   = 'Ver1.41.1';
  ------------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -71,9 +71,17 @@
                             </select>
                         </div>
                     </div>
-                    <div class="chart-container" id="category-chart-scroll-container">
-                        <div class="category-chart-inner" id="category-chart-inner">
-                            <canvas id="categoryChart"></canvas>
+                    <!-- 外側ラッパー：Y軸とスクロールエリアを横並びに保持する -->
+                    <div class="category-chart-wrapper">
+                        <!-- 左側に常時固定されるY軸エリア -->
+                        <div class="category-chart-y-axis-fixed">
+                            <canvas id="categoryChartYAxis"></canvas>
+                        </div>
+                        <!-- スクロールを司るメインのコンテナ -->
+                        <div class="chart-container" id="category-chart-scroll-container">
+                            <div class="category-chart-inner" id="category-chart-inner">
+                                <canvas id="categoryChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
