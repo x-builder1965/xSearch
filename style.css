@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.34.1';
+ * version   = 'Ver1.35.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -826,14 +826,18 @@ caption {
     outline: 2px solid var(--accent-color);
 }
 /* 各列の幅・テキスト寄せ指定 */
-.summary-table th:nth-child(1), .summary-table td:nth-child(1) { width: auto; text-align: left; font-weight: 900; }     /* 分類：可変幅、左寄せ */
-.summary-table th:nth-child(2), .summary-table td:nth-child(2) { width: 15%; text-align: right; }  /* シリーズ件数：可変（基準幅）、中央寄せ */
-.summary-table th:nth-child(3), .summary-table td:nth-child(3) { width: 15%; text-align: right; }  /* タイトル件数：可変（基準幅）、中央寄せ */
-.summary-table th:nth-child(4), .summary-table td:nth-child(4) { width: 15%; text-align: right; }  /* 話数件数：可変（基準幅）、中央寄せ */
-.summary-table th:nth-child(5), .summary-table td:nth-child(5) { width: 5%; text-align: right; }   /* 🟢：固定幅、中央寄せ (アイコン+数値用に見やすい幅に調整) */
-.summary-table th:nth-child(6), .summary-table td:nth-child(6) { width: 5%; text-align: right; }   /* 🔴：固定幅、中央寄せ */
-.summary-table th:nth-child(7), .summary-table td:nth-child(7) { width: 5%; text-align: right; }   /* 🟡：固定幅、中央寄せ */
-.summary-table th:nth-child(8), .summary-table td:nth-child(8) { width: 5%; text-align: right; }   /* 🟣：固定幅、中央寄せ */
+.summary-table th:nth-child(1), .summary-table td:nth-child(1) { width: auto; text-align: left; font-weight: 900; }    /* 分類：可変幅、左寄せ */
+.summary-table th:nth-child(2), .summary-table td:nth-child(2) { width: 11%; text-align: right; } /* シリーズ件数 */
+.summary-table th:nth-child(3), .summary-table td:nth-child(3) { width: 11%; text-align: right; } /* タイトル件数 */
+.summary-table th:nth-child(4), .summary-table td:nth-child(4) { width: 4.5%; text-align: right; } /* 🟢：通常・正常 */
+.summary-table th:nth-child(5), .summary-table td:nth-child(5) { width: 4.5%; text-align: right; } /* 🔴：通常・不明 */
+.summary-table th:nth-child(6), .summary-table td:nth-child(6) { width: 4.5%; text-align: right; } /* 🟡：通常・空 */
+.summary-table th:nth-child(7), .summary-table td:nth-child(7) { width: 4.5%; text-align: right; } /* 🟣：通常・重複 */
+.summary-table th:nth-child(8), .summary-table td:nth-child(8) { width: 4.5%; text-align: right; } /* 🟩：更新・正常 */
+.summary-table th:nth-child(9), .summary-table td:nth-child(9) { width: 4.5%; text-align: right; } /* 🟥：更新・不明 */
+.summary-table th:nth-child(10), .summary-table td:nth-child(10) { width: 4.5%; text-align: right; } /* 🟨：更新・空 */
+.summary-table th:nth-child(11), .summary-table td:nth-child(11) { width: 4.5%; text-align: right; } /* 🟪：更新・重複 */
+.summary-table th:nth-child(12), .summary-table td:nth-child(12) { width: 11%; text-align: right; } /* 話数件数：右端へ移動 */
 /* 分類統計カード・特定期間統計カード */
 .stats-section {
     flex: 1;

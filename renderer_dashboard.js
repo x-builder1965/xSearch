@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.34.4';
+// version   = 'Ver1.35.4';
 // ---------------------------------------------------------------------
 let categoryChartInstance = null;
 let ratingDonutInstance = null;
@@ -171,39 +171,38 @@ function renderSummaryTable() {
         // 話数件数
         const episodeCount = filtered.reduce((sum, i) => sum + (parseInt(i.episodeCount, 10) || 0), 0);
 
-        // 状態別件数集計 🟢(🟩), 🔴(🟥), 🟡(🟨), 🟣(🟪)
+        // 状態別件数集計 (通常 / 更新)
         let green = 0, red = 0, yellow = 0, purple = 0;
+        let greenUpdated = 0, redUpdated = 0, yellowUpdated = 0, purpleUpdated = 0;
         
         filtered.forEach(i => {
             const isUpdated = Boolean(i.isUpdated);
-            const status = (i.playlistStatus || 'BLANK').toUpperCase();
-
-            let isGreen = false;
-            let isRed = false;
-            let isPurple = false;
-            let isYellow = false;
+            const status = (i.playlistStatus || '').toUpperCase();
+            const rawStatus = i.playlistStatus;
 
             if (isUpdated) {
-                isGreen = (status === 'OK' || i.playlistStatus === '🟩');
-                isRed = (status === 'NG' || i.playlistStatus === '🟥');
-                isPurple = (status === 'OVERLAP' || i.playlistStatus === '🟪');
-                isYellow = (status === 'BLANK' || !status || i.playlistStatus === '🟨');
+                if (status === 'OK' || rawStatus === '🟩') {
+                    greenUpdated++;
+                } else if (status === 'NG' || rawStatus === '🟥') {
+                    redUpdated++;
+                } else if (status === 'OVERLAP' || rawStatus === '🟪') {
+                    purpleUpdated++;
+                } else {
+                    // BLANK または 未設定
+                    yellowUpdated++;
+                }
             } else {
-                isGreen = (status === 'OK' || i.playlistStatus === '🟢');
-                isRed = (status === 'NG' || i.playlistStatus === '🔴');
-                isPurple = (status === 'OVERLAP' || i.playlistStatus === '🟣');
-                isYellow = (status === 'BLANK' || !status || i.playlistStatus === '🟡');
+                if (status === 'OK' || rawStatus === '🟢') {
+                    green++;
+                } else if (status === 'NG' || rawStatus === '🔴') {
+                    red++;
+                } else if (status === 'OVERLAP' || rawStatus === '🟣') {
+                    purple++;
+                } else {
+                    // BLANK または 未設定
+                    yellow++;
+                }
             }
-
-            if (i.playlistStatus === '🟢' || i.playlistStatus === '🟩') isGreen = true;
-            if (i.playlistStatus === '🔴' || i.playlistStatus === '🟥') isRed = true;
-            if (i.playlistStatus === '🟣' || i.playlistStatus === '🟪') isPurple = true;
-            if (i.playlistStatus === '🟡' || i.playlistStatus === '🟨') isYellow = true;
-
-            if (isGreen) green++;
-            else if (isRed) red++;
-            else if (isYellow) yellow++;
-            else if (isPurple) purple++;
         });
 
         const tr = document.createElement('tr');
@@ -215,11 +214,15 @@ function renderSummaryTable() {
             <td class="cat-cell">${cat}</td>
             <td>${seriesCount.toLocaleString()}</td>
             <td>${titleCount.toLocaleString()}</td>
-            <td>${episodeCount.toLocaleString()}</td>
             <td>${green.toLocaleString()}</td>
             <td>${red.toLocaleString()}</td>
             <td>${yellow.toLocaleString()}</td>
             <td>${purple.toLocaleString()}</td>
+            <td>${greenUpdated.toLocaleString()}</td>
+            <td>${redUpdated.toLocaleString()}</td>
+            <td>${yellowUpdated.toLocaleString()}</td>
+            <td>${purpleUpdated.toLocaleString()}</td>
+            <td>${episodeCount.toLocaleString()}</td>
         `;
 
         // 行クリックで選択分類を変更 & localStorage保存
@@ -231,7 +234,7 @@ function renderSummaryTable() {
             document.getElementById('category-stats-title').textContent = `分類統計（${selectedCategory}）`;
             selectedPeriodKey = null;
 
-            // 🔴 状態保存
+            // 状態保存
             if (window.appState) {
                 window.appState.dashSelectedCategory = selectedCategory;
                 window.appState.dashSelectedPeriodKey = null;
