@@ -2,16 +2,8 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.35.4';
+// version   = 'Ver1.36.4';
 // ---------------------------------------------------------------------
-let categoryChartInstance = null;
-let ratingDonutInstance = null;
-let seriesKanaDonutInstance = null;
-let genreDonutInstance = null;
-
-let selectedCategory = '全て';
-let selectedPeriodKey = null;
-
 // 定数定義
 const STATUS_COLORS = {
     green: '#4caf50',
@@ -53,6 +45,14 @@ const KANA_GROUP_COLORS = [
     '#607d8b', // 不明
     '#795548'  // その他
 ];
+
+let categoryChartInstance = null;
+let ratingDonutInstance = null;
+let seriesKanaDonutInstance = null;
+let genreDonutInstance = null;
+let selectedCategory = '全て';
+let selectedPeriodKey = null;
+let marqueeInterval = null;         // 自動スクロール用タイマー管理
 
 // 初期化関数
 function initDashboard() {
@@ -250,6 +250,34 @@ function renderSummaryTable() {
 }
 
 // -------------------------------------------------------------
+// 共通：選択カテゴリにおける全ジャンルのマスターリストとカラーを生成するヘルパー関数
+// -------------------------------------------------------------
+function getGenreMaster(items) {
+    const genreSet = new Set();
+    items.forEach(i => {
+        if (i.genre && i.genre !== '-') {
+            i.genre.split(',').map(g => g.trim()).forEach(g => {
+                if (g && !g.startsWith('#')) genreSet.add(g);
+            });
+        }
+    });
+
+    // 1. 常に固定の昇順ソート（「不明」以外）
+    let labels = Array.from(genreSet).sort((a, b) => a.localeCompare(b, 'ja'));
+    if (labels.includes('不明')) {
+        labels = labels.filter(g => g !== '不明');
+        labels.push('不明');
+    } else {
+        labels.push('不明');
+    }
+
+    // 2. 常にマスター全体のインデックスに基づいた固定カラーを生成
+    const colors = labels.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
+
+    return { labels, colors };
+}
+
+// -------------------------------------------------------------
 // 2. 選択分類の統計グラフ内でのクリック（選択期間の変更）
 // -------------------------------------------------------------
 function getPeriodKey(dateStr, unit) {
@@ -319,19 +347,10 @@ function renderCategoryChart() {
         subKeys = KANA_GROUP_KEYS;
         subColors = KANA_GROUP_COLORS;
     } else if (metric === 'genre') {
-        const genreSet = new Set();
-        items.forEach(i => {
-            if (i.genre && i.genre !== '-') {
-                i.genre.split(',').map(g => g.trim()).forEach(g => {
-                    if (g && !g.startsWith('#')) genreSet.add(g);
-                });
-            }
-        });
-        subKeys = Array.from(genreSet);
-        if (!subKeys.includes('不明')) {
-            subKeys.push('不明');
-        }
-        subColors = subKeys.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
+        // 🟢 共通マスター関数を利用して全ジャンルと固定カラーを取得
+        const master = getGenreMaster(items);
+        subKeys = master.labels;
+        subColors = master.colors;
     }
 
     const datasets = subKeys.map((subKey, idx) => {
@@ -419,7 +438,6 @@ function renderCategoryChart() {
                     const index = elements[0].index;
                     selectedPeriodKey = sortedPeriods[index];
 
-                    // 🔴 グラフ内の期間バーをクリックした際に選択期間を保存
                     if (window.appState) {
                         window.appState.dashSelectedPeriodKey = selectedPeriodKey;
                         if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
@@ -433,7 +451,7 @@ function renderCategoryChart() {
 }
 
 // -------------------------------------------------------------
-// 3. 選択期間の統計（ドーナッツグラフ 3種）
+// 3. 選択期間の統計（ドーナッツグラフ 3種） & 要素別件数カードの更新
 // -------------------------------------------------------------
 function renderPeriodDonutCharts() {
     const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
@@ -454,7 +472,6 @@ function renderPeriodDonutCharts() {
 
     if (!selectedPeriodKey && sortedPeriods.length > 0) {
         selectedPeriodKey = sortedPeriods[sortedPeriods.length - 1];
-        // 最初のデフォルト決定時も保持
         if (window.appState) {
             window.appState.dashSelectedPeriodKey = selectedPeriodKey;
             if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
@@ -466,8 +483,14 @@ function renderPeriodDonutCharts() {
         titleEl.textContent = `期間統計（${selectedPeriodKey || '未選択'}）`;
     }
 
-    if (selectedPeriodKey) {
-        items = periodMap.get(selectedPeriodKey) || [];
+    // 期間内のアイテム
+    const periodItems = selectedPeriodKey ? (periodMap.get(selectedPeriodKey) || []) : [];
+
+    // 🆕 要素別件数カードの更新処理を呼び出し
+    try {
+        renderElementCountCard(periodItems, selectedPeriodKey, metric, items); // 全アイテム(items)をマスター作成用に渡す
+    } catch (err) {
+        console.error("要素別件数カードの描画中にエラーが発生しました:", err);
     }
 
     const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
@@ -475,7 +498,7 @@ function renderPeriodDonutCharts() {
 
     // 1. 評価ドーナッツ
     const ratingCounts = RATING_KEYS.map(key => {
-        return items.filter(i => {
+        return periodItems.filter(i => {
             const r = i.titleRating || '評価なし';
             if (key === '不明') return r === '-';
             return r === key;
@@ -483,7 +506,7 @@ function renderPeriodDonutCharts() {
     });
     ratingDonutInstance = createDonutChart(ratingDonutInstance, 'ratingDonutChart', RATING_KEYS, ratingCounts, RATING_COLORS, textColor);
 
-    // 2. シリーズ50音 / 50音グループ ドーナッツ（metricに応じて切り替え）
+    // 2. シリーズ50音 / 50音グループ ドーナッツ
     let kanaKeys = KANA_INDIVIDUAL_KEYS;
     let kanaColors = KANA_INDIVIDUAL_COLORS;
 
@@ -493,7 +516,7 @@ function renderPeriodDonutCharts() {
     }
 
     const kanaCounts = kanaKeys.map(subKey => {
-        return items.filter(i => {
+        return periodItems.filter(i => {
             const k = i.seriesKana || i.titleKana || '';
             if (metric === 'seriesKanaGroup') {
                 if (subKey === '不明') return k === '-' || !k;
@@ -513,32 +536,37 @@ function renderPeriodDonutCharts() {
     });
     seriesKanaDonutInstance = createDonutChart(seriesKanaDonutInstance, 'seriesKanaDonutChart', kanaKeys, kanaCounts, kanaColors, textColor);
 
-    // 3. ジャンル（タグ除く）ドーナッツ
-    const genreMap = new Map();
-    genreMap.set('不明', 0);
+    // 3. ジャンル ドーナッツ
+    // 🟢 共通マスター関数を利用して、カテゴリ内の全ジャンルを基準にする
+    const master = getGenreMaster(items);
+    const genreLabels = master.labels;
+    const genreColors = master.colors;
 
-    items.forEach(i => {
-        if (!i.genre || i.genre === '-') {
-            genreMap.set('不明', (genreMap.get('不明') || 0) + 1);
-        } else {
-            i.genre.split(',').map(g => g.trim()).forEach(g => {
-                if (g && !g.startsWith('#')) {
-                    genreMap.set(g, (genreMap.get(g) || 0) + 1);
-                }
-            });
+    const genreCounts = genreLabels.map(key => {
+        if (key === '不明') {
+            return periodItems.filter(i => !i.genre || i.genre === '-').length;
         }
+        return periodItems.filter(i => {
+            if (!i.genre || i.genre === '-') return false;
+            const genres = i.genre.split(',').map(g => g.trim()).filter(g => !g.startsWith('#'));
+            return genres.includes(key);
+        }).length;
     });
-
-    const genreLabels = Array.from(genreMap.keys());
-    const genreCounts = Array.from(genreMap.values());
-    const genreColors = genreLabels.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
 
     genreDonutInstance = createDonutChart(genreDonutInstance, 'genreDonutChart', genreLabels, genreCounts, genreColors, textColor);
 }
 
 function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
-    const ctx = document.getElementById(canvasId)?.getContext('2d');
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    const ctx = canvas.getContext('2d');
     if (!ctx) return null;
+
+    if (canvas.parentElement) {
+        canvas.parentElement.style.minHeight = '120px';
+        canvas.parentElement.style.position = 'relative';
+    }
 
     if (instance) {
         instance.destroy();
@@ -550,7 +578,8 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: colors
+                backgroundColor: colors,
+                borderWidth: 1
             }]
         },
         options: {
@@ -563,4 +592,145 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
             }
         }
     });
+}
+
+// -------------------------------------------------------------
+// 4. 要素別件数カードの描画ロジック（マスター共有・色完全一致版）
+// -------------------------------------------------------------
+function renderElementCountCard(periodItems, periodKey, metric, allCategoryItems) {
+    const cardTitleEl = document.getElementById('element-card-title');
+    const totalCountEl = document.getElementById('element-total-count');
+    const scrollContainer = document.getElementById('element-scroll-container');
+
+    if (!cardTitleEl || !totalCountEl || !scrollContainer) return;
+
+    if (marqueeInterval) {
+        clearInterval(marqueeInterval);
+        marqueeInterval = null;
+    }
+
+    cardTitleEl.textContent = `要素別件数（${periodKey || '未選択'}）`;
+
+    const totalCount = periodItems.length;
+    totalCountEl.textContent = `全件数：${totalCount.toLocaleString()}件`;
+
+    let elementData = [];
+
+    if (metric === 'rating') {
+        RATING_KEYS.forEach((key, idx) => {
+            const count = periodItems.filter(i => {
+                const r = i.titleRating || '評価なし';
+                if (key === '不明') return r === '-';
+                return r === key;
+            }).length;
+            elementData.push({ 
+                name: key, 
+                count, 
+                color: RATING_COLORS[idx % RATING_COLORS.length] 
+            });
+        });
+    } else if (metric === 'seriesKana') {
+        KANA_INDIVIDUAL_KEYS.forEach((key, idx) => {
+            const count = periodItems.filter(i => {
+                const k = i.seriesKana || i.titleKana || '';
+                if (key === '不明') return k === '-' || !k;
+                if (key === 'その他') return k !== '-' && k && !KANA_INDIVIDUAL.includes(k);
+                return k === key;
+            }).length;
+            elementData.push({ 
+                name: key, 
+                count, 
+                color: KANA_INDIVIDUAL_COLORS[idx % KANA_INDIVIDUAL_COLORS.length] 
+            });
+        });
+    } else if (metric === 'seriesKanaGroup') {
+        KANA_GROUP_KEYS.forEach((key, idx) => {
+            const count = periodItems.filter(i => {
+                const k = i.seriesKana || i.titleKana || '';
+                if (key === '不明') return k === '-' || !k;
+                if (key === 'その他') {
+                    if (k === '-' || !k) return false;
+                    const allGroupChars = Object.values(KANA_GROUP_MAP).flat();
+                    return !allGroupChars.includes(k);
+                }
+                const groupChars = KANA_GROUP_MAP[key] || [];
+                return groupChars.includes(k);
+            }).length;
+            elementData.push({ 
+                name: key, 
+                count, 
+                color: KANA_GROUP_COLORS[idx % KANA_GROUP_COLORS.length] 
+            });
+        });
+    } else if (metric === 'genre') {
+        // 🟢 共通マスター関数を利用し、グラフ側と100%同じマスター（ラベル・カラー）を取得
+        const master = getGenreMaster(allCategoryItems);
+        const genreLabels = master.labels;
+        const genreColors = master.colors;
+
+        genreLabels.forEach((key, idx) => {
+            const count = periodItems.filter(i => {
+                if (key === '不明') return !i.genre || i.genre === '-';
+                if (!i.genre || i.genre === '-') return false;
+                const genres = i.genre.split(',').map(g => g.trim()).filter(g => !g.startsWith('#'));
+                return genres.includes(key);
+            }).length;
+
+            elementData.push({
+                name: key,
+                count: count,
+                color: genreColors[idx] // グラフ側と完全に同一のインデックスのカラーを適用
+            });
+        });
+    }
+
+    scrollContainer.innerHTML = '';
+
+    if (elementData.length === 0) {
+        scrollContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.9em;">データなし</span>';
+        return;
+    }
+
+    const renderItems = [...elementData, ...elementData];
+
+    renderItems.forEach(el => {
+        const itemBox = document.createElement('div');
+        itemBox.className = 'element-item-box';
+        itemBox.innerHTML = `
+            <span class="el-name"><span style="color: ${el.color}; margin-right: 2px;">■</span>${el.name}：</span>
+            <span class="el-count">${el.count.toLocaleString()}</span>
+        `;
+        scrollContainer.appendChild(itemBox);
+    });
+
+    if (scrollContainer.scrollWidth > scrollContainer.clientWidth) {
+        const startMarquee = () => {
+            if (marqueeInterval) return;
+            
+            marqueeInterval = setInterval(() => {
+                if (!scrollContainer) return;
+
+                const singleSetWidth = scrollContainer.scrollWidth / 2;
+
+                if (scrollContainer.scrollLeft >= singleSetWidth) {
+                    scrollContainer.scrollLeft -= singleSetWidth;
+                } else {
+                    scrollContainer.scrollLeft += 1;
+                }
+            }, 40);
+        };
+
+        startMarquee();
+
+        scrollContainer.onmouseenter = () => {
+            if (marqueeInterval) {
+                clearInterval(marqueeInterval);
+                marqueeInterval = null;
+            }
+        };
+        
+        scrollContainer.onmouseleave = () => {
+            startMarquee();
+        };
+    }
 }

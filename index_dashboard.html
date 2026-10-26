@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-';
- version   = 'Ver1.35.1';
+ version   = 'Ver1.36.1';
  ------------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -43,53 +43,69 @@
             </div>
         </section>
 
-        <!-- 下部50%配置：統計パネルエリア -->
+        <!-- 下部エリア：グループB（左右配置） -->
         <section class="dashboard-section stats-section">
-            <!-- 下部左側75%配置：選択分類の統計 -->
-            <div class="stats-card category-stats-card">
-                <div class="card-header">
-                    <h3 id="category-stats-title">分類統計（全て）</h3>
-                    <div class="card-controls">
-                        <select id="period-unit-select" class="dash-select">
-                            <option value="monthly">年月</option>
-                            <option value="season">年シーズン</option>
-                            <option value="year">単年</option>
-                            <option value="5year">５年</option>
-                            <option value="all">全年</option>
-                        </select>
-                        <select id="metric-type-select" class="dash-select">
-                            <option value="rating">評価</option>
-                            <option value="seriesKana">50音個別</option>
-                            <option value="seriesKanaGroup">50音グループ</option>
-                            <option value="genre">ジャンル</option>
-                        </select>
+            
+            <!-- 🟢 グループA（分類統計カード ＋ 要素別件数カード を縦並び） -->
+            <div class="dashboard-group-a">
+                <!-- 選択分類の統計カード -->
+                <div class="stats-card category-stats-card">
+                    <div class="card-header">
+                        <h3 id="category-stats-title">分類統計（全て）</h3>
+                        <div class="card-controls">
+                            <select id="period-unit-select" class="dash-select">
+                                <option value="monthly">年月</option>
+                                <option value="season">年シーズン</option>
+                                <option value="year">単年</option>
+                                <option value="5year">５年</option>
+                                <option value="all">全年</option>
+                            </select>
+                            <select id="metric-type-select" class="dash-select">
+                                <option value="rating">評価</option>
+                                <option value="seriesKana">50音個別</option>
+                                <option value="seriesKanaGroup">50音グループ</option>
+                                <option value="genre">ジャンル</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
                     </div>
                 </div>
-                <div class="chart-container">
-                    <canvas id="categoryChart"></canvas>
+
+                <!-- 要素別件数カード -->
+                <div class="element-count-card">
+                    <div id="element-card-title" class="element-count-title">要素別件数（----）</div>
+                    <div id="element-total-count" class="element-total-count">全件数：0件</div>
+                    <div id="element-scroll-container" class="element-scroll-container">
+                        <!-- 動的生成される要素別件数リスト -->
+                    </div>
                 </div>
             </div>
 
-            <!-- 下部右側25%配置：選択期間の統計 -->
-            <div class="stats-card period-stats-card">
-                <div class="card-header">
-                    <h3 id="period-stats-title">期間統計（選択された期間）</h3>
-                </div>
-                <div class="donut-charts-wrapper">
-                    <div class="donut-chart-box">
-                        <div class="chart-title">評価</div>
-                        <div class="canvas-box"><canvas id="ratingDonutChart"></canvas></div>
+            <!-- 🟢 グループB（右側：選択期間の統計カード / 機関統計カード） -->
+            <div class="dashboard-group-b">
+                <div class="stats-card period-stats-card">
+                    <div class="card-header">
+                        <h3 id="period-stats-title">期間統計（選択された期間）</h3>
                     </div>
-                    <div class="donut-chart-box">
-                        <div class="chart-title">50音</div>
-                        <div class="canvas-box"><canvas id="seriesKanaDonutChart"></canvas></div>
-                    </div>
-                    <div class="donut-chart-box">
-                        <div class="chart-title">ジャンル</div>
-                        <div class="canvas-box"><canvas id="genreDonutChart"></canvas></div>
+                    <div class="donut-charts-wrapper">
+                        <div class="donut-chart-box">
+                            <div class="chart-title">評価</div>
+                            <div class="canvas-box"><canvas id="ratingDonutChart"></canvas></div>
+                        </div>
+                        <div class="donut-chart-box">
+                            <div class="chart-title">50音</div>
+                            <div class="canvas-box"><canvas id="seriesKanaDonutChart"></canvas></div>
+                        </div>
+                        <div class="donut-chart-box">
+                            <div class="chart-title">ジャンル</div>
+                            <div class="canvas-box"><canvas id="genreDonutChart"></canvas></div>
+                        </div>
                     </div>
                 </div>
             </div>
+
         </section>
     </div>
 </body>
