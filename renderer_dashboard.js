@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.36.4';
+// version   = 'Ver1.37.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -510,6 +510,24 @@ function renderPeriodDonutCharts() {
     let kanaKeys = KANA_INDIVIDUAL_KEYS;
     let kanaColors = KANA_INDIVIDUAL_COLORS;
 
+    // 🟢 50音グラフのタイトル要素を動的に変更する処理
+    // 期間統計カード内の 2番目の donut-chart-box にある .chart-title を取得
+    const periodStatsCard = document.querySelector('.period-stats-card');
+    if (periodStatsCard) {
+        const donutBoxes = periodStatsCard.querySelectorAll('.donut-chart-box');
+        if (donutBoxes.length >= 2) {
+            const kanaTitleEl = donutBoxes[1].querySelector('.chart-title');
+            if (kanaTitleEl) {
+                if (metric === 'seriesKanaGroup') {
+                    kanaTitleEl.textContent = '50音グループ';
+                } else {
+                    // evaluation, seriesKana, genre の場合はすべて「50音個別」に設定
+                    kanaTitleEl.textContent = '50音個別';
+                }
+            }
+        }
+    }
+
     if (metric === 'seriesKanaGroup') {
         kanaKeys = KANA_GROUP_KEYS;
         kanaColors = KANA_GROUP_COLORS;
@@ -537,7 +555,6 @@ function renderPeriodDonutCharts() {
     seriesKanaDonutInstance = createDonutChart(seriesKanaDonutInstance, 'seriesKanaDonutChart', kanaKeys, kanaCounts, kanaColors, textColor);
 
     // 3. ジャンル ドーナッツ
-    // 🟢 共通マスター関数を利用して、カテゴリ内の全ジャンルを基準にする
     const master = getGenreMaster(items);
     const genreLabels = master.labels;
     const genreColors = master.colors;
