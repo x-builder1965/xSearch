@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.38.4';
+// version   = 'Ver1.39.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -107,6 +107,7 @@ function updateDashboardTimestamp() {
 function setupDashboardEventListeners() {
     const periodUnitSelect = document.getElementById('period-unit-select');
     const metricTypeSelect = document.getElementById('metric-type-select');
+    const scaleRange = document.getElementById('category-scale-range');
 
     if (periodUnitSelect) {
         periodUnitSelect.addEventListener('change', () => {
@@ -130,6 +131,21 @@ function setupDashboardEventListeners() {
             renderCategoryChart();
             renderPeriodDonutCharts();
         });
+    }
+
+    // 縮尺スライダーのイベントリスナー設定（ダッシュボード初期化時などに紐付け）
+    if (scaleRange) {
+        // 多重登録防止のため既存のリスナーがあれば置き換え、またはイベントを一度だけ付与
+        scaleRange.oninput = (e) => {
+            const val = parseFloat(e.target.value);
+            if (window.appState) {
+                window.appState.dashCategoryScale = val;
+                if (typeof saveToLocalStorage === 'function') {
+                    saveToLocalStorage();
+                }
+            }
+            renderCategoryChart();
+        };
     }
 }
 
@@ -317,6 +333,20 @@ function renderCategoryChart() {
     const ctx = document.getElementById('categoryChart')?.getContext('2d');
     if (!ctx) return;
 
+    const scrollContainer = document.getElementById('category-chart-scroll-container');
+    const innerContainer = document.getElementById('category-chart-inner');
+    const scaleRange = document.getElementById('category-scale-range');
+    const scaleValueSpan = document.getElementById('category-scale-value');
+
+    // 現在のスクロール位置と比率を保存（表示位置維持のため）
+    let scrollRatio = 0;
+    if (scrollContainer) {
+        const maxScrollLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+        if (maxScrollLeft > 0) {
+            scrollRatio = scrollContainer.scrollLeft / maxScrollLeft;
+        }
+    }
+
     const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
     const items = (selectedCategory === '全て') ? rawItems : rawItems.filter(i => i.category === selectedCategory);
 
@@ -334,6 +364,25 @@ function renderCategoryChart() {
 
     const sortedPeriods = Array.from(periodMap.keys()).sort();
 
+    // 縮尺スライダーの値を取得・反映
+    let currentScale = 1.0;
+    if (scaleRange) {
+        currentScale = parseFloat(scaleRange.value) || 1.0;
+        if (scaleValueSpan) {
+            scaleValueSpan.textContent = `${currentScale.toFixed(1)}x`;
+        }
+    } else if (window.appState && window.appState.dashCategoryScale) {
+        currentScale = window.appState.dashCategoryScale;
+    }
+
+    // インナーコンテナの横幅を動的に変更（1倍時は親コンテナ幅に合わせ、2倍以上は割合に応じて拡大）
+    if (innerContainer && scrollContainer) {
+        const baseWidth = scrollContainer.clientWidth;
+        // 期間の数に応じて基本幅を調整するか、scaleに応じてコンテナ幅を増やす
+        const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
+        innerContainer.style.width = `${dynamicWidth}px`;
+    }
+
     let subKeys = [];
     let subColors = [];
 
@@ -347,7 +396,6 @@ function renderCategoryChart() {
         subKeys = KANA_GROUP_KEYS;
         subColors = KANA_GROUP_COLORS;
     } else if (metric === 'genre') {
-        // 🟢 共通マスター関数を利用して全ジャンルと固定カラーを取得
         const master = getGenreMaster(items);
         subKeys = master.labels;
         subColors = master.colors;
@@ -448,6 +496,16 @@ function renderCategoryChart() {
             }
         }
     });
+
+    // グラフ描画完了後、保存した表示位置（スクロール位置）を復元
+    setTimeout(() => {
+        if (scrollContainer) {
+            const newMaxScrollLeft = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+            if (newMaxScrollLeft > 0) {
+                scrollContainer.scrollLeft = newMaxScrollLeft * scrollRatio;
+            }
+        }
+    }, 0);
 }
 
 // -------------------------------------------------------------

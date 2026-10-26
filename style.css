@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.36.1';
+ * version   = 'Ver1.39.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -780,23 +780,28 @@ caption {
 /* スクロールバーのカスタマイズ */
 .summary-table-wrapper::-webkit-scrollbar,
 .category-stats-card::-webkit-scrollbar,
-.period-stats-card::-webkit-scrollbar {
+.period-stats-card::-webkit-scrollbar,
+.category-stats-card .chart-container::-webkit-scrollbar {
     width: 8px;
+    height: 8px;
 }
 .summary-table-wrapper::-webkit-scrollbar-track,
 .category-stats-card::-webkit-scrollbar-track,
-.period-stats-card::-webkit-scrollbar-track {
+.period-stats-card::-webkit-scrollbar-track,
+.category-stats-card .chart-container::-webkit-scrollbar-track {
     background: var(--scrollbar-track);
 }
 .summary-table-wrapper::-webkit-scrollbar-thumb,
 .category-stats-card::-webkit-scrollbar-thumb,
-.period-stats-card::-webkit-scrollbar-thumb {
+.period-stats-card::-webkit-scrollbar-thumb,
+.category-stats-card .chart-container::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb);
     border-radius: 4px;
 }
 .summary-table-wrapper::-webkit-scrollbar-thumb:hover,
 .category-stats-card::-webkit-scrollbar-thumb:hover,
-.period-stats-card::-webkit-scrollbar-thumb:hover {
+.period-stats-card::-webkit-scrollbar-thumb:hover,
+.category-stats-card .chart-container::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
 }
 .summary-table {
@@ -884,6 +889,36 @@ caption {
     min-width: 0;
     overflow-y: auto;
 }
+/* グラフコンテナ（水平スクロール対応） */
+.category-stats-card .chart-container {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 200px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+/* 実際のcanvasを内包するラッパー（縮尺変更に追従して横幅を可変させる） */
+.category-chart-inner {
+    position: relative;
+    height: 100%;
+    min-height: 100%;
+    min-width: 100%;
+}
+/* 縮尺スライダーのコントロール部分 */
+.scale-control-wrapper {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px;
+    font-size: 13px;
+    white-space: nowrap; /* ラベルや数値が折り返されないようにする */
+}
+.scale-control-wrapper input[type="range"] {
+    width: 90px;
+    cursor: pointer;
+}
+
 /* 期間統計カード */
 .period-stats-card {
     width: 100%;
@@ -902,8 +937,15 @@ caption {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
-    flex-shrink: 0;
+    flex-wrap: wrap; /* 画面幅が狭い場合の保険 */
+    gap: 10px;
+}
+.card-controls {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px; /* 要素間の余白 */
+    flex-wrap: nowrap; /* 勝手に縦に折り返さないようにする */
 }
 .dash-select {
     background-color: var(--bg-color);

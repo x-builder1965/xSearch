@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.33.1';
+// version   = 'Ver1.39.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -42,19 +42,20 @@ const thSymbols = [
 ];
 
 // 🔲グルーバル共通変数🔲
-let appState = {                // localStorage管理情報
-    selectedDir: '',            // 検索フォルダパス
-    rawItems: [],               // ベースリスト管理
-    items: [],                  // リスト管理
-    theme: 'dark',              // テーマ管理
-    isProcessing: false,        // 処理中フラグ
-    playerAppPath: '',          // プレイヤーアプリのパス
+let appState = {                    // localStorage管理情報
+    selectedDir: '',                // 検索フォルダパス
+    rawItems: [],                   // ベースリスト管理
+    items: [],                      // リスト管理
+    theme: 'dark',                  // テーマ管理
+    isProcessing: false,            // 処理中フラグ
+    playerAppPath: '',              // プレイヤーアプリのパス
     dashSelectedCategory: '全て',   // ダッシュボード：選択分類
     dashPeriodUnit: 'monthly',      // ダッシュボード：選択期間単位
     dashMetricType: 'rating',       // ダッシュボード：選択要素
     dashSelectedPeriodKey: null,    // ダッシュボード：選択期間
+    dashCategoryScale: 1.0,         // ダッシュボード：分類統計の縮尺倍率
     activeView: 'list',             // 現在の表示ビュー
-    lastScanTimestamp: ''           // 検索・再検索の実行日時（例: "2026年10月25日(日) 16:30時点"）
+    lastScanTimestamp: ''           // 検索・再検索の実行日時
 };
 let toastTimer = null;          // トースター表示タイマー
 let toastStartTime = 0;         // トースター表示開始時間
@@ -244,7 +245,6 @@ function loadFromLocalStorage() {
     if (saved) {
         try {
             const loadedState = JSON.parse(saved);
-            // 既存のオブジェクト構造を維持しつつマージ
             appState = { ...appState, ...loadedState };
 
             // フォルダパスの復元
@@ -253,12 +253,10 @@ function loadFromLocalStorage() {
                 if (pathLabel) pathLabel.textContent = appState.selectedDir;
             }
 
-            // データを復元した後にテーブルを再描画して各行のチェック状態を反映
             if (typeof renderTable === 'function' && appState.items.length > 0) {
                 renderTable();
             }
 
-            // プレイヤーアプリの復元
             const savedPath = localStorage.getItem('playerAppPath');
             const btn = document.getElementById('player-config-btn');
             if (savedPath) {
@@ -269,7 +267,6 @@ function loadFromLocalStorage() {
                 if (btn) btn.style.backgroundColor = '';
             }
 
-            // ダッシュボード側の変数にも同期
             if (typeof selectedCategory !== 'undefined') {
                 selectedCategory = appState.dashSelectedCategory || '全て';
             }
@@ -277,7 +274,15 @@ function loadFromLocalStorage() {
                 selectedPeriodKey = appState.dashSelectedPeriodKey || null;
             }
 
-            // 起動時のビュー切替復元（'dashboard' または 'list'）
+            // スライダーの初期値復元
+            const scaleRange = document.getElementById('category-scale-range');
+            const scaleValue = document.getElementById('category-scale-value');
+            if (scaleRange && appState.dashCategoryScale) {
+                scaleRange.value = appState.dashCategoryScale;
+                if (scaleValue) scaleValue.textContent = `${Number(appState.dashCategoryScale).toFixed(1)}x`;
+            }
+
+            // 起動時のビュー切替復元
             const dashBtn = document.getElementById('toggle-dashboard-btn');
             const listBtn = document.getElementById('toggle-list-btn');
             const listContainer = document.getElementById('list-view-container');
