@@ -854,7 +854,7 @@ caption {
 }
 /* グループA（分類統計カード ＋ 要素別件数カード を縦並びにするコンテナ） */
 .dashboard-group-a {
-    flex: 85;
+    flex: 86;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -863,7 +863,7 @@ caption {
 }
 /* グループB（右側：期間統計カード） */
 .dashboard-group-b {
-    flex: 15;
+    flex: 14;
     display: flex;
     flex-direction: column;
     min-height: 0;
