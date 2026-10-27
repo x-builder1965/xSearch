@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.41.4';
+// version   = 'Ver1.42.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -106,10 +106,23 @@ function updateDashboardTimestamp() {
 
 // イベントリスナー登録
 function setupDashboardEventListeners() {
+    const graphShapeSelect = document.getElementById('graph-shape-select'); // 追加
     const periodUnitSelect = document.getElementById('period-unit-select');
     const metricTypeSelect = document.getElementById('metric-type-select');
     const scaleRange = document.getElementById('category-scale-range');
     const scrollContainer = document.getElementById('category-chart-scroll-container');
+
+    // グラフ形状変更イベント（追加）
+    if (graphShapeSelect) {
+        graphShapeSelect.addEventListener('change', () => {
+            if (window.appState) {
+                window.appState.dashGraphShape = graphShapeSelect.value;
+                if (typeof saveToLocalStorage === 'function') saveToLocalStorage();
+            }
+            renderCategoryChart();
+            renderPeriodDonutCharts();
+        });
+    }
 
     if (periodUnitSelect) {
         periodUnitSelect.addEventListener('change', () => {
@@ -153,7 +166,6 @@ function setupDashboardEventListeners() {
     if (scrollContainer) {
         let scrollTimeout;
         scrollContainer.addEventListener('scroll', () => {
-            // スクロールイベント頻発による負荷軽減のため簡易デバウンス処理
             clearTimeout(scrollTimeout);
             scrollTimeout = setTimeout(() => {
                 if (window.appState) {
@@ -356,12 +368,15 @@ function renderCategoryChart() {
     const innerContainer = document.getElementById('category-chart-inner');
     const scaleRange = document.getElementById('category-scale-range');
     const scaleValueSpan = document.getElementById('category-scale-value');
+    const graphShapeSelect = document.getElementById('graph-shape-select');
 
     const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
     const items = (selectedCategory === '全て') ? rawItems : rawItems.filter(i => i.category === selectedCategory);
 
     const unit = document.getElementById('period-unit-select').value;
     const metric = document.getElementById('metric-type-select').value;
+    // グラフ形状の取得（セレクトボックス優先、なければappState）
+    const graphShape = graphShapeSelect ? graphShapeSelect.value : (window.appState?.dashGraphShape || 'bar');
 
     const periodMap = new Map();
     items.forEach(item => {
@@ -390,7 +405,6 @@ function renderCategoryChart() {
         const parentCard = scrollContainer.closest('.category-stats-card');
         const cardWidth = parentCard ? parentCard.clientWidth : scrollContainer.clientWidth;
         
-        // カード全体の幅からY軸幅(50px)とパディング等を差し引く
         const baseWidth = Math.max(200, cardWidth - 50 - 30);
         const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
         innerContainer.style.width = `${dynamicWidth}px`;
@@ -453,11 +467,25 @@ function renderCategoryChart() {
             return 0;
         });
 
-        return {
-            label: subKey,
-            data: data,
-            backgroundColor: subColors[idx % subColors.length]
-        };
+        const color = subColors[idx % subColors.length];
+
+        // グラフ形状に応じたデータセットの調整
+        if (graphShape === 'line') {
+            return {
+                label: subKey,
+                data: data,
+                borderColor: color,
+                backgroundColor: color,
+                fill: false, // 必要に応じて true にするとエリアチャート風になります
+                tension: 0.1 // 緩やかな曲線にする場合は設定
+            };
+        } else {
+            return {
+                label: subKey,
+                data: data,
+                backgroundColor: color
+            };
+        }
     });
 
     // 既存のインスタンスを破棄
@@ -470,18 +498,14 @@ function renderCategoryChart() {
 
     // 共通のY軸スケール設定
     const sharedYScale = {
-        stacked: true,
+        stacked: (graphShape === 'bar'), // 折れ線グラフの場合はスタックを解除するか、要件に合わせて調整（通常折れ線は false の方が見やすいですが、要件の積み上げを維持する場合は true にしてください）
         ticks: { color: textColor },
         grid: { color: gridColor }
     };
 
-    // 【対策】メインチャートには下部にX軸ラベルのスペースがあるため、
-    // Y軸専用チャート側にも下部に同じくらいの余白（例: 30px〜40px程度）を強制的に持たせることで、
-    // 0の底面位置を完全に一致させる。
-
     // 1. Y軸専用チャートの生成
     categoryYAxisInstance = new Chart(ctxYAxis, {
-        type: 'bar',
+        type: graphShape, // 形状を合わせる
         data: {
             labels: sortedPeriods,
             datasets: datasets
@@ -489,10 +513,9 @@ function renderCategoryChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            // メイン側のX軸ラベル分の高さをパディングとして下部に追加する
             layout: {
                 padding: {
-                    bottom: 50 // メインのX軸ラベルや目盛りが収まる高さに合わせる（環境により25〜35で微調整）
+                    bottom: 50
                 }
             },
             scales: {
@@ -508,7 +531,7 @@ function renderCategoryChart() {
 
     // 2. メインのスクロール用チャートの生成
     categoryChartInstance = new Chart(ctxMain, {
-        type: 'bar',
+        type: graphShape, // 形状を反映
         data: {
             labels: sortedPeriods,
             datasets: datasets
@@ -518,7 +541,7 @@ function renderCategoryChart() {
             maintainAspectRatio: false,
             scales: {
                 x: {
-                    stacked: true,
+                    stacked: (graphShape === 'bar'),
                     ticks: { color: textColor },
                     grid: { color: gridColor }
                 },

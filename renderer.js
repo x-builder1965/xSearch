@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.40.1';
+// version   = 'Ver1.42.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -51,6 +51,7 @@ let appState = {                    // localStorage管理情報
     playerAppPath: '',              // プレイヤーアプリのパス
     dashSelectedCategory: '全て',   // ダッシュボード：選択分類
     dashPeriodUnit: 'monthly',      // ダッシュボード：選択期間単位
+    dashGraphShape: 'bar',          // ダッシュボード：選択グラフ形状（追加）
     dashMetricType: 'rating',       // ダッシュボード：選択要素
     dashSelectedPeriodKey: null,    // ダッシュボード：選択期間
     dashCategoryScale: 1.0,         // ダッシュボード：分類統計の縮尺倍率
@@ -239,6 +240,7 @@ async function setupHTMLLoad() {
         console.error('初期化データの読み込みに失敗しました:', error);
     }
 }
+
 // ローカルストレージから状態を復元
 function loadFromLocalStorage() {
     const saved = localStorage.getItem('playlist_app_state');
@@ -272,6 +274,18 @@ function loadFromLocalStorage() {
             }
             if (typeof selectedPeriodKey !== 'undefined') {
                 selectedPeriodKey = appState.dashSelectedPeriodKey || null;
+            }
+
+            // グラフ形状セレクトボックスの復元（追加）
+            const graphShapeSelect = document.getElementById('graph-shape-select');
+            if (graphShapeSelect && appState.dashGraphShape) {
+                graphShapeSelect.value = appState.dashGraphShape;
+            }
+
+            // 期間単位セレクトボックスの復元（念のため追加）
+            const periodUnitSelect = document.getElementById('period-unit-select');
+            if (periodUnitSelect && appState.dashPeriodUnit) {
+                periodUnitSelect.value = appState.dashPeriodUnit;
             }
 
             // スライダーの初期値復元

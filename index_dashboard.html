@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-';
- version   = 'Ver1.41.1';
+ version   = 'Ver1.42.1';
  ------------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -51,6 +51,10 @@
                     <div class="card-header">
                         <h3 id="category-stats-title">分類統計（全て）</h3>
                         <div class="card-controls">
+                            <select id="graph-shape-select" class="dash-select">
+                                <option value="bar">棒グラフ</option>
+                                <option value="line">折れ線グラフ</option>
+                            </select>
                             <select id="period-unit-select" class="dash-select">
                                 <option value="monthly">年月</option>
                                 <option value="season">年シーズン</option>
