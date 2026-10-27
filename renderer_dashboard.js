@@ -506,15 +506,6 @@ function renderCategoryChart() {
         currentScale = window.appState.dashCategoryScale;
     }
 
-    if (innerContainer && scrollContainer) {
-        const parentCard = scrollContainer.closest('.category-stats-card');
-        const cardWidth = parentCard ? parentCard.clientWidth : scrollContainer.clientWidth;
-        
-        const baseWidth = Math.max(200, cardWidth);
-        const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
-        innerContainer.style.width = `${dynamicWidth}px`;
-    }
-
     let subKeys = [];
     let subColors = [];
 
@@ -794,6 +785,15 @@ function renderCategoryChart() {
             yAxisFixedElements.forEach(el => {
                 el.style.width = `${calculatedWidth}px`;
             });
+
+            if (innerContainer && scrollContainer) {
+                const parentCard = scrollContainer.closest('.category-stats-card');
+                const cardWidth = parentCard ? parentCard.clientWidth : scrollContainer.clientWidth;
+                
+                const baseWidth = Math.max(200, cardWidth - (calculatedWidth * 2) - 24);
+                const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
+                innerContainer.style.width = `${dynamicWidth}px`;
+            }
         }
 
         if (scrollContainer && window.appState) {

@@ -952,7 +952,7 @@ caption {
     white-space: nowrap; /* ラベルや数値が折り返されないようにする */
 }
 .scale-control-wrapper input[type="range"] {
-    width: 90px;
+    width: 120px;
     cursor: pointer;
 }
 
