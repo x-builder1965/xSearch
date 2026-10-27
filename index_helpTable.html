@@ -34,21 +34,21 @@
             </tr>
             <tr>
                 <td>　・アプリ名</td>
-                <td class="icon no-data">なし</td>
+                <td class="icon">Label</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
                 <td class="note">・アプリ名のクリックでヘルプを表示。ヘルプ画面の❌で戻る</td>
             </tr>
             <tr>
                 <td>　・バージョン</td>
-                <td class="icon no-data">なし</td>
+                <td class="icon">Label</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
                 <td class="note">・バージョンのクリックで修正履歴を表示。修正履歴画面の❌で戻る</td>
             </tr>
             <tr>
                 <td>　・ダッシュボード・リスト切替</td>
-                <td class="icon no-data">なし</td>
+                <td class="icon">Button</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
                 <td class="note">・ダッシュボード画面／リスト画面の切り替え</td>
@@ -142,7 +142,7 @@
                 <td class="icon">Label</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
-                <td class="note">・フィルタ実施後件数を [フィルタ数]/[リスト総数] で表示。</td>
+                <td class="note">・フィルタ実施後件数を [フィルタ数] / [リスト総数] で表示。</td>
             </tr>
             <tr>
                 <td>　・フィルタ条件</td>
@@ -167,13 +167,13 @@
             </tr>
             <tr>
                 <td>　・検索結果リスト</td>
-                <td class="icon">List-Table</td>
+                <td class="icon">ListTable</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
                 <td class="note">・プレイリストファイルの検索結果を表示</td>
             </tr>
             <tr>
-                <td class="sub-title">ダッシュボード</td>
+                <td class="sub-title">ダッシュボード：サマリー</td>
                 <td class="icon sub-title"></td>
                 <td class="key sub-title"></td>
                 <td class="mouse sub-title"></td>
@@ -181,38 +181,87 @@
             </tr>
             <tr>
                 <td>　・件数リスト</td>
-                <td class="icon no-data">なし</td>
+                <td class="icon">ListTable</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
-                <td class="note">・選択した分類の分類統計、期間統計を表示</td>
+                <td class="note">・選択した分類の分類統計、期間統計、要素別件数を表示</td>
             </tr>
             <tr>
-                <td>　・分類期間単位選択</td>
-                <td class="icon no-data">なし</td>
+                <td class="sub-title">ダッシュボード：分類統計</td>
+                <td class="icon sub-title"></td>
+                <td class="key sub-title"></td>
+                <td class="mouse sub-title"></td>
+                <td class="note sub-title"></td>
+            </tr>
+            <tr>
+                <td>　・グラフ選択</td>
+                <td class="icon">DropDown</td>
+                <td class="key no-data">なし</td>
+                <td class="mouse no-data">なし</td>
+                <td class="note">・選択したグラフ（棒グラフ／折れ線グラフ）で分類グラフを表示</td>
+            </tr>
+            <tr>
+                <td>　・期間単位選択</td>
+                <td class="icon">DropDown</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
                 <td class="note">・選択した期間（年月／年シーズン／単年／５年／全年）で分類グラフを表示</td>
             </tr>
             <tr>
-                <td>　・分類要素選択</td>
-                <td class="icon no-data">なし</td>
+                <td>　・縮尺選択</td>
+                <td class="icon">Slider</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
-                <td class="note">・選択した要素（評価／50音／ジャンル）で分類棒グラフを表示</td>
+                <td class="note">・分類グラフの水平方向の縮尺をx1.0～x10.0の範囲で変更</td>
             </tr>
             <tr>
-                <td>　・分類棒グラフ</td>
-                <td class="icon no-data">なし</td>
+                <td>　・要素選択</td>
+                <td class="icon">DropDown</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
-                <td class="note">・選択した期間の要素円グラフ（評価／50音／ジャンル）をまとめて表示</td>
+                <td class="note">・選択した要素（評価／50音個別／50音グループ／ジャンル）で分類棒グラフを表示</td>
             </tr>
             <tr>
-                <td>　・要素円グラフ</td>
-                <td class="icon no-data">なし</td>
+                <td>　・分類グラフ</td>
+                <td class="icon">Graph</td>
                 <td class="key no-data">なし</td>
                 <td class="mouse no-data">なし</td>
-                <td class="note">・分類棒グラフで選択した期間の要素円グラフ（評価／50音／ジャンル）をまとめて表示</td>
+                <td class="note">・サマリーカードで選択した分類のタイトル数を選択したグラフ形状・期間単位・縮尺・要素でグラフ表示</td>
+            </tr>
+            <tr>
+                <td class="sub-title">ダッシュボード：要素統計</td>
+                <td class="icon sub-title"></td>
+                <td class="key sub-title"></td>
+                <td class="mouse sub-title"></td>
+                <td class="note sub-title"></td>
+            </tr>
+            <tr>
+                <td>　・要素グラフ</td>
+                <td class="icon">Graph</td>
+                <td class="key no-data">なし</td>
+                <td class="mouse no-data">なし</td>
+                <td class="note">・分類グラフで選択した期間の円グラフ（評価／50音／ジャンル）をまとめて表示</td>
+            </tr>
+            <tr>
+                <td class="sub-title">ダッシュボード：要素別件数</td>
+                <td class="icon sub-title"></td>
+                <td class="key sub-title"></td>
+                <td class="mouse sub-title"></td>
+                <td class="note sub-title"></td>
+            </tr>
+            <tr>
+                <td>　・全件数</td>
+                <td class="icon">Label</td>
+                <td class="key no-data">なし</td>
+                <td class="mouse no-data">なし</td>
+                <td class="note">・分類グラフで選択した期間の全タイトル件数を表示</td>
+            </tr>
+            <tr>
+                <td>　・要素別件数</td>
+                <td class="icon">Label</td>
+                <td class="key no-data">なし</td>
+                <td class="mouse no-data">なし</td>
+                <td class="note">・分類グラフで選択した期間・要素のタイトル件数をスライド表示（電光掲示板方式）</td>
             </tr>
         </tbody>
     </table>
