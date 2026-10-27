@@ -1,6 +1,6 @@
 {
     "name": "xsearch",
-    "version": "1.44.1",
+    "version": "1.45.1",
     "description": "xSearch playlist search tool",
     "main": "main.js",
     "author": "x-builder",

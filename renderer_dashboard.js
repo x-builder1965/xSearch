@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.44.4';
+// version   = 'Ver1.45.1';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -57,7 +57,7 @@ let marqueeInterval = null;         // 自動スクロール用タイマー管�
 
 // 初期化関数
 function initDashboard() {
-    // 🔴 起動時に appState から保存された選択状態を復元・反映
+    // 起動時に appState から保存された選択状態を復元・反映
     if (window.appState) {
         if (window.appState.dashSelectedCategory) {
             selectedCategory = window.appState.dashSelectedCategory;
@@ -324,6 +324,85 @@ function getGenreMaster(items) {
 }
 
 // -------------------------------------------------------------
+// ★ 1970年01月～当年当月の間で歯抜けを防ぐための全期間キー生成ヘルパー
+// -------------------------------------------------------------
+function generateAllPeriodKeys(unit) {
+    const keys = [];
+    const startDate = new Date(1970, 0, 1); // 1970年1月
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-12
+
+    let y = 1970;
+    let m = 1;
+
+    switch (unit) {
+        case 'monthly': {
+            while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+                const mStr = String(m).padStart(2, '0');
+                keys.push(`${y}${mStr}`);
+                m++;
+                if (m > 12) {
+                    m = 1;
+                    y++;
+                }
+            }
+            break;
+        }
+        case 'season': {
+            // 1970年冬（前年12月～1970年2月頃、または1970年Aから開始）
+            // 仕様：冬(A), 春(B), 夏(C), 秋(D)
+            while (y < currentYear || (y === currentYear && (
+                (m <= 2 && 'A') ||
+                (m >= 3 && m <= 5 && 'B') ||
+                (m >= 6 && m <= 8 && 'C') ||
+                (m >= 9 && 'D')
+            ))) {
+                ['A', 'B', 'C', 'D'].forEach(code => {
+                    const seasonKey = `${y}${code}`;
+                    // 未来すぎるシーズンは除外するガード
+                    const seasonEndMonth = code === 'A' ? 2 : code === 'B' ? 5 : code === 'C' ? 8 : 11;
+                    if (y < currentYear || (y === currentYear && seasonEndMonth <= currentMonth + 2)) {
+                        if (!keys.includes(seasonKey)) {
+                            keys.push(seasonKey);
+                        }
+                    }
+                });
+                y++;
+            }
+            break;
+        }
+        case 'year': {
+            while (y <= currentYear) {
+                keys.push(`${y}年`);
+                y++;
+            }
+            break;
+        }
+        case '5year': {
+            let startY = 1970;
+            while (startY <= currentYear) {
+                keys.push(`${startY}～${startY + 4}年`);
+                startY += 5;
+            }
+            break;
+        }
+        case 'all': {
+            keys.push('全期間');
+            break;
+        }
+        default: {
+            while (y <= currentYear) {
+                keys.push(`${y}年`);
+                y++;
+            }
+            break;
+        }
+    }
+    return keys;
+}
+
+// -------------------------------------------------------------
 // 2. 選択分類の統計グラフ内でのクリック（選択期間の変更）
 // -------------------------------------------------------------
 function getPeriodKey(dateStr, unit) {
@@ -338,11 +417,15 @@ function getPeriodKey(dateStr, unit) {
         case 'monthly':
             return cleanDate.length >= 6 ? cleanDate.substring(0, 6) : `${year}01`;
         case 'season': {
-            if (month === 12) return `${year}冬`;
-            if (month === 1 || month === 2) return `${year - 1}冬`;
-            if (month >= 3 && month <= 5) return `${year}春`;
-            if (month >= 6 && month <= 8) return `${year}夏`;
-            if (month >= 9 && month <= 11) return `${year}秋`;
+            if (month === 12) {
+                return `${year + 1}A`;
+            }
+            if (month === 1 || month === 2) {
+                return `${year}A`;
+            }
+            if (month >= 3 && month <= 5) return `${year}B`;
+            if (month >= 6 && month <= 8) return `${year}C`;
+            if (month >= 9 && month <= 11) return `${year}D`;
             return `${year}年`;
         }
         case 'year':
@@ -359,11 +442,26 @@ function getPeriodKey(dateStr, unit) {
     }
 }
 
+// ★ 集計コード（内部コード）からグラフ表示用の文字列に変換するヘルパー関数
+function formatPeriodDisplayLabel(pKey, unit) {
+    if (unit === 'season' && /^\d{4}[ABCD]$/.test(pKey)) {
+        const yearStr = pKey.substring(0, 4);
+        const code = pKey.substring(4);
+        switch (code) {
+            case 'A': return `${yearStr}冬`;
+            case 'B': return `${yearStr}春`;
+            case 'C': return `${yearStr}夏`;
+            case 'D': return `${yearStr}秋`;
+        }
+    }
+    return pKey;
+}
+
 function renderCategoryChart() {
     const ctxMain = document.getElementById('categoryChart')?.getContext('2d');
     const ctxYAxis = document.getElementById('categoryChartYAxis')?.getContext('2d');
-    const ctxYAxisRight = document.getElementById('categoryChartYAxisRight')?.getContext('2d'); // ★ 追加
-    if (!ctxMain || !ctxYAxis || !ctxYAxisRight) return; // ★ 追加
+    const ctxYAxisRight = document.getElementById('categoryChartYAxisRight')?.getContext('2d');
+    if (!ctxMain || !ctxYAxis || !ctxYAxisRight) return;
 
     const scrollContainer = document.getElementById('category-chart-scroll-container');
     const innerContainer = document.getElementById('category-chart-inner');
@@ -387,7 +485,16 @@ function renderCategoryChart() {
         periodMap.get(key).push(item);
     });
 
-    const sortedPeriods = Array.from(periodMap.keys()).sort();
+    // ★ 1. 1970年～当年当月までの全期間キーをベースとして取得し、データが存在するものと統合して歯抜けを防止
+    const basePeriodKeys = generateAllPeriodKeys(unit);
+    const existingKeys = Array.from(periodMap.keys());
+    
+    // データの存在するキーのうち、ベース期間に含まれないもの（例：1970年以前など）があればマージしてソート
+    const combinedKeysSet = new Set([...basePeriodKeys, ...existingKeys]);
+    const sortedPeriods = Array.from(combinedKeysSet).sort();
+    
+    // グラフのX軸ゲージ用に表示名を変換
+    const displayLabels = sortedPeriods.map(pKey => formatPeriodDisplayLabel(pKey, unit));
 
     let currentScale = 1.0;
     if (scaleRange) {
@@ -403,7 +510,6 @@ function renderCategoryChart() {
         const parentCard = scrollContainer.closest('.category-stats-card');
         const cardWidth = parentCard ? parentCard.clientWidth : scrollContainer.clientWidth;
         
-        // 左右のY軸幅（50px × 2 = 100px）を考慮してベース幅を計算
         const baseWidth = Math.max(200, cardWidth);
         const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
         innerContainer.style.width = `${dynamicWidth}px`;
@@ -486,10 +592,9 @@ function renderCategoryChart() {
         }
     });
 
-    // 既存のインスタンスを破棄
     if (categoryChartInstance) categoryChartInstance.destroy();
     if (categoryYAxisInstance) categoryYAxisInstance.destroy();
-    if (window.categoryYAxisRightInstance) window.categoryYAxisRightInstance.destroy(); // ★ 追加
+    if (window.categoryYAxisRightInstance) window.categoryYAxisRightInstance.destroy();
 
     const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
     const textColor = isDark ? '#d4d4d4' : '#333333';
@@ -499,24 +604,23 @@ function renderCategoryChart() {
         stacked: (graphShape === 'bar'),
         ticks: { 
             color: textColor,
-            padding: 0 // ★ 数字と軸（グラフの端）との距離をピクセル単位で広げる
+            padding: 0
         },
         grid: { color: gridColor }
     };
     const rightYScale = {
         stacked: (graphShape === 'bar'),
-        position: 'right', // 目盛りやラベルを右端に配置
+        position: 'right',
         ticks: { 
             color: textColor,
-            padding: 0 // ★ 数字と軸（グラフの端）との距離をピクセル単位で広げる
+            padding: 0
         },
         grid: { color: gridColor }
     };
-    // ★ Y軸専用のdatasetsを作成（ラインやバーの描画を透明・非表示にする）
+
     const yAxisDatasets = subKeys.map((subKey, idx) => {
         const data = sortedPeriods.map(pKey => {
             const pItems = periodMap.get(pKey) || [];
-            // （データ抽出ロジックはメイン側と全く同じものを使用）
             if (metric === 'rating') {
                 return pItems.filter(i => (i.titleRating || '評価なし') === (subKey === '不明' ? '-' : subKey)).length;
             } else if (metric === 'seriesKana') {
@@ -546,21 +650,20 @@ function renderCategoryChart() {
             return 0;
         });
 
-        // ★ Y軸専用：中身（バーやライン）を描画させないための設定
         if (graphShape === 'line') {
             return {
                 label: subKey,
                 data: data,
-                borderColor: 'transparent',      // 線を完全に透明に
-                backgroundColor: 'transparent',  // 塗りつぶしも透明に
-                pointRadius: 0,                  // プロット点も非表示
+                borderColor: 'transparent',
+                backgroundColor: 'transparent',
+                pointRadius: 0,
                 borderWidth: 0
             };
         } else {
             return {
                 label: subKey,
                 data: data,
-                backgroundColor: 'transparent',  // 棒グラフの色を透明に
+                backgroundColor: 'transparent',
                 borderColor: 'transparent',
                 borderWidth: 0
             };
@@ -571,19 +674,14 @@ function renderCategoryChart() {
     categoryYAxisInstance = new Chart(ctxYAxis, {
         type: graphShape,
         data: {
-            labels: sortedPeriods,
-            datasets: yAxisDatasets // ★ ここを専用のものに差し替え
+            labels: displayLabels,
+            datasets: yAxisDatasets
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             layout: {
-                padding: {
-                    top: 0,
-                    bottom: 0,
-                    left: 0,  // ★ 左側の目盛り数字が左端に切れないように余白を追加
-                    right: 0  // ★ 右側の余白
-                }
+                padding: { top: 0, bottom: 0, left: 0, right: 0 }
             },
             scales: {
                 x: { display: false },
@@ -596,23 +694,18 @@ function renderCategoryChart() {
         }
     });
 
-    // ★ 1.5. 右側Y軸専用チャートの生成（左側と同じ設定）
+    // 1.5. 右側Y軸専用チャートの生成
     window.categoryYAxisRightInstance = new Chart(ctxYAxisRight, {
         type: graphShape,
         data: {
-            labels: sortedPeriods,
-            datasets: yAxisDatasets // ★ ここを専用のものに差し替え
+            labels: displayLabels,
+            datasets: yAxisDatasets
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             layout: {
-                padding: {
-                    top: 0,
-                    bottom: 0,
-                    left: 0,  // ★ 左側の目盛り数字が左端に切れないように余白を追加
-                    right: 0  // ★ 右側の余白
-                }
+                padding: { top: 0, bottom: 0, left: 0, right: 0 }
             },
             scales: {
                 x: { display: false },
@@ -629,7 +722,7 @@ function renderCategoryChart() {
     categoryChartInstance = new Chart(ctxMain, {
         type: graphShape,
         data: {
-            labels: sortedPeriods,
+            labels: displayLabels,
             datasets: datasets
         },
         options: {
@@ -643,7 +736,7 @@ function renderCategoryChart() {
                 },
                 y: {
                     ...sharedYScale,
-                    display: false // メイン側のY軸は非表示
+                    display: false
                 }
             },
             plugins: {
@@ -667,7 +760,7 @@ function renderCategoryChart() {
         }
     });
 
-    // 3. メインチャートのX軸高さを取得し、左右のY軸チャートのパディングに適用して0の位置を一致させる
+    // 3. メインチャートのX軸高さを取得し、左右のY軸チャートのパディングに適用
     setTimeout(() => {
         if (categoryChartInstance && categoryYAxisInstance && window.categoryYAxisRightInstance) {
             const xAxisHeight = categoryChartInstance.scales.x.height;
@@ -679,17 +772,14 @@ function renderCategoryChart() {
                 bottom: xAxisHeight
             };
 
-            // 左側のY軸パディング更新
             categoryYAxisInstance.options.layout.padding = yAxisPadding;
             categoryYAxisInstance.update('none');
 
-            // 右側のY軸パディング更新
             window.categoryYAxisRightInstance.options.layout.padding = yAxisPadding;
             window.categoryYAxisRightInstance.update('none');
 
-            // ★ 【新規追加】Y軸ゲージの最大目盛り値に合わせて幅を動的調整
             const yTicks = categoryYAxisInstance.scales.y?.ticks || [];
-            let maxLabelLength = 2; // デフォルト文字数
+            let maxLabelLength = 2;
             yTicks.forEach(tick => {
                 const labelStr = String(tick.label || tick.value || '');
                 if (labelStr.length > maxLabelLength) {
@@ -697,15 +787,12 @@ function renderCategoryChart() {
                 }
             });
 
-            // 1文字あたり約7〜8px + 左右の余白（パディング・ボーダー分約16px）を計算
             const yPlusSize = (maxLabelLength > 2) ? ((maxLabelLength > 3) ? 34 : 30) : 24;
             const calculatedWidth = Math.max(32, (maxLabelLength * 8.5) + yPlusSize);
 
-            // 左右のY軸固定エリアの幅を一括調整
             const yAxisFixedElements = document.querySelectorAll('.category-chart-y-axis-fixed, .category-chart-y-axis-fixed-right');
             yAxisFixedElements.forEach(el => {
                 el.style.width = `${calculatedWidth}px`;
-                // el.style.maxWidth = `${calculatedWidth}px`;
             });
         }
 
@@ -744,17 +831,20 @@ function renderPeriodDonutCharts() {
         }
     }
 
+    // ★ 期間統計カードのタイトルに表示する選択期間の表示名をグラフ表記に変換
+    const displayPeriodKey = formatPeriodDisplayLabel(selectedPeriodKey, unit);
+
     const titleEl = document.getElementById('period-stats-title');
     if (titleEl) {
-        titleEl.textContent = `期間統計（${selectedPeriodKey || '未選択'}）`;
+        titleEl.textContent = `期間統計（${displayPeriodKey || '未選択'}）`;
     }
 
     // 期間内のアイテム
     const periodItems = selectedPeriodKey ? (periodMap.get(selectedPeriodKey) || []) : [];
 
-    // 🆕 要素別件数カードの更新処理を呼び出し
+    // 🆕 要素別件数カードの更新処理を呼び出し（内部で displayPeriodKey を渡してタイトルを変換）
     try {
-        renderElementCountCard(periodItems, selectedPeriodKey, metric, items); // 全アイテム(items)をマスター作成用に渡す
+        renderElementCountCard(periodItems, displayPeriodKey, metric, items); // 全アイテム(items)をマスター作成用に渡す
     } catch (err) {
         console.error("要素別件数カードの描画中にエラーが発生しました:", err);
     }
@@ -777,7 +867,6 @@ function renderPeriodDonutCharts() {
     let kanaColors = KANA_INDIVIDUAL_COLORS;
 
     // 🟢 50音グラフのタイトル要素を動的に変更する処理
-    // 期間統計カード内の 2番目の donut-chart-box にある .chart-title を取得
     const periodStatsCard = document.querySelector('.period-stats-card');
     if (periodStatsCard) {
         const donutBoxes = periodStatsCard.querySelectorAll('.donut-chart-box');
@@ -787,7 +876,6 @@ function renderPeriodDonutCharts() {
                 if (metric === 'seriesKanaGroup') {
                     kanaTitleEl.textContent = '50音グループ';
                 } else {
-                    // evaluation, seriesKana, genre の場合はすべて「50音個別」に設定
                     kanaTitleEl.textContent = '50音個別';
                 }
             }
@@ -851,16 +939,14 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
         canvas.parentElement.style.position = 'relative';
     }
 
-    // 既存インスタンスがある場合は、作り直さずにデータを更新する
     if (instance) {
         instance.data.labels = labels;
         instance.data.datasets[0].data = data;
         instance.data.datasets[0].backgroundColor = colors;
-        instance.update(); // アニメーション付きで更新される
+        instance.update();
         return instance;
     }
 
-    // 初回生成時のみ new Chart を行う
     return new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -890,7 +976,7 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
 // -------------------------------------------------------------
 // 4. 要素別件数カードの描画ロジック（マスター共有・色完全一致版）
 // -------------------------------------------------------------
-function renderElementCountCard(periodItems, periodKey, metric, allCategoryItems) {
+function renderElementCountCard(periodItems, displayPeriodKey, metric, allCategoryItems) {
     const cardTitleEl = document.getElementById('element-card-title');
     const totalCountEl = document.getElementById('element-total-count');
     const scrollContainer = document.getElementById('element-scroll-container');
@@ -902,7 +988,8 @@ function renderElementCountCard(periodItems, periodKey, metric, allCategoryItems
         marqueeInterval = null;
     }
 
-    cardTitleEl.textContent = `要素別件数（${periodKey || '未選択'}）`;
+    // ★ 要素別件数カードのタイトルにもグラフ表記を使用
+    cardTitleEl.textContent = `要素別件数（${displayPeriodKey || '未選択'}）`;
 
     const totalCount = periodItems.length;
     totalCountEl.textContent = `全件数：${totalCount.toLocaleString()}件`;
@@ -956,7 +1043,6 @@ function renderElementCountCard(periodItems, periodKey, metric, allCategoryItems
             });
         });
     } else if (metric === 'genre') {
-        // 🟢 共通マスター関数を利用し、グラフ側と100%同じマスター（ラベル・カラー）を取得
         const master = getGenreMaster(allCategoryItems);
         const genreLabels = master.labels;
         const genreColors = master.colors;
@@ -972,7 +1058,7 @@ function renderElementCountCard(periodItems, periodKey, metric, allCategoryItems
             elementData.push({
                 name: key,
                 count: count,
-                color: genreColors[idx] // グラフ側と完全に同一のインデックスのカラーを適用
+                color: genreColors[idx]
             });
         });
     }
