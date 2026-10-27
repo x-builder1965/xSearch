@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.43.4';
+// version   = 'Ver1.44.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -362,7 +362,8 @@ function getPeriodKey(dateStr, unit) {
 function renderCategoryChart() {
     const ctxMain = document.getElementById('categoryChart')?.getContext('2d');
     const ctxYAxis = document.getElementById('categoryChartYAxis')?.getContext('2d');
-    if (!ctxMain || !ctxYAxis) return;
+    const ctxYAxisRight = document.getElementById('categoryChartYAxisRight')?.getContext('2d'); // ★ 追加
+    if (!ctxMain || !ctxYAxis || !ctxYAxisRight) return; // ★ 追加
 
     const scrollContainer = document.getElementById('category-chart-scroll-container');
     const innerContainer = document.getElementById('category-chart-inner');
@@ -375,7 +376,6 @@ function renderCategoryChart() {
 
     const unit = document.getElementById('period-unit-select').value;
     const metric = document.getElementById('metric-type-select').value;
-    // グラフ形状の取得（セレクトボックス優先、なければappState）
     const graphShape = graphShapeSelect ? graphShapeSelect.value : (window.appState?.dashGraphShape || 'bar');
 
     const periodMap = new Map();
@@ -389,7 +389,6 @@ function renderCategoryChart() {
 
     const sortedPeriods = Array.from(periodMap.keys()).sort();
 
-    // 縮尺スライダーの値を取得・反映
     let currentScale = 1.0;
     if (scaleRange) {
         currentScale = parseFloat(scaleRange.value) || 1.0;
@@ -400,12 +399,12 @@ function renderCategoryChart() {
         currentScale = window.appState.dashCategoryScale;
     }
 
-    // インナーコンテナの横幅を動的に変更
     if (innerContainer && scrollContainer) {
         const parentCard = scrollContainer.closest('.category-stats-card');
         const cardWidth = parentCard ? parentCard.clientWidth : scrollContainer.clientWidth;
         
-        const baseWidth = Math.max(200, cardWidth - 50 - 30);
+        // 左右のY軸幅（50px × 2 = 100px）を考慮してベース幅を計算
+        const baseWidth = Math.max(200, cardWidth);
         const dynamicWidth = Math.max(baseWidth, baseWidth * currentScale);
         innerContainer.style.width = `${dynamicWidth}px`;
     }
@@ -469,15 +468,14 @@ function renderCategoryChart() {
 
         const color = subColors[idx % subColors.length];
 
-        // グラフ形状に応じたデータセットの調整
         if (graphShape === 'line') {
             return {
                 label: subKey,
                 data: data,
                 borderColor: color,
                 backgroundColor: color,
-                fill: false, // 必要に応じて true にするとエリアチャート風になります
-                tension: 0.1 // 緩やかな曲線にする場合は設定
+                fill: false,
+                tension: 0.1
             };
         } else {
             return {
@@ -491,24 +489,90 @@ function renderCategoryChart() {
     // 既存のインスタンスを破棄
     if (categoryChartInstance) categoryChartInstance.destroy();
     if (categoryYAxisInstance) categoryYAxisInstance.destroy();
+    if (window.categoryYAxisRightInstance) window.categoryYAxisRightInstance.destroy(); // ★ 追加
 
     const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
     const textColor = isDark ? '#d4d4d4' : '#333333';
     const gridColor = isDark ? '#404040' : '#cccccc';
 
-    // 共通のY軸スケール設定
     const sharedYScale = {
-        stacked: (graphShape === 'bar'), // 折れ線グラフの場合はスタックを解除するか、要件に合わせて調整（通常折れ線は false の方が見やすいですが、要件の積み上げを維持する場合は true にしてください）
-        ticks: { color: textColor },
+        stacked: (graphShape === 'bar'),
+        ticks: { 
+            color: textColor,
+            padding: 0 // ★ 数字と軸（グラフの端）との距離をピクセル単位で広げる
+        },
         grid: { color: gridColor }
     };
+    const rightYScale = {
+        stacked: (graphShape === 'bar'),
+        position: 'right', // 目盛りやラベルを右端に配置
+        ticks: { 
+            color: textColor,
+            padding: 0 // ★ 数字と軸（グラフの端）との距離をピクセル単位で広げる
+        },
+        grid: { color: gridColor }
+    };
+    // ★ Y軸専用のdatasetsを作成（ラインやバーの描画を透明・非表示にする）
+    const yAxisDatasets = subKeys.map((subKey, idx) => {
+        const data = sortedPeriods.map(pKey => {
+            const pItems = periodMap.get(pKey) || [];
+            // （データ抽出ロジックはメイン側と全く同じものを使用）
+            if (metric === 'rating') {
+                return pItems.filter(i => (i.titleRating || '評価なし') === (subKey === '不明' ? '-' : subKey)).length;
+            } else if (metric === 'seriesKana') {
+                return pItems.filter(i => {
+                    const k = i.seriesKana || i.titleKana || '';
+                    if (subKey === '不明') return k === '-' || !k;
+                    if (subKey === 'その他') return k !== '-' && k && !KANA_INDIVIDUAL.includes(k);
+                    return k === subKey;
+                }).length;
+            } else if (metric === 'seriesKanaGroup') {
+                return pItems.filter(i => {
+                    const k = i.seriesKana || i.titleKana || '';
+                    if (subKey === '不明') return k === '-' || !k;
+                    if (subKey === 'その他') {
+                        if (k === '-' || !k) return false;
+                        return !Object.values(KANA_GROUP_MAP).flat().includes(k);
+                    }
+                    return (KANA_GROUP_MAP[subKey] || []).includes(k);
+                }).length;
+            } else if (metric === 'genre') {
+                return pItems.filter(i => {
+                    if (subKey === '不明') return !i.genre || i.genre === '-';
+                    if (!i.genre || i.genre === '-') return false;
+                    return i.genre.split(',').map(g => g.trim()).filter(g => !g.startsWith('#')).includes(subKey);
+                }).length;
+            }
+            return 0;
+        });
 
-// 1. Y軸専用チャートの生成（初期パディング付き）
+        // ★ Y軸専用：中身（バーやライン）を描画させないための設定
+        if (graphShape === 'line') {
+            return {
+                label: subKey,
+                data: data,
+                borderColor: 'transparent',      // 線を完全に透明に
+                backgroundColor: 'transparent',  // 塗りつぶしも透明に
+                pointRadius: 0,                  // プロット点も非表示
+                borderWidth: 0
+            };
+        } else {
+            return {
+                label: subKey,
+                data: data,
+                backgroundColor: 'transparent',  // 棒グラフの色を透明に
+                borderColor: 'transparent',
+                borderWidth: 0
+            };
+        }
+    });
+
+    // 1. 左側Y軸専用チャートの生成
     categoryYAxisInstance = new Chart(ctxYAxis, {
         type: graphShape,
         data: {
             labels: sortedPeriods,
-            datasets: datasets
+            datasets: yAxisDatasets // ★ ここを専用のものに差し替え
         },
         options: {
             responsive: true,
@@ -516,12 +580,43 @@ function renderCategoryChart() {
             layout: {
                 padding: {
                     top: 0,
-                    bottom: 0 // 後から動的に設定
+                    bottom: 0,
+                    left: 0,  // ★ 左側の目盛り数字が左端に切れないように余白を追加
+                    right: 0  // ★ 右側の余白
                 }
             },
             scales: {
                 x: { display: false },
                 y: sharedYScale
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            }
+        }
+    });
+
+    // ★ 1.5. 右側Y軸専用チャートの生成（左側と同じ設定）
+    window.categoryYAxisRightInstance = new Chart(ctxYAxisRight, {
+        type: graphShape,
+        data: {
+            labels: sortedPeriods,
+            datasets: yAxisDatasets // ★ ここを専用のものに差し替え
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,  // ★ 左側の目盛り数字が左端に切れないように余白を追加
+                    right: 0  // ★ 右側の余白
+                }
+            },
+            scales: {
+                x: { display: false },
+                y: rightYScale
             },
             plugins: {
                 legend: { display: false },
@@ -572,23 +667,48 @@ function renderCategoryChart() {
         }
     });
 
-    // ★ 3. メインチャートのX軸の高さを取得し、Y軸チャートのパディングに適用して0の位置を厳密に合わせる
+    // 3. メインチャートのX軸高さを取得し、左右のY軸チャートのパディングに適用して0の位置を一致させる
     setTimeout(() => {
-        if (categoryChartInstance && categoryYAxisInstance) {
-            // メインチャートのX軸が占める高さ（目盛りやラベルの高さ）を取得
+        if (categoryChartInstance && categoryYAxisInstance && window.categoryYAxisRightInstance) {
             const xAxisHeight = categoryChartInstance.scales.x.height;
             const chartAreaTop = categoryChartInstance.chartArea.top;
             const yAxisChartAreaTop = categoryYAxisInstance.chartArea.top;
 
-            // Y軸側の描画領域の上下位置（Top/Bottom）をメイン側とピクセル単位で完全に一致させる
-            categoryYAxisInstance.options.layout.padding = {
+            const yAxisPadding = {
                 top: Math.max(0, chartAreaTop - yAxisChartAreaTop),
                 bottom: xAxisHeight
             };
-            categoryYAxisInstance.update('none'); // アニメーションなしで即時反映
+
+            // 左側のY軸パディング更新
+            categoryYAxisInstance.options.layout.padding = yAxisPadding;
+            categoryYAxisInstance.update('none');
+
+            // 右側のY軸パディング更新
+            window.categoryYAxisRightInstance.options.layout.padding = yAxisPadding;
+            window.categoryYAxisRightInstance.update('none');
+
+            // ★ 【新規追加】Y軸ゲージの最大目盛り値に合わせて幅を動的調整
+            const yTicks = categoryYAxisInstance.scales.y?.ticks || [];
+            let maxLabelLength = 2; // デフォルト文字数
+            yTicks.forEach(tick => {
+                const labelStr = String(tick.label || tick.value || '');
+                if (labelStr.length > maxLabelLength) {
+                    maxLabelLength = labelStr.length;
+                }
+            });
+
+            // 1文字あたり約7〜8px + 左右の余白（パディング・ボーダー分約16px）を計算
+            const yPlusSize = (maxLabelLength > 2) ? ((maxLabelLength > 3) ? 34 : 30) : 24;
+            const calculatedWidth = Math.max(32, (maxLabelLength * 8.5) + yPlusSize);
+
+            // 左右のY軸固定エリアの幅を一括調整
+            const yAxisFixedElements = document.querySelectorAll('.category-chart-y-axis-fixed, .category-chart-y-axis-fixed-right');
+            yAxisFixedElements.forEach(el => {
+                el.style.width = `${calculatedWidth}px`;
+                // el.style.maxWidth = `${calculatedWidth}px`;
+            });
         }
 
-        // 保存されているスクロール位置を復元
         if (scrollContainer && window.appState) {
             const savedScrollLeft = window.appState.dashCategoryScrollLeft || 0;
             scrollContainer.scrollLeft = savedScrollLeft;
