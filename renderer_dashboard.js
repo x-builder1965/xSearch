@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.42.4';
+// version   = 'Ver1.43.4';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -503,9 +503,9 @@ function renderCategoryChart() {
         grid: { color: gridColor }
     };
 
-    // 1. Y軸専用チャートの生成
+// 1. Y軸専用チャートの生成（初期パディング付き）
     categoryYAxisInstance = new Chart(ctxYAxis, {
-        type: graphShape, // 形状を合わせる
+        type: graphShape,
         data: {
             labels: sortedPeriods,
             datasets: datasets
@@ -515,7 +515,8 @@ function renderCategoryChart() {
             maintainAspectRatio: false,
             layout: {
                 padding: {
-                    bottom: 50
+                    top: 0,
+                    bottom: 0 // 後から動的に設定
                 }
             },
             scales: {
@@ -531,7 +532,7 @@ function renderCategoryChart() {
 
     // 2. メインのスクロール用チャートの生成
     categoryChartInstance = new Chart(ctxMain, {
-        type: graphShape, // 形状を反映
+        type: graphShape,
         data: {
             labels: sortedPeriods,
             datasets: datasets
@@ -571,13 +572,28 @@ function renderCategoryChart() {
         }
     });
 
-    // グラフ描画完了後、保存されているスクロール位置を復元
+    // ★ 3. メインチャートのX軸の高さを取得し、Y軸チャートのパディングに適用して0の位置を厳密に合わせる
     setTimeout(() => {
+        if (categoryChartInstance && categoryYAxisInstance) {
+            // メインチャートのX軸が占める高さ（目盛りやラベルの高さ）を取得
+            const xAxisHeight = categoryChartInstance.scales.x.height;
+            const chartAreaTop = categoryChartInstance.chartArea.top;
+            const yAxisChartAreaTop = categoryYAxisInstance.chartArea.top;
+
+            // Y軸側の描画領域の上下位置（Top/Bottom）をメイン側とピクセル単位で完全に一致させる
+            categoryYAxisInstance.options.layout.padding = {
+                top: Math.max(0, chartAreaTop - yAxisChartAreaTop),
+                bottom: xAxisHeight
+            };
+            categoryYAxisInstance.update('none'); // アニメーションなしで即時反映
+        }
+
+        // 保存されているスクロール位置を復元
         if (scrollContainer && window.appState) {
             const savedScrollLeft = window.appState.dashCategoryScrollLeft || 0;
             scrollContainer.scrollLeft = savedScrollLeft;
         }
-    }, 0);
+    }, 50);
 }
 
 // -------------------------------------------------------------
