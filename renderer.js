@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.46.1';
+// version   = 'Ver1.47.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -67,6 +67,7 @@ let recentFileTimes = [];       // 直近の処理時間を保持する配列
 let lastItemTime = null;        // 前回のアイテム受信時刻
 let activePopupMenu = null;     // アクティブなポップアップメニュー要素の保持
 let hasForceSaveItems = false;  // 「保存」がON設定のアイテムが含まれているか判定
+let filterTimer = null;         // タイマーIDを保持する変数
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 🔲初期処理🔲
@@ -939,14 +940,31 @@ function registerDocumentMousedown() {
 function registerFilterInputInput() {
     const filterInput = document.getElementById('filter-input');
     filterInput.addEventListener('input', () => {
-        applyFilter();
+        // 既存のタイマーをクリアして再設定（入力が終わってから3秒後）
+        if (filterTimer) {
+            clearTimeout(filterTimer);
+        }
+        filterTimer = setTimeout(() => {
+            applyFilter();
+        }, 3000); // 3秒（3000ミリ秒）
     });
 }
+
 
 // フィルタ条件のキー入力イベントのリスナー登録
 function registerFilterInputKeydown() {
     const filterInput = document.getElementById('filter-input');
     filterInput.addEventListener('keydown', (e) => {
+        // ENTERキーが押された場合は即座にフィルタを実行する
+        if (e.key === 'Enter') {
+            if (filterTimer) {
+                clearTimeout(filterTimer);
+                filterTimer = null;
+            }
+            applyFilter();
+            return;
+        }
+
         const start = filterInput.selectionStart;
         const end = filterInput.selectionEnd;
         const value = filterInput.value;
@@ -965,7 +983,8 @@ function registerFilterInputKeydown() {
                 const newCursorPos = end + 2;
                 filterInput.setSelectionRange(newCursorPos, newCursorPos);
                 
-                applyFilter();
+                // 括弧補完時も即時ではなく3秒タイマーまたはENTERに委ねる場合は applyFilter() を外す、
+                // あるいは即時反映させたい場合はそのまま残す（仕様に合わせて調整可能ですが、今回はタイマー管理へ移行）
                 return;
             }
         }
@@ -1015,7 +1034,6 @@ function registerFilterInputKeydown() {
                     
                     // カーソル位置を削除位置に調整
                     filterInput.setSelectionRange(targetIndex, targetIndex);
-                    applyFilter();
                     return;
                 }
             }
@@ -1632,7 +1650,6 @@ function applyFilter() {
     const query = inputElem.value;
     
     // 全データ（appState.rawItems または元のリスト）からフィルタリング
-    // ※ appState.rawItems に全件保持されている想定
     const sourceItems = appState.rawItems || appState.items;
     const filteredItems = filterItems(sourceItems, query);
 
