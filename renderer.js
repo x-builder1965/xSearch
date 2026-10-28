@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.42.1';
+// version   = 'Ver1.46.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -529,9 +529,34 @@ function renderTable() {
                 });
             }
 
-            // 話数(12)や状態(13)などのテキスト中央揃え
+            // 話数(12)や状態(13)などのテキスト中央揃えとクリックイベント
             if (i === 12 || i === 13) {
                 td.style.textAlign = 'center';
+                td.style.cursor = 'pointer';
+                
+                // 「話数」または「状態」クリックで対象のプレイリストをメモ帳で起動
+                td.addEventListener('click', async () => {
+                    // プレイリストのパスが格納されているプロパティ名を適宜調整してください（例: item.playlistPath, item.filePath など）
+                    const targetPlaylistPath = item.playlistPath || item.filePath;
+                    
+                    if (!targetPlaylistPath) {
+                        showToast('プレイリストのパスが見つかりません', 'error');
+                        return;
+                    }
+
+                    // メモ帳（notepad）で起動するためのAPI呼び出し例
+                    // ※環境に合わせて window.api.launchNotepad や専用のメソッド、あるいは window.api.launchPlayer を利用してください
+                    const notepadPath = 'C:\\WINDOWS\\notepad.exe'; // または appState.notepadAppPath など
+                    
+                    const result = await window.api.launchPlayer({
+                        appPath: notepadPath,
+                        targetPath: targetPlaylistPath
+                    });
+                    
+                    if (result && !result.success && result.error) {
+                        showToast(result.error, 'error');
+                    }
+                });
             }
             tr.appendChild(td);
         }
