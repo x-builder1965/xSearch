@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.45.1';
+// version   = 'Ver1.48.1';
 // ---------------------------------------------------------------------
 // 定数定義
 const STATUS_COLORS = {
@@ -47,13 +47,14 @@ const KANA_GROUP_COLORS = [
 ];
 
 let categoryChartInstance = null;
-let categoryYAxisInstance = null; // 追加：Y軸専用チャートのインスタンス
+let categoryYAxisInstance = null;   // Y軸専用チャートのインスタンス
 let ratingDonutInstance = null;
 let seriesKanaDonutInstance = null;
 let genreDonutInstance = null;
 let selectedCategory = '全て';
 let selectedPeriodKey = null;
 let marqueeInterval = null;         // 自動スクロール用タイマー管理
+let viewCountDonutInstance = null;  // 視聴回数ドーナツグラフ用のインスタンス変数（必要に応じて定義確認）
 
 // 初期化関数
 function initDashboard() {
@@ -403,6 +404,24 @@ function generateAllPeriodKeys(unit) {
 }
 
 // -------------------------------------------------------------
+// 視聴回数用の定数（必要に応じて調整してください）
+// -------------------------------------------------------------
+const VIEW_COUNT_KEYS = ['0回', '1回', '2回', '3回', '4回', '5回以上'];
+const VIEW_COUNT_COLORS = [
+    '#7f8c8d', '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'
+];
+
+function getScaleViewCountKey(count) {
+    const c = count ?? 0;
+    if (c === 0) return '0回';
+    if (c === 1) return '1回';
+    if (c === 2) return '2回';
+    if (c === 3) return '3回';
+    if (c === 4) return '4回';
+    return '5回以上';
+}
+
+// -------------------------------------------------------------
 // 2. 選択分類の統計グラフ内でのクリック（選択期間の変更）
 // -------------------------------------------------------------
 function getPeriodKey(dateStr, unit) {
@@ -485,15 +504,12 @@ function renderCategoryChart() {
         periodMap.get(key).push(item);
     });
 
-    // ★ 1. 1970年～当年当月までの全期間キーをベースとして取得し、データが存在するものと統合して歯抜けを防止
     const basePeriodKeys = generateAllPeriodKeys(unit);
     const existingKeys = Array.from(periodMap.keys());
     
-    // データの存在するキーのうち、ベース期間に含まれないもの（例：1970年以前など）があればマージしてソート
     const combinedKeysSet = new Set([...basePeriodKeys, ...existingKeys]);
     const sortedPeriods = Array.from(combinedKeysSet).sort();
     
-    // グラフのX軸ゲージ用に表示名を変換
     const displayLabels = sortedPeriods.map(pKey => formatPeriodDisplayLabel(pKey, unit));
 
     let currentScale = 1.0;
@@ -522,6 +538,9 @@ function renderCategoryChart() {
         const master = getGenreMaster(items);
         subKeys = master.labels;
         subColors = master.colors;
+    } else if (metric === 'viewCount') {
+        subKeys = VIEW_COUNT_KEYS;
+        subColors = VIEW_COUNT_COLORS;
     }
 
     const datasets = subKeys.map((subKey, idx) => {
@@ -558,6 +577,11 @@ function renderCategoryChart() {
                     if (!i.genre || i.genre === '-') return false;
                     const genres = i.genre.split(',').map(g => g.trim()).filter(g => !g.startsWith('#'));
                     return genres.includes(subKey);
+                }).length;
+            } else if (metric === 'viewCount') {
+                return pItems.filter(i => {
+                    const cKey = getScaleViewCountKey(i.viewCount);
+                    return cKey === subKey;
                 }).length;
             }
             return 0;
@@ -637,6 +661,8 @@ function renderCategoryChart() {
                     if (!i.genre || i.genre === '-') return false;
                     return i.genre.split(',').map(g => g.trim()).filter(g => !g.startsWith('#')).includes(subKey);
                 }).length;
+            } else if (metric === 'viewCount') {
+                return pItems.filter(i => getScaleViewCountKey(i.viewCount) === subKey).length;
             }
             return 0;
         });
@@ -831,7 +857,6 @@ function renderPeriodDonutCharts() {
         }
     }
 
-    // ★ 期間統計カードのタイトルに表示する選択期間の表示名をグラフ表記に変換
     const displayPeriodKey = formatPeriodDisplayLabel(selectedPeriodKey, unit);
 
     const titleEl = document.getElementById('period-stats-title');
@@ -839,12 +864,10 @@ function renderPeriodDonutCharts() {
         titleEl.textContent = `期間統計（${displayPeriodKey || '未選択'}）`;
     }
 
-    // 期間内のアイテム
     const periodItems = selectedPeriodKey ? (periodMap.get(selectedPeriodKey) || []) : [];
 
-    // 🆕 要素別件数カードの更新処理を呼び出し（内部で displayPeriodKey を渡してタイトルを変換）
     try {
-        renderElementCountCard(periodItems, displayPeriodKey, metric, items); // 全アイテム(items)をマスター作成用に渡す
+        renderElementCountCard(periodItems, displayPeriodKey, metric, items);
     } catch (err) {
         console.error("要素別件数カードの描画中にエラーが発生しました:", err);
     }
@@ -852,7 +875,7 @@ function renderPeriodDonutCharts() {
     const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
     const textColor = isDark ? '#d4d4d4' : '#333333';
 
-    // 1. 評価ドーナッツ
+    // 1. 評価ドーナッツ（上部中央）
     const ratingCounts = RATING_KEYS.map(key => {
         return periodItems.filter(i => {
             const r = i.titleRating || '評価なし';
@@ -862,23 +885,16 @@ function renderPeriodDonutCharts() {
     });
     ratingDonutInstance = createDonutChart(ratingDonutInstance, 'ratingDonutChart', RATING_KEYS, ratingCounts, RATING_COLORS, textColor);
 
-    // 2. シリーズ50音 / 50音グループ ドーナッツ
+    // 2. シリーズ50音 / 50音グループ ドーナッツ（中部左）
     let kanaKeys = KANA_INDIVIDUAL_KEYS;
     let kanaColors = KANA_INDIVIDUAL_COLORS;
 
-    // 🟢 50音グラフのタイトル要素を動的に変更する処理
-    const periodStatsCard = document.querySelector('.period-stats-card');
-    if (periodStatsCard) {
-        const donutBoxes = periodStatsCard.querySelectorAll('.donut-chart-box');
-        if (donutBoxes.length >= 2) {
-            const kanaTitleEl = donutBoxes[1].querySelector('.chart-title');
-            if (kanaTitleEl) {
-                if (metric === 'seriesKanaGroup') {
-                    kanaTitleEl.textContent = '50音グループ';
-                } else {
-                    kanaTitleEl.textContent = '50音個別';
-                }
-            }
+    const kanaTitleEl = document.getElementById('series-kana-donut-title');
+    if (kanaTitleEl) {
+        if (metric === 'seriesKanaGroup') {
+            kanaTitleEl.textContent = '50音グループ';
+        } else {
+            kanaTitleEl.textContent = '50音個別';
         }
     }
 
@@ -908,7 +924,7 @@ function renderPeriodDonutCharts() {
     });
     seriesKanaDonutInstance = createDonutChart(seriesKanaDonutInstance, 'seriesKanaDonutChart', kanaKeys, kanaCounts, kanaColors, textColor);
 
-    // 3. ジャンル ドーナッツ
+    // 3. ジャンル ドーナッツ（中部右）
     const master = getGenreMaster(items);
     const genreLabels = master.labels;
     const genreColors = master.colors;
@@ -925,6 +941,15 @@ function renderPeriodDonutCharts() {
     });
 
     genreDonutInstance = createDonutChart(genreDonutInstance, 'genreDonutChart', genreLabels, genreCounts, genreColors, textColor);
+
+    // 4. 視聴回数 ドーナッツ（下部中央）
+    const viewCountCounts = VIEW_COUNT_KEYS.map(key => {
+        return periodItems.filter(i => {
+            const cKey = getScaleViewCountKey(i.viewCount);
+            return cKey === key;
+        }).length;
+    });
+    viewCountDonutInstance = createDonutChart(viewCountDonutInstance, 'viewCountDonutChart', VIEW_COUNT_KEYS, viewCountCounts, VIEW_COUNT_COLORS, textColor);
 }
 
 function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
@@ -935,7 +960,7 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
     if (!ctx) return null;
 
     if (canvas.parentElement) {
-        canvas.parentElement.style.minHeight = '120px';
+        canvas.parentElement.style.minHeight = '80px';
         canvas.parentElement.style.position = 'relative';
     }
 
@@ -1061,6 +1086,19 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
                 color: genreColors[idx]
             });
         });
+    } else if (metric === 'viewCount') {
+        VIEW_COUNT_KEYS.forEach((key, idx) => {
+            const count = periodItems.filter(i => {
+                const cKey = getScaleViewCountKey(i.viewCount);
+                return cKey === key;
+            }).length;
+
+            elementData.push({
+                name: key,
+                count: count,
+                color: VIEW_COUNT_COLORS[idx % VIEW_COUNT_COLORS.length]
+            });
+        });
     }
 
     scrollContainer.innerHTML = '';
@@ -1070,9 +1108,8 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
         return;
     }
 
-    const renderItems = [...elementData, ...elementData];
-
-    renderItems.forEach(el => {
+    // まず1セット分の要素を描画して、コンテナ内での収まり具合を判定する
+    elementData.forEach(el => {
         const itemBox = document.createElement('div');
         itemBox.className = 'element-item-box';
         itemBox.innerHTML = `
@@ -1082,7 +1119,19 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
         scrollContainer.appendChild(itemBox);
     });
 
+    // 1セット描画した時点での全幅（scrollWidth）が、表示エリア（clientWidth）より大きい場合のみ2セットに複製してスクロールさせる
     if (scrollContainer.scrollWidth > scrollContainer.clientWidth) {
+        // 既に1セット分が描画されているので、もう1セット分を追加して複製する
+        elementData.forEach(el => {
+            const itemBox = document.createElement('div');
+            itemBox.className = 'element-item-box';
+            itemBox.innerHTML = `
+                <span class="el-name"><span style="color: ${el.color}; margin-right: 2px;">■</span>${el.name}：</span>
+                <span class="el-count">${el.count.toLocaleString()}</span>
+            `;
+            scrollContainer.appendChild(itemBox);
+        });
+
         const startMarquee = () => {
             if (marqueeInterval) return;
             
@@ -1111,5 +1160,9 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
         scrollContainer.onmouseleave = () => {
             startMarquee();
         };
+    } else {
+        // エリア内に収まる場合はマウスイベントのクリアやホバー処理をリセット
+        scrollContainer.onmouseenter = null;
+        scrollContainer.onmouseleave = null;
     }
 }

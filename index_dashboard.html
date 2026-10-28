@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-';
- version   = 'Ver1.44.1';
+ version   = 'Ver1.48.1';
  ------------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -72,6 +72,7 @@
                                 <option value="seriesKana">50音個別</option>
                                 <option value="seriesKanaGroup">50音グループ</option>
                                 <option value="genre">ジャンル</option>
+                                <option value="viewCount">視聴回数</option>
                             </select>
                         </div>
                     </div>
@@ -104,23 +105,36 @@
             </div>
             <!-- グループB（右側：選択期間の統計カード -->
             <div class="dashboard-group-b">
-                <!-- 機関統計カード -->
+                <!-- 期間統計カード -->
                 <div class="stats-card period-stats-card">
                     <div class="card-header">
                         <h3 id="period-stats-title">期間統計（選択された期間）</h3>
                     </div>
                     <div class="donut-charts-wrapper">
-                        <div class="donut-chart-box">
-                            <div class="chart-title">評価</div>
-                            <div class="canvas-box"><canvas id="ratingDonutChart"></canvas></div>
+                        <!-- 上部中央：評価 -->
+                        <div class="donut-row-center">
+                            <div class="donut-chart-box" style="max-width: 50%;">
+                                <div class="chart-title">評価</div>
+                                <div class="canvas-box"><canvas id="ratingDonutChart"></canvas></div>
+                            </div>
                         </div>
-                        <div class="donut-chart-box">
-                            <div class="chart-title">50音</div>
-                            <div class="canvas-box"><canvas id="seriesKanaDonutChart"></canvas></div>
+                        <!-- 中部横並び：50音 と ジャンル -->
+                        <div class="donut-row-split">
+                            <div class="donut-chart-box">
+                                <div class="chart-title" id="series-kana-donut-title">50音</div>
+                                <div class="canvas-box"><canvas id="seriesKanaDonutChart"></canvas></div>
+                            </div>
+                            <div class="donut-chart-box">
+                                <div class="chart-title">ジャンル</div>
+                                <div class="canvas-box"><canvas id="genreDonutChart"></canvas></div>
+                            </div>
                         </div>
-                        <div class="donut-chart-box">
-                            <div class="chart-title">ジャンル</div>
-                            <div class="canvas-box"><canvas id="genreDonutChart"></canvas></div>
+                        <!-- 下部中央：視聴回数 -->
+                        <div class="donut-row-center">
+                            <div class="donut-chart-box" style="max-width: 50%;">
+                                <div class="chart-title">視聴回数</div>
+                                <div class="canvas-box"><canvas id="viewCountDonutChart"></canvas></div>
+                            </div>
                         </div>
                     </div>
                 </div>

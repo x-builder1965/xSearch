@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.47.1';
+// version   = 'Ver1.48.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -21,7 +21,8 @@ const fieldMappings = {
     '[T評価]': 'titleRating',
     '[タイトル]': 'titleName',
     '[話数]': 'episodeCount',
-    '[状態]': 'playlistStatus' // 内部的に playlistStatus として扱いつつ条件評価で isUpdated も見る
+    '[視聴]': 'viewCount',
+    '[状態]': 'playlistStatus'
 };
 // thに対応する項目指定記号のマッピング（新しいテーブルの列順に対応）
 const thSymbols = [
@@ -38,6 +39,7 @@ const thSymbols = [
     '[T評価]', 
     '[タイトル]', 
     '[話数]', 
+    '[視聴]',
     '[状態]'
 ];
 
@@ -250,6 +252,21 @@ function loadFromLocalStorage() {
             const loadedState = JSON.parse(saved);
             appState = { ...appState, ...loadedState };
 
+            // ── 【追加】読み込んだ各アイテムの viewCount が未設定なら 0 に補正する ──
+            if (Array.isArray(appState.items)) {
+                appState.items = appState.items.map(item => ({
+                    ...item,
+                    viewCount: item.viewCount ?? 0
+                }));
+            }
+            if (Array.isArray(appState.rawItems)) {
+                appState.rawItems = appState.rawItems.map(item => ({
+                    ...item,
+                    viewCount: item.viewCount ?? 0
+                }));
+            }
+            // ─────────────────────────────────────────────────────────────────
+
             // フォルダパスの復元
             if (appState.selectedDir) {
                 const pathLabel = document.getElementById('current-dir-path');
@@ -374,6 +391,9 @@ function getFilterValue(symbol, rawValue, item) {
     if (symbol === '[保存]') {
         return item.isSave ? 'ON' : 'OFF';
     }
+    if (symbol === '[視聴]') {
+        return item.viewCount ?? 0;
+    }
     return String(rawValue ?? '');
 }
 
@@ -400,7 +420,8 @@ function renderTable() {
             item.titleRating,   // index 10: T評価
             item.titleName,     // index 11: タイトル
             item.episodeCount,  // index 12: 話数
-            getStatusIcon(item.playlistStatus, item) // index 13: 状態（★ itemを渡して判定）
+            item.viewCount ?? 0,// index 13: 視聴（視聴回数）
+            getStatusIcon(item.playlistStatus, item) // index 14: 状態
         ];
 
         // --- 0〜5番目の描画（分類 〜 ジャンル） ---
@@ -412,7 +433,6 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
-            // リストデータ右クリックイベントの登録
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -428,6 +448,18 @@ function renderTable() {
             if (i === 4) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
+                    // データ行「シリーズ」を左クリック時、視聴回数をカウントアップして保存
+                    item.viewCount = (item.viewCount ?? 0) + 1;
+                    
+                    // 同一シリーズの行すべての視聴回数も同期してカウントアップ（仕様要件）
+                    appState.items.forEach(otherItem => {
+                        if (otherItem.seriesName === item.seriesName) {
+                            otherItem.viewCount = item.viewCount;
+                        }
+                    });
+                    saveToLocalStorage();
+                    renderTable();
+
                     if (!appState.playerAppPath) {
                         if (item.folderPath) {
                             await window.api.showInFolder(item.folderPath);
@@ -487,7 +519,6 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
-            // リストデータ右クリックイベントの登録
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -499,7 +530,7 @@ function renderTable() {
                 }
             });
 
-            // TID列（fieldsのindex 7にあたる）のクリックイベント
+            // TID列（fieldsのindex 7）のクリックイベント
             if (i === 7 && textVal && textVal !== '-') {
                 td.style.cursor = 'pointer';
                 td.style.color = '#4da6ff';
@@ -509,10 +540,15 @@ function renderTable() {
                 });
             }
 
-            // タイトル列（fieldsのindex 11にあたる）のクリックイベント
+            // タイトル列（fieldsのindex 11）のクリックイベント
             if (i === 11) { 
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
+                    // データ行「タイトル」を左クリック時、視聴回数をカウントアップして保存
+                    item.viewCount = (item.viewCount ?? 0) + 1;
+                    saveToLocalStorage();
+                    renderTable();
+
                     if (!appState.playerAppPath) {
                         if (item.filePath) {
                             await window.api.showInFolder(item.filePath);
@@ -530,35 +566,47 @@ function renderTable() {
                 });
             }
 
-            // 話数(12)や状態(13)などのテキスト中央揃えとクリックイベント
-            if (i === 12 || i === 13) {
+            // 話数(12)、視聴(13)、状態(14)などのクリックイベント・中央揃え
+            if (i === 12 || i === 13 || i === 14) {
                 td.style.textAlign = 'center';
-                td.style.cursor = 'pointer';
                 
-                // 「話数」または「状態」クリックで対象のプレイリストをメモ帳で起動
-                td.addEventListener('click', async () => {
-                    // プレイリストのパスが格納されているプロパティ名を適宜調整してください（例: item.playlistPath, item.filePath など）
-                    const targetPlaylistPath = item.playlistPath || item.filePath;
-                    
-                    if (!targetPlaylistPath) {
-                        showToast('プレイリストのパスが見つかりません', 'error');
-                        return;
-                    }
+                // 「話数」または「状態」のとき、プレイリストをメモ帳で起動する挙動
+                if (i === 12 || i === 14) {
+                    td.style.cursor = 'pointer';
+                    td.addEventListener('click', async () => {
+                        const targetPlaylistPath = item.playlistPath || item.filePath;
+                        
+                        if (!targetPlaylistPath) {
+                            showToast('プレイリストのパスが見つかりません', 'error');
+                            return;
+                        }
 
-                    // メモ帳（notepad）で起動するためのAPI呼び出し例
-                    // ※環境に合わせて window.api.launchNotepad や専用のメソッド、あるいは window.api.launchPlayer を利用してください
-                    const notepadPath = 'C:\\WINDOWS\\notepad.exe'; // または appState.notepadAppPath など
-                    
-                    const result = await window.api.launchPlayer({
-                        appPath: notepadPath,
-                        targetPath: targetPlaylistPath
+                        const notepadPath = 'C:\\WINDOWS\\notepad.exe';
+                        
+                        const result = await window.api.launchPlayer({
+                            appPath: notepadPath,
+                            targetPath: targetPlaylistPath
+                        });
+                        
+                        if (result && !result.success && result.error) {
+                            showToast(result.error, 'error');
+                        }
                     });
-                    
-                    if (result && !result.success && result.error) {
-                        showToast(result.error, 'error');
-                    }
+                }
+
+            }
+
+            // 視聴列（fieldsのindex 13にあたる）のクリックイベント
+            if (i === 13) {
+                td.style.cursor = 'pointer';
+                td.addEventListener('click', () => {
+                    // 左クリックで視聴回数を0クリア
+                    item.viewCount = 0;
+                    saveToLocalStorage();
+                    renderTable();
                 });
             }
+            
             tr.appendChild(td);
         }
 
@@ -1070,7 +1118,7 @@ function registerPlaylistTableThContextmenu() {
             // 対象項目のメニュー設定を取得
             const items = getHeaderMenuItems(symbol);
 
-            // 【現状維持の項目】（TID、放映期間、シリーズ、放映年月、タイトル、話数など）の場合
+            // 【現状維持の項目】の場合
             if (!items) {
                 const cursorPos = filterInput.selectionStart;
                 const text = filterInput.value;
@@ -1089,11 +1137,9 @@ function registerPlaylistTableThContextmenu() {
             }
 
             // 【ポップアップメニュー表示対象の項目】
-            // ポップアップメニューの作成
             const menu = document.createElement('div');
             menu.className = 'menu-style';
 
-            // 先頭アイテム：[選択見出し項目]
             const headerItem = document.createElement('div');
             headerItem.className = 'menu-item';
             headerItem.textContent = symbol;
@@ -1102,25 +1148,20 @@ function registerPlaylistTableThContextmenu() {
             headerItem.addEventListener('click', (event) => {
                 event.stopPropagation();
                 insertFilterItem(symbol, '');
-                // メニューは表示したまま
             });
             menu.appendChild(headerItem);
 
-            // 各メニューアイテムの追加
             items.forEach((itemObj) => {
                 const menuItem = document.createElement('div');
                 menuItem.className = 'menu-item';
-                // 表示にはラベル（絵文字付き）を使う
                 menuItem.textContent = itemObj.label; 
                 menuItem.addEventListener('click', (event) => {
                     event.stopPropagation();
-                    // フィルタ挿入には実際の値を使う
                     insertFilterItem(symbol, itemObj.value);
                 });
                 menu.appendChild(menuItem);
             });
 
-            // メニューの表示位置計算（画面外へのはみだし調整）
             document.body.appendChild(menu);
             activePopupMenu = menu;
 
@@ -1448,7 +1489,6 @@ function filterItems(items, query) {
         return items;
     }
 
-    // 1. カンマ（, または 、）でクエリを分割し、空の項目や前後の空白を除外する
     const rawParts = query.split(/[,，]/);
     const orParts = rawParts.map(p => p.trim()).filter(Boolean);
 
@@ -1456,17 +1496,14 @@ function filterItems(items, query) {
         return items;
     }
 
-    // 2. 各項（ORグループ）ごとの条件リストを構築する
     const orGroups = [];
-    let currentFieldContext = '[全]'; // 直前のフィールドを保持するコンテキスト
+    let currentFieldContext = '[全]';
 
     for (let part of orParts) {
-        // 直前の項のフィールドを引き継いでパースする
         const parsed = parseAndConditions(part, currentFieldContext);
         if (parsed.conditions.length > 0) {
             orGroups.push(parsed.conditions);
         }
-        // 次の項へフィールドを引き継ぐために更新
         currentFieldContext = parsed.lastField;
     }
 
@@ -1474,10 +1511,8 @@ function filterItems(items, query) {
         return items;
     }
 
-    // 3. ベースデータ（items）の元の並び順を維持したままフィルタリング
     return items.filter(item => {
         return orGroups.some(orGroup => {
-            // グループ内のすべての条件（AND）を満たすか
             return orGroup.every(cond => {
                 const internalField = fieldMappings[cond.field] || 'all';
                 return evaluateSingleCondition(item, internalField, cond.expression);

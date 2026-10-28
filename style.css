@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.46.1';
+ * version   = 'Ver1.48.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -431,7 +431,6 @@ th {
     background-color: var(--list-hover-color);
 }
 
-/* リストテーブル固有設定 (#playlist-table) */
 #playlist-table {
     table-layout: fixed;
     width: 100%;
@@ -441,12 +440,12 @@ th {
     color: var(--text-color);
 }
 /* 各列の幅・テキスト配置指定 */
-#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 130px; }                     /* 分類 */
+#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 130px; }                    /* 分類 */
 #playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 24px;  text-align: center; } /* S50音 */
 #playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: 140px; text-align: center; } /* S放映期間 */
 #playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: 96px;  text-align: center; } /* S評価 */
 /* ※ 5番目（シリーズ）は自動拡大 */
-#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: 300px; }                     /* ジャンル */
+#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: 300px; }                    /* ジャンル */
 #playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 40px;  text-align: center; } /* 保存対象（チェックBOX） */
 #playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: 70px;  text-align: center; } /* TID */
 #playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 24px;  text-align: center; } /* T50音 */
@@ -454,7 +453,8 @@ th {
 #playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 96px;  text-align: center; } /* T評価 */
 /* ※ 12番目（タイトル）は自動拡大 */
 #playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 58px;  text-align: center; } /* 話数 */
-#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 54px;  text-align: center; } /* 状態 */
+#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 54px;  text-align: center; } /* 視聴 */
+#playlist-table th:nth-child(15), #playlist-table td:nth-child(15) { width: 54px;  text-align: center; } /* 状態 */
 /* 自動拡大列・省略表示の調整 */
 #playlist-table td:nth-child(5),  /* シリーズ名 */
 #playlist-table td:nth-child(12) {/* タイトル名 */
@@ -859,7 +859,7 @@ caption {
 }
 /* グループA（分類統計カード ＋ 要素別件数カード を縦並びにするコンテナ） */
 .dashboard-group-a {
-    flex: 86;
+    flex: 80;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -868,7 +868,7 @@ caption {
 }
 /* グループB（右側：期間統計カード） */
 .dashboard-group-b {
-    flex: 14;
+    flex: 20;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -941,7 +941,6 @@ caption {
     min-height: 100%;
     overflow: hidden;
 }
-
 /* 縮尺スライダーのコントロール部分 */
 .scale-control-wrapper {
     display: flex !important;
@@ -974,15 +973,15 @@ caption {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap; /* 画面幅が狭い場合の保険 */
+    flex-wrap: wrap;
     gap: 10px;
 }
 .card-controls {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
-    gap: 8px; /* 要素間の余白 */
-    flex-wrap: nowrap; /* 勝手に縦に折り返さないようにする */
+    gap: 8px;
+    flex-wrap: nowrap;
 }
 .dash-select {
     background-color: var(--bg-color);
@@ -1001,7 +1000,24 @@ caption {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+    min-height: 0;
+}
+/* 上部・下部中央用レイアウト */
+.donut-row-center {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+/* 中部横並び用レイアウト（50音とジャンル） */
+.donut-row-split {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    width: 100%;
+    flex: 1;
     min-height: 0;
 }
 .donut-chart-box {
@@ -1009,10 +1025,11 @@ caption {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-height: 120px;
+    min-height: 100px;
+    min-width: 0;
 }
 .donut-chart-box .chart-title {
-    font-size: 1.2em;
+    font-size: 1.1em;
     color: var(--text-color);
     flex-shrink: 0;
 }
@@ -1020,7 +1037,7 @@ caption {
     flex: 1;
     width: 100%;
     position: relative;
-    min-height: 100px;
+    min-height: 80px;
 }
 
 /* 要素別件数カード（グループA内・下部に配置） */

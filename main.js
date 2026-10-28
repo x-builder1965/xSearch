@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.29.1';
+// version   = 'Ver1.48.1';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -1105,7 +1105,6 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     playlistStatus = await checkPlaylistStatus(seriesInfo.folderPath, lines);
                 }
 
-                // --- ★ リマインダーから渡されたリスト情報（existingItems）と見比べて内容が変わったか、新規追加かを判定 ---
                 if (!cachedItem) {
                     isUpdated = true; // 新規追加
                 } else {
@@ -1140,6 +1139,7 @@ ipcMain.handle('fast:syncDirectory', async (event, rootDir, existingItems = []) 
                     episodeCount,
                     playlistStatus,
                     isSave: cachedItem ? cachedItem.isSave : false,
+                    viewCount: (cachedItem && typeof cachedItem.viewCount === 'number') ? cachedItem.viewCount : 0,
                     isUpdated
                 };
             }
