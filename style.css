@@ -656,7 +656,7 @@ table {
     white-space: normal;
     word-wrap: break-word;
     font-size: 1.2em;
-    line-height: 1.0;
+    /* line-height: 1.0; */
     color: var(--text-color);
 }
 .body-table td:nth-child(1) {
