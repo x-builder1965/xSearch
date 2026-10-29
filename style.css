@@ -1,12 +1,13 @@
 /* -- styles.css --------------------------------------------------------
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
- * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.49.1';
+ * appName   = 'xSearch -プレイリスト検索-';
+ * version   = 'Ver1.51.2';
  * --------------------------------------------------------------------- */
+
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
- :root {
+:root {
     --app-color: #be98ce; /* 紫色 */
     --bg-color: #1e1e1e;
     --text-color: #d4d4d4;
@@ -20,7 +21,7 @@
     --scrollbar-track: #121212;
     --scrollbar-thumb: #999999;
     --scrollbar-thumb-hover: #777777;
-    /* ヘルプ・修正履歴用の変数追加（参考例より保持） */
+    /* ヘルプ・修正履歴用の変数追加 */
     --heading-color: #762699;
     --heading-shadow: rgba(132, 0, 255, 0.24);
     --close-btn-bg: rgba(0, 0, 0, 0.5);
@@ -36,6 +37,7 @@
     --text-muted: #aaaaaab4;
     --sub-item-text: #b0bec5;
 }
+
 /* ライトモード */
 [data-theme="light"] {
     --app-color: #a43fcf; /* 紫色 */
@@ -74,6 +76,10 @@
     margin: 0;
     padding: 0;
 }
+html {
+    /* ベースフォントサイズを画面解像度に合わせて可変 */
+    font-size: clamp(12px, 0.8vw + 0.4vh, 16px);
+}
 body {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     background-color: var(--bg-color);
@@ -87,20 +93,22 @@ body {
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 12px;
-    gap: 12px;
+    padding: clamp(6px, 1vw, 12px);
+    gap: clamp(6px, 1vw, 12px);
     overflow: hidden;
 }
+
 /* ボタン共通 */
 button {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     background-color: var(--accent-color);
     color: #fff;
     border: none;
-    padding: 8px 12px;
+    padding: clamp(4px, 0.6em, 8px) clamp(8px, 1em, 14px);
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
+    font-size: clamp(0.75rem, 0.9em, 1rem);
 }
 button:hover {
     opacity: 0.9;
@@ -129,16 +137,16 @@ button.secondary {
 }
 .header h1 {
     margin: 0;
-    font-size: 1.3rem;
+    font-size: clamp(1rem, 1.3rem, 1.6rem);
 }
 .title-group {
     display: flex;
-    align-items: center; /* 横並びで文字の下線を揃える */
-    gap: 12px;
+    align-items: center;
+    gap: clamp(6px, 1vw, 12px);
 }
 .title-icon {
-    width: 26px;
-    height: 26px;
+    width: clamp(20px, 2vw, 28px);
+    height: clamp(20px, 2vw, 28px);
     object-fit: contain;
     cursor: pointer;
 }
@@ -147,12 +155,12 @@ button.secondary {
     color: var(--app-color);
     align-items: center;
     gap: 8px;
-    font-size: 1.5rem;
+    font-size: clamp(1.1rem, 1.4vw + 0.5rem, 1.6rem);
     margin: 0;
     cursor: pointer;
 }
 .ver-title {
-    font-size: 1rem;
+    font-size: clamp(0.8rem, 0.9vw, 1.1rem);
     margin: 0;
     color: #d2d2d2;
     cursor: pointer;
@@ -176,14 +184,14 @@ button.secondary {
     overflow: hidden;
     margin-right: 8px;
 }
-/* ダッシュノード／リスト切替ボタン */
+/* ダッシュボード／リスト切替ボタン */
 .toggle-btn {
     background: transparent;
     border: none;
     color: var(--text-color);
-    padding: 4px 10px;
+    padding: 4px clamp(6px, 0.8vw, 12px);
     cursor: pointer;
-    font-size: 0.85em;
+    font-size: clamp(0.75rem, 0.85em, 0.95rem);
 }
 .toggle-btn.active {
     background-color: var(--accent-color);
@@ -204,21 +212,20 @@ button.secondary {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px; /* トースト同士の間隔 */
-    pointer-events: none; /* コンテナ自体のマウス操作を無効化し、中のトーストだけ有効にする */
+    gap: 10px;
+    pointer-events: none;
 }
 .toast {
     color: #fff;
-    padding: 10px 20px;
+    padding: clamp(6px, 0.8em, 12px) clamp(12px, 1.5em, 24px);
     border-radius: 6px;
-    font-size: 20px;
+    font-size: clamp(13px, 1.1vw, 20px);
     transition: opacity 0.3s ease, transform 0.3s ease;
-    pointer-events: auto; /* トースト自体の操作は有効 */
+    pointer-events: auto;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     white-space: pre-line;
 }
-/* メッセージタイプ別スタイル */
 .toast.toast-info {
     background-color: rgba(20, 80, 160, 0.95);
     box-shadow: 0 4px 12px rgba(10, 40, 90, 0.7);
@@ -231,7 +238,6 @@ button.secondary {
     background-color: rgba(180, 20, 20, 0.95);
     box-shadow: 0 4px 12px rgba(90, 10, 10, 0.7);
 }
-/* 非表示状態 */
 .toast.hidden {
     opacity: 0;
     transform: translateY(-10px);
@@ -242,7 +248,7 @@ button.secondary {
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0; /* 必須：これが無いと子要素が縮小できずスクロールや下部要素が消える */
+    min-height: 0;
     gap: 8px;
     overflow: hidden;
 }
@@ -253,7 +259,7 @@ button.secondary {
     justify-content: space-between;
     align-items: center;
     background-color: var(--panel-bg);
-    padding: 10px 16px;
+    padding: clamp(6px, 0.8vw, 10px) clamp(10px, 1vw, 16px);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     gap: 8px;
@@ -264,20 +270,19 @@ button.secondary {
     gap: 12px;
 }
 .path-label {
-    font-size: 0.9rem;
+    font-size: clamp(0.75rem, 0.9rem, 1rem);
     width: 100%;
     color: #888;
 }
-/* 💾プレイリスト作成・⚙️プレイヤーアプリ設定 */
 #save-btn,
 #player-config-btn {
-    margin-right: 10px; /* 右側隙間 */
+    margin-right: 10px;
 }
 
 /* 🔲メイン：進捗パネル🔲 */
 .progress-container {
     position: relative;
-    height: 24px;
+    height: clamp(18px, 2.2vh, 26px);
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 4px;
@@ -288,7 +293,7 @@ button.secondary {
 .progress-bar {
     height: 100%;
     width: 0%;
-    background-color: var(--accent-color); /* 紫色（JSからインラインスタイルで動的変更可能） */
+    background-color: var(--accent-color);
     transition: width 0.1s ease, background-color 0.3s ease;
 }
 .progress-text {
@@ -300,13 +305,12 @@ button.secondary {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8rem;
+    font-size: clamp(0.7rem, 0.8rem, 0.9rem);
     font-weight: bold;
     color: #fff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-    pointer-events: none; /* テキストがボタンのクリックを邪魔しないように */
+    pointer-events: none;
 }
-/* 検索・再検索キャンセルボタン */
 .scan-cancel-btn {
     position: absolute;
     top: 0px;
@@ -319,7 +323,7 @@ button.secondary {
     background: transparent;
     border: none;
     cursor: pointer;
-    font-size: 12px;
+    font-size: clamp(10px, 0.8em, 14px);
     gap: 8px;
     z-index: 2;
 }
@@ -332,14 +336,14 @@ button.secondary {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: clamp(4px, 0.6vw, 8px) clamp(8px, 1vw, 12px);
     background-color: var(--panel-bg);
     border-bottom: 1px solid var(--border-color);
-    font-size: 14px;
+    font-size: clamp(12px, 0.9rem, 16px);
 }
 .filter-count {
-    flex: 0 0 160px; /* 固定幅 160px */
-    width: 160px;
+    flex: 0 0 clamp(110px, 12vw, 160px);
+    width: clamp(110px, 12vw, 160px);
     text-align: center;
     font-weight: bold;
     color: var(--text-color);
@@ -347,17 +351,17 @@ button.secondary {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 4px 0;
-    font-size: 18px;
+    font-size: clamp(0.95rem, 1.1vw, 1.25rem);
 }
 .filter-input {
-    flex: 1; /* 可変幅 */
+    flex: 1;
     background-color: var(--bg-color);
     color: var(--text-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 6px 10px;
     outline: none;
-    font-size: 18px;
+    font-size: clamp(0.95rem, 1.1vw, 1.25rem);
 }
 .filter-input:focus {
     border-color: var(--accent-color);
@@ -369,7 +373,7 @@ button.secondary {
     border-radius: 4px;
     padding: 5px 10px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: clamp(0.8rem, 0.9rem, 1rem);
     transition: background-color 0.2s;
 }
 .filter-clear-btn:hover {
@@ -378,10 +382,9 @@ button.secondary {
 }
 
 /* 🔲メイン：リストパネル🔲 */
-/* リストテーブルコンテナ設定 */
 .table-container {
     flex: 1;
-    min-height: 0; /* 必須：テーブルがはみ出してスクロール範囲を壊すのを防ぐ */
+    min-height: 0;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -400,28 +403,26 @@ button.secondary {
     background: var(--scrollbar-thumb);
     border: 2px solid var(--scrollbar-track);
     border-radius: 4px;
-    cursor: default; /* サムにホバー時も矢印を維持 */
+    cursor: default;
 }
 .table-container::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
 }
 
-/* リストテーブル全体設定 */
 table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    font-size: 0.9rem;
+    font-size: clamp(0.75rem, 0.85vw, 0.95rem);
 }
 th, td {
-    padding: 10px 12px;
+    padding: clamp(4px, 0.6vw, 10px) clamp(6px, 0.8vw, 12px);
     border-bottom: 1px solid var(--border-color);
     white-space: nowrap;
-    overflow: hidden;           /* はみ出たテキストを非表示 */
-    text-overflow: ellipsis;    /* はみ出た部分を「…」にする */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 th {
-    /* background-color: var(--panel-bg); */
     position: sticky;
     top: 0;
     z-index: 10;
@@ -439,29 +440,30 @@ th {
     background-color: var(--heading-color);
     color: var(--text-color);
 }
-/* 各列の幅・テキスト配置指定 */
-#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 130px; }                    /* 分類 */
-#playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 24px;  text-align: center; } /* S50音 */
-#playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: 140px; text-align: center; } /* S放映期間 */
-#playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: 96px;  text-align: center; } /* S評価 */
-/* ※ 5番目（シリーズ）は自動拡大 */
-#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: 300px; }                    /* ジャンル */
-#playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 40px;  text-align: center; } /* 保存対象（チェックBOX） */
-#playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: 70px;  text-align: center; } /* TID */
-#playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 24px;  text-align: center; } /* T50音 */
-#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 82px;  text-align: center; } /* T放映年月 */
-#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 96px;  text-align: center; } /* T評価 */
-/* ※ 12番目（タイトル）は自動拡大 */
-#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 58px;  text-align: center; } /* 話数 */
-#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 54px;  text-align: center; } /* 視聴 */
-#playlist-table th:nth-child(15), #playlist-table td:nth-child(15) { width: 54px;  text-align: center; } /* 状態 */
-/* 自動拡大列・省略表示の調整 */
-#playlist-table td:nth-child(5),  /* シリーズ名 */
-#playlist-table td:nth-child(12) {/* タイトル名 */
+
+/* 各列の幅定義（画面幅に応じて流動的に変化） */
+#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: clamp(90px, 8vw, 130px); }     /* 分類 */
+#playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 24px;  text-align: center; }    /* S50音 */
+#playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: clamp(100px, 9vw, 140px); text-align: center; } /* S放映期間 */
+#playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: clamp(70px, 6vw, 96px);   text-align: center; } /* S評価 */
+/* 5番目（シリーズ）は自動拡大 */
+#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: clamp(180px, 18vw, 300px); }   /* ジャンル */
+#playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 40px;  text-align: center; }    /* 保存対象 */
+#playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: clamp(50px, 4.5vw, 70px); text-align: center; }/* TID */
+#playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 24px;  text-align: center; }    /* T50音 */
+#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: clamp(65px, 5.5vw, 82px); text-align: center; }/* T放映年月 */
+#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: clamp(70px, 6vw, 96px);   text-align: center; }/* T評価 */
+/* 12番目（タイトル）は自動拡大 */
+#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: clamp(45px, 3.8vw, 58px); text-align: center; }/* 話数 */
+#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: clamp(40px, 3.5vw, 54px); text-align: center; }/* 視聴 */
+#playlist-table th:nth-child(15), #playlist-table td:nth-child(15) { width: clamp(40px, 3.5vw, 54px); text-align: center; }/* 状態 */
+
+#playlist-table td:nth-child(5),
+#playlist-table td:nth-child(12) {
     max-width: 0;
     min-width: 20px;
 }
-#playlist-table td:nth-child(6) { /* ジャンル */
+#playlist-table td:nth-child(6) {
     max-width: 0;
 }
 
@@ -476,7 +478,7 @@ th {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
     white-space: pre;
     font-family: monospace;
-    font-size: 16px;
+    font-size: clamp(12px, 0.95rem, 16px);
     line-height: 1.0;
     min-width: 120px;
     max-height: min(400px, calc(100vh - 16px));
@@ -496,7 +498,7 @@ th {
     background: #777;
 }
 .menu-item {
-    padding: 8px 16px;
+    padding: clamp(5px, 0.6em, 8px) clamp(10px, 1em, 16px);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -506,22 +508,21 @@ th {
 
 /* 🔲メイン：ステータスパネル🔲 */
 .status-display {
-    flex-shrink: 0; /* 潰されるのを防ぐ */
+    flex-shrink: 0;
     padding: 6px 10px;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-size: 0.9em;
+    font-size: clamp(0.75rem, 0.9em, 1rem);
 }
 
 /* 🔲ヘルプ、修正履歴🔲 */
-/* ヘルプ、修正履歴共通 */
 .help-container,
 .changelog-container {
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-    font-size: calc(0.8vw + 1.0vh + 0.2vmin);
+    font-size: clamp(11px, 0.6vw + 0.8vh + 0.1vmin, 16px);
     padding: 1em;
     display: none;
     flex-direction: column;
@@ -536,7 +537,7 @@ th {
     margin-bottom: 0.5em;
 }
 h1 {
-    font-size: 1.6em;
+    font-size: clamp(1.2em, 1.6em, 2em);
     color: var(--app-title-color);
     text-shadow: 0 0 0.8em var(--heading-shadow);
     margin: 0;
@@ -556,7 +557,7 @@ h1 {
     border-radius: 50%;
     width: 1.8em;
     height: 1.8em;
-    font-size: 0.8em;
+    font-size: clamp(0.7em, 0.8em, 1em);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -587,18 +588,13 @@ h1 {
     overflow: hidden;
     box-shadow: 0 0.6em 2em var(--table-shadow);
     background-color: var(--table-bg);
-    font-size: 0.9em;
+    font-size: clamp(0.75em, 0.9em, 1em);
     font-weight: 400;
     display: flex;
     flex-direction: column;
     flex: 1;
     max-width: none;
     height: calc(96vh - 7em);
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
 }
 .colgroup col:nth-child(1) { width: 23%; }
 .colgroup col:nth-child(2) { width: 9%; }
@@ -614,7 +610,6 @@ table {
     overflow-y: auto;
     display: block;
 }       
-/* スクロールバーのカスタマイズ */
 .body-table::-webkit-scrollbar,
 .changelog-Content::-webkit-scrollbar {
     width: 8px;
@@ -641,12 +636,12 @@ table {
     color: var(--text-color);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    padding: 0.5em 0.5em;
+    padding: 0.5em;
     text-align: center;
     border-bottom: 1px solid var(--border-color);
     white-space: normal;
     word-wrap: break-word;
-    font-size: 1.2em;
+    font-size: clamp(0.95em, 1.2em, 1.4em);
     line-height: 1.2;
 }
 .body-table td {
@@ -655,8 +650,7 @@ table {
     border-bottom: 1px solid var(--border-color);
     white-space: normal;
     word-wrap: break-word;
-    font-size: 1.2em;
-    /* line-height: 1.0; */
+    font-size: clamp(0.9em, 1.2em, 1.35em);
     color: var(--text-color);
 }
 .body-table td:nth-child(1) {
@@ -664,18 +658,18 @@ table {
     font-weight: 600;
 }
 .body-table td:nth-child(2) {
-    font-size: 1.4em;
+    font-size: clamp(1.1em, 1.4em, 1.6em);
 }
 .body-table td:nth-child(5) {
     text-align: left;
-    font-size: 1.1em;
+    font-size: clamp(0.9em, 1.1em, 1.2em);
 }
 .body-table td.no-data { 
     color: var(--text-muted);
 }
 caption {
     caption-side: top;
-    font-size: 1.25em;
+    font-size: clamp(1em, 1.25em, 1.5em);
     color: var(--text-muted);
     font-weight: 100;
     text-align: center;
@@ -684,21 +678,20 @@ caption {
     line-height: 1.3;
 }
 .icon { 
-    font-size: 1.4em; 
+    font-size: clamp(1.1em, 1.4em, 1.6em); 
 }
 
 /* 🔲修正履歴🔲 */
 .changelog-header {
     background-color: var(--heading-color);
     color: var(--text-color);
-    font-size: 1.4rem;
+    font-size: clamp(1.1rem, 1.4rem, 1.8rem);
 }
 .changelog-Content {
     overflow-y: auto;
-    font-size: 1.2rem;
+    font-size: clamp(0.95rem, 1.2rem, 1.4rem);
     color: var(--text-color);
 }
-/* 履歴リストのスタイル */
 .changelog-list {
     list-style-type: none;
     padding-left: 0;
@@ -708,7 +701,7 @@ caption {
     margin-top: 0.2em;
     border-bottom: 1px solid var(--border-color);
     white-space: pre-wrap;
-    font-size: 1.0vw;
+    font-size: clamp(0.85rem, 1.0vw, 1.1rem);
     line-height: 1.6;
 }
 .changelog-list li:hover {
@@ -723,13 +716,13 @@ caption {
 /* 🔲copyright＆email🔲 */
 .copyright-container {
     display: flex;
-    justify-content: space-between;     /* 子要素を両端（左端と右端）に配置 */
-    align-items: center;                /* 上下の縦中央揃え */
-    width: 100%;                        /* 親要素の幅を画面（または親要素）いっぱいに広げる */
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    font-size: clamp(0.7rem, 0.8vw, 0.95rem);
 }
 
 /* 🔲ダッシュボードパネル🔲 */
-/*  ダッシュボードビューコンテナ */
 #dashboard-view-container {
     display: flex;
     flex-direction: column;
@@ -748,7 +741,7 @@ caption {
 .dashboard-section {
     display: flex;
     gap: 12px;
-    min-width: 0; /* フレックスアイテムがコンテナからはみ出すのを防止 */
+    min-width: 0;
 }
 .summary-section {
     height: 35%;
@@ -757,7 +750,7 @@ caption {
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 12px;
+    padding: clamp(6px, 1vw, 12px);
     min-height: 0;
 }
 .summary-card-header {
@@ -768,16 +761,14 @@ caption {
     flex-shrink: 0;
 }
 .summary-timestamp {
-    font-size: 0.9em;
+    font-size: clamp(0.75em, 0.9em, 1em);
     color: var(--text-color);
 }
-/* サマリーカードのリスト部（縦スクロール対応） */
 .summary-table-wrapper {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
 }
-/* スクロールバーのカスタマイズ */
 .summary-table-wrapper::-webkit-scrollbar,
 .category-stats-card::-webkit-scrollbar,
 .period-stats-card::-webkit-scrollbar,
@@ -824,17 +815,17 @@ caption {
     top: 0;
     z-index: 1;
     text-align: center;
-    padding: 6px 10px;
+    padding: clamp(3px, 0.5vw, 6px) clamp(5px, 0.8vw, 10px);
+    font-size: clamp(0.75rem, 0.85vw, 1rem);
 }
 .summary-table td {
-    padding: 0 10px;
-    font-size: 1.4em;
+    padding: 0 clamp(4px, 0.8vw, 10px);
+    font-size: clamp(0.95em, 1.1vw, 1.4em);
 }
 .summary-table tr.selected-row {
     background-color: var(--table-hover-bg);
     outline: 2px solid var(--accent-color);
 }
-/* 各列の幅・テキスト寄せ指定 */
 .summary-table th:nth-child(1), .summary-table td:nth-child(1) { width: auto; text-align: left; font-weight: 900; }    
 .summary-table th:nth-child(2), .summary-table td:nth-child(2) { width: 11%; text-align: right; }
 .summary-table th:nth-child(3), .summary-table td:nth-child(3) { width: 11%; text-align: right; }
@@ -848,76 +839,69 @@ caption {
 .summary-table th:nth-child(11), .summary-table td:nth-child(11) { width: 4.5%; text-align: right; }
 .summary-table th:nth-child(12), .summary-table td:nth-child(12) { width: 11%; text-align: right; }
 
-/* ダッシュボード下部全体（グループA・Bの親レイアウト） */
 .dashboard-section.stats-section {
     display: flex;
     flex-direction: column;
     gap: 12px;
     flex: 1;
     min-height: 0;
-    min-width: 0; /* はみ出し防止 */
+    min-width: 0;
 }
-/* グループA（分類統計カード ＋ 期間統計カード を横並びにするコンテナ） */
 .dashboard-group-a {
     flex: 90;
     display: flex;
     flex-direction: row;
     gap: 12px;
     min-height: 0;
-    min-width: 0; /* flexアイテムが勝手に広がらないようにする */
+    min-width: 0;
 }
-/* グループB（右側：要素別件数カード） */
 .dashboard-group-b {
     flex: 10;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    min-width: 0; /* 必須 */
+    min-width: 0;
 }
 
-/* 分類統計カード */
 .category-stats-card {
     width: 80%;
     flex: 1;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 12px;
+    padding: clamp(6px, 1vw, 12px);
     display: flex;
     flex-direction: column;
     min-height: 0;
     min-width: 0;
     overflow-y: auto;
 }
-/* グラフコンテナ（水平スクロール対応） */
 .category-stats-card .chart-container {
     position: relative;
     width: 100%;
     flex: 1;
-    min-height: 200px;
+    min-height: 160px;
     overflow-x: auto;
     overflow-y: hidden;
 }
-/* 外側のラッパー（全体のレイアウト基準） */
 .category-chart-wrapper {
     position: relative;
     width: 100%;
     flex: 1;
     display: flex;
-    min-height: 200px;
+    min-height: 160px;
     overflow: hidden;
 }
-/* 左側に固定するY軸エリア */
 .category-chart-y-axis-fixed,
 .category-chart-y-axis-fixed-right {
     position: sticky;
-    z-index: 20; /* メイングラフより手前に表示 */
-    width: 40px; /* 初期幅・デフォルト */
-    min-width: 32px;
-    max-width: 80px; /* 桁数が大きくなっても対応できるように拡張 */
+    z-index: 20;
+    width: clamp(30px, 3vw, 40px);
+    min-width: 30px;
+    max-width: 80px;
     height: 100%;
-    background-color: var(--panel-bg); /* 背景色を敷いて背面のグラフを隠す */
-    pointer-events: none; /* マウスイベントを透過 */
+    background-color: var(--panel-bg);
+    pointer-events: none;
     flex-shrink: 0;
 }
 .category-chart-y-axis-fixed {
@@ -926,43 +910,39 @@ caption {
 .category-chart-y-axis-fixed-right {
     right: 0;
 }
-/* グラフコンテナ全体（水平スクロール対応） */
 .category-chart-scroll-container {
     position: relative;
     flex: 1;
     overflow-x: auto;
     overflow-y: hidden;
-    min-width: 0; /* Flexbox内で子要素がはみ出すのを防ぐ */
+    min-width: 0;
 }
-/* 実際のcanvasを内包するラッパー（縮尺変更に追従して横幅を可変させる） */
 .category-chart-inner {
     position: relative;
     height: 100%;
     min-height: 100%;
     overflow: hidden;
 }
-/* 縮尺スライダーのコントロール部分 */
 .scale-control-wrapper {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     gap: 6px;
-    font-size: 13px;
-    white-space: nowrap; /* ラベルや数値が折り返されないようにする */
+    font-size: clamp(11px, 0.85rem, 14px);
+    white-space: nowrap;
 }
 .scale-control-wrapper input[type="range"] {
-    width: 120px;
+    width: clamp(80px, 8vw, 120px);
     cursor: pointer;
 }
 
-/* 期間統計カード */
 .period-stats-card {
     width: 20%;
     height: 100%;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 12px;
+    padding: clamp(6px, 1vw, 12px);
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -974,7 +954,8 @@ caption {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
+    font-size: clamp(0.85rem, 1rem, 1.2rem);
 }
 .card-controls {
     display: flex !important;
@@ -987,23 +968,23 @@ caption {
     background-color: var(--bg-color);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
+    font-size: clamp(0.75rem, 0.85rem, 1rem);
 }
 .chart-container {
     flex: 1;
     position: relative;
-    min-height: 200px;
+    min-height: 150px;
     min-width: 0;
 }
 .donut-charts-wrapper {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     min-height: 0;
 }
-/* 上部・下部中央用レイアウト */
 .donut-row-center {
     display: flex;
     justify-content: center;
@@ -1011,11 +992,10 @@ caption {
     flex: 1;
     min-height: 0;
 }
-/* 中部横並び用レイアウト（50音とジャンル） */
 .donut-row-split {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
     flex: 1;
     min-height: 0;
@@ -1025,11 +1005,11 @@ caption {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-height: 100px;
+    min-height: 80px;
     min-width: 0;
 }
 .donut-chart-box .chart-title {
-    font-size: 1.1em;
+    font-size: clamp(0.85em, 1em, 1.2em);
     color: var(--text-color);
     flex-shrink: 0;
 }
@@ -1037,41 +1017,37 @@ caption {
     flex: 1;
     width: 100%;
     position: relative;
-    min-height: 80px;
+    min-height: 60px;
 }
 
-/* 要素別件数カード（グループA内・下部に配置） */
 .element-count-card {
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 10px 14px;
+    padding: clamp(6px, 0.8vw, 10px) clamp(8px, 1vw, 14px);
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: clamp(8px, 1.2vw, 16px);
     flex-shrink: 0;
-    min-width: 0; /* 必須：親の幅制限を厳守させる */
+    min-width: 0;
     overflow: hidden;
 }
-/* カードタイトル */
 .element-count-title {
-    font-size: 1.4em;
+    font-size: clamp(1rem, 1.1vw, 1.4em);
     font-weight: bold;
     color: var(--text-color);
     white-space: nowrap;
     flex-shrink: 0;
 }
-/* 全件数表示 */
 .element-total-count {
-    font-size: 1.4em;
+    font-size: clamp(1rem, 1.1vw, 1.4em);
     font-weight: bold;
-    color: var(--count-color);    /* 件数色 */
+    color: var(--count-color);
     white-space: nowrap;
     flex-shrink: 0;
     border-left: 1px solid var(--border-color);
-    padding-left: 16px;
+    padding-left: clamp(8px, 1.2vw, 16px);
 }
-/* 要素別件数スクロールエリア（電光掲示板方式・スクロールバー非表示） */
 .element-scroll-container {
     flex: 1;
     overflow-x: auto;
@@ -1079,9 +1055,8 @@ caption {
     white-space: nowrap;
     display: flex;
     align-items: center;
-    gap: 16px;
-    min-width: 0; /* 必須：フレックスアイテムの最小幅制約を解除 */
-    
+    gap: clamp(8px, 1.2vw, 16px);
+    min-width: 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -1089,23 +1064,36 @@ caption {
     display: none;
     height: 0px;
 }
-/* 個別の要素・件数表示ブロック */
 .element-item-box {
     display: inline-flex;
     align-items: center;
     background-color: var(--bg-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 1.4em;
+    padding: 2px clamp(4px, 0.6vw, 8px);
+    font-size: clamp(0.95rem, 1.1vw, 1.4em);
     color: var(--text-color);
     white-space: nowrap;
-    flex-shrink: 0; /* 必要に応じて縮小を許可 */
+    flex-shrink: 0;
 }
 .element-item-box .el-name {
     margin-right: 4px;
 }
 .element-item-box .el-count {
     font-weight: bold;
-    color: var(--count-color);    /* 件数色 */
+    color: var(--count-color);
+}
+
+/* 🔲 メディアクエリ：極小画面／低解像度対応 🔲 */
+@media screen and (max-width: 900px) {
+    .dashboard-group-a {
+        flex-direction: column;
+    }
+    .category-stats-card,
+    .period-stats-card {
+        width: 100%;
+    }
+    .toolbar {
+        flex-wrap: wrap;
+    }
 }

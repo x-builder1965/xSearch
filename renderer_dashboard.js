@@ -2,8 +2,9 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.48.1';
+// version   = 'Ver1.51.2';
 // ---------------------------------------------------------------------
+
 // 定数定義
 const STATUS_COLORS = {
     green: '#4caf50',
@@ -54,7 +55,7 @@ let genreDonutInstance = null;
 let selectedCategory = '全て';
 let selectedPeriodKey = null;
 let marqueeInterval = null;         // 自動スクロール用タイマー管理
-let viewCountDonutInstance = null;  // 視聴回数ドーナツグラフ用のインスタンス変数（必要に応じて定義確認）
+let viewCountDonutInstance = null;  // 視聴回数ドーナツグラフ用のインスタンス変数
 
 // 初期化関数
 function initDashboard() {
@@ -85,7 +86,25 @@ function initDashboard() {
 
     updateDashboardTimestamp();
     setupDashboardEventListeners();
+    setupDashboardResizeObserver();
     refreshDashboard();
+}
+
+// ウィンドウ・コンテナサイズ変更監視のセットアップ
+function setupDashboardResizeObserver() {
+    const cardEl = document.querySelector('.category-stats-card');
+    if (!cardEl || window.dashboardResizeObserver) return;
+
+    let resizeTimer;
+    window.dashboardResizeObserver = new ResizeObserver(() => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            if (document.getElementById('dashboard-view-container')?.style.display !== 'none') {
+                renderCategoryChart();
+            }
+        }, 150);
+    });
+    window.dashboardResizeObserver.observe(cardEl);
 }
 
 // タイムスタンプ更新
@@ -93,7 +112,6 @@ function updateDashboardTimestamp() {
     const tsEl = document.getElementById('summary-timestamp');
     if (!tsEl) return;
 
-    // appState に保存されている検索実行日時を取得
     const savedTimestamp = (window.appState && window.appState.lastScanTimestamp) 
         ? window.appState.lastScanTimestamp 
         : null;
@@ -107,13 +125,12 @@ function updateDashboardTimestamp() {
 
 // イベントリスナー登録
 function setupDashboardEventListeners() {
-    const graphShapeSelect = document.getElementById('graph-shape-select'); // 追加
+    const graphShapeSelect = document.getElementById('graph-shape-select');
     const periodUnitSelect = document.getElementById('period-unit-select');
     const metricTypeSelect = document.getElementById('metric-type-select');
     const scaleRange = document.getElementById('category-scale-range');
     const scrollContainer = document.getElementById('category-chart-scroll-container');
 
-    // グラフ形状変更イベント（追加）
     if (graphShapeSelect) {
         graphShapeSelect.addEventListener('change', () => {
             if (window.appState) {
@@ -127,7 +144,7 @@ function setupDashboardEventListeners() {
 
     if (periodUnitSelect) {
         periodUnitSelect.addEventListener('change', () => {
-            selectedPeriodKey = null; // 集計単位変更時は選択期間リセット
+            selectedPeriodKey = null;
             if (window.appState) {
                 window.appState.dashPeriodUnit = periodUnitSelect.value;
                 window.appState.dashSelectedPeriodKey = null;
@@ -149,7 +166,6 @@ function setupDashboardEventListeners() {
         });
     }
 
-    // 縮尺スライダーのイベントリスナー設定
     if (scaleRange) {
         scaleRange.oninput = (e) => {
             const val = parseFloat(e.target.value);
@@ -163,7 +179,6 @@ function setupDashboardEventListeners() {
         };
     }
 
-    // 分類統計グラフの横スクロール位置変更時の保存処理
     if (scrollContainer) {
         let scrollTimeout;
         scrollContainer.addEventListener('scroll', () => {
@@ -197,7 +212,6 @@ function renderSummaryTable() {
 
     const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
 
-    // カテゴリ一貫リストの抽出（「全て」＋重複のない分類一覧）
     const categories = ['全て'];
     rawItems.forEach(item => {
         if (item.category && !categories.includes(item.category)) {
@@ -208,17 +222,11 @@ function renderSummaryTable() {
     categories.forEach(cat => {
         const filtered = (cat === '全て') ? rawItems : rawItems.filter(i => i.category === cat);
 
-        // シリーズ件数 (重複除外)
         const seriesSet = new Set(filtered.map(i => i.seriesName).filter(Boolean));
         const seriesCount = seriesSet.size;
-
-        // タイトル件数
         const titleCount = filtered.length;
-
-        // 話数件数
         const episodeCount = filtered.reduce((sum, i) => sum + (parseInt(i.episodeCount, 10) || 0), 0);
 
-        // 状態別件数集計 (通常 / 更新)
         let green = 0, red = 0, yellow = 0, purple = 0;
         let greenUpdated = 0, redUpdated = 0, yellowUpdated = 0, purpleUpdated = 0;
         
@@ -235,7 +243,6 @@ function renderSummaryTable() {
                 } else if (status === 'OVERLAP' || rawStatus === '🟪') {
                     purpleUpdated++;
                 } else {
-                    // BLANK または 未設定
                     yellowUpdated++;
                 }
             } else {
@@ -246,7 +253,6 @@ function renderSummaryTable() {
                 } else if (status === 'OVERLAP' || rawStatus === '🟣') {
                     purple++;
                 } else {
-                    // BLANK または 未設定
                     yellow++;
                 }
             }
@@ -272,7 +278,6 @@ function renderSummaryTable() {
             <td>${episodeCount.toLocaleString()}</td>
         `;
 
-        // 行クリックで選択分類を変更 & localStorage保存
         tr.addEventListener('click', () => {
             selectedCategory = cat;
             document.querySelectorAll('#summary-table-body tr').forEach(r => r.classList.remove('selected-row'));
@@ -281,7 +286,6 @@ function renderSummaryTable() {
             document.getElementById('category-stats-title').textContent = `分類統計（${selectedCategory}）`;
             selectedPeriodKey = null;
 
-            // 状態保存
             if (window.appState) {
                 window.appState.dashSelectedCategory = selectedCategory;
                 window.appState.dashSelectedPeriodKey = null;
@@ -296,9 +300,6 @@ function renderSummaryTable() {
     });
 }
 
-// -------------------------------------------------------------
-// 共通：選択カテゴリにおける全ジャンルのマスターリストとカラーを生成するヘルパー関数
-// -------------------------------------------------------------
 function getGenreMaster(items) {
     const genreSet = new Set();
     items.forEach(i => {
@@ -309,7 +310,6 @@ function getGenreMaster(items) {
         }
     });
 
-    // 1. 常に固定の昇順ソート（「不明」以外）
     let labels = Array.from(genreSet).sort((a, b) => a.localeCompare(b, 'ja'));
     if (labels.includes('不明')) {
         labels = labels.filter(g => g !== '不明');
@@ -318,21 +318,15 @@ function getGenreMaster(items) {
         labels.push('不明');
     }
 
-    // 2. 常にマスター全体のインデックスに基づいた固定カラーを生成
     const colors = labels.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
-
     return { labels, colors };
 }
 
-// -------------------------------------------------------------
-// ★ 1970年01月～当年当月の間で歯抜けを防ぐための全期間キー生成ヘルパー
-// -------------------------------------------------------------
 function generateAllPeriodKeys(unit) {
     const keys = [];
-    const startDate = new Date(1970, 0, 1); // 1970年1月
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-12
+    const currentMonth = now.getMonth() + 1;
 
     let y = 1970;
     let m = 1;
@@ -351,8 +345,6 @@ function generateAllPeriodKeys(unit) {
             break;
         }
         case 'season': {
-            // 1970年冬（前年12月～1970年2月頃、または1970年Aから開始）
-            // 仕様：冬(A), 春(B), 夏(C), 秋(D)
             while (y < currentYear || (y === currentYear && (
                 (m <= 2 && 'A') ||
                 (m >= 3 && m <= 5 && 'B') ||
@@ -361,7 +353,6 @@ function generateAllPeriodKeys(unit) {
             ))) {
                 ['A', 'B', 'C', 'D'].forEach(code => {
                     const seasonKey = `${y}${code}`;
-                    // 未来すぎるシーズンは除外するガード
                     const seasonEndMonth = code === 'A' ? 2 : code === 'B' ? 5 : code === 'C' ? 8 : 11;
                     if (y < currentYear || (y === currentYear && seasonEndMonth <= currentMonth + 2)) {
                         if (!keys.includes(seasonKey)) {
@@ -403,13 +394,8 @@ function generateAllPeriodKeys(unit) {
     return keys;
 }
 
-// -------------------------------------------------------------
-// 視聴回数用の定数（必要に応じて調整してください）
-// -------------------------------------------------------------
 const VIEW_COUNT_KEYS = ['0回', '1回', '2回', '3回', '4回', '5回以上'];
-const VIEW_COUNT_COLORS = [
-    '#7f8c8d', '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'
-];
+const VIEW_COUNT_COLORS = ['#7f8c8d', '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'];
 
 function getScaleViewCountKey(count) {
     const c = count ?? 0;
@@ -421,9 +407,6 @@ function getScaleViewCountKey(count) {
     return '5回以上';
 }
 
-// -------------------------------------------------------------
-// 2. 選択分類の統計グラフ内でのクリック（選択期間の変更）
-// -------------------------------------------------------------
 function getPeriodKey(dateStr, unit) {
     if (!dateStr || dateStr === '-') return '不明';
     const cleanDate = dateStr.replace(/[^0-9]/g, '');
@@ -436,12 +419,8 @@ function getPeriodKey(dateStr, unit) {
         case 'monthly':
             return cleanDate.length >= 6 ? cleanDate.substring(0, 6) : `${year}01`;
         case 'season': {
-            if (month === 12) {
-                return `${year + 1}A`;
-            }
-            if (month === 1 || month === 2) {
-                return `${year}A`;
-            }
+            if (month === 12) return `${year + 1}A`;
+            if (month === 1 || month === 2) return `${year}A`;
             if (month >= 3 && month <= 5) return `${year}B`;
             if (month >= 6 && month <= 8) return `${year}C`;
             if (month >= 9 && month <= 11) return `${year}D`;
@@ -461,7 +440,6 @@ function getPeriodKey(dateStr, unit) {
     }
 }
 
-// ★ 集計コード（内部コード）からグラフ表示用の文字列に変換するヘルパー関数
 function formatPeriodDisplayLabel(pKey, unit) {
     if (unit === 'season' && /^\d{4}[ABCD]$/.test(pKey)) {
         const yearStr = pKey.substring(0, 4);
@@ -506,10 +484,8 @@ function renderCategoryChart() {
 
     const basePeriodKeys = generateAllPeriodKeys(unit);
     const existingKeys = Array.from(periodMap.keys());
-    
     const combinedKeysSet = new Set([...basePeriodKeys, ...existingKeys]);
     const sortedPeriods = Array.from(combinedKeysSet).sort();
-    
     const displayLabels = sortedPeriods.map(pKey => formatPeriodDisplayLabel(pKey, unit));
 
     let currentScale = 1.0;
@@ -617,23 +593,17 @@ function renderCategoryChart() {
 
     const sharedYScale = {
         stacked: (graphShape === 'bar'),
-        ticks: { 
-            color: textColor,
-            padding: 0
-        },
+        ticks: { color: textColor, padding: 0 },
         grid: { color: gridColor }
     };
     const rightYScale = {
         stacked: (graphShape === 'bar'),
         position: 'right',
-        ticks: { 
-            color: textColor,
-            padding: 0
-        },
+        ticks: { color: textColor, padding: 0 },
         grid: { color: gridColor }
     };
 
-    const yAxisDatasets = subKeys.map((subKey, idx) => {
+    const yAxisDatasets = subKeys.map((subKey) => {
         const data = sortedPeriods.map(pKey => {
             const pItems = periodMap.get(pKey) || [];
             if (metric === 'rating') {
@@ -667,81 +637,43 @@ function renderCategoryChart() {
             return 0;
         });
 
-        if (graphShape === 'line') {
-            return {
-                label: subKey,
-                data: data,
-                borderColor: 'transparent',
-                backgroundColor: 'transparent',
-                pointRadius: 0,
-                borderWidth: 0
-            };
-        } else {
-            return {
-                label: subKey,
-                data: data,
-                backgroundColor: 'transparent',
-                borderColor: 'transparent',
-                borderWidth: 0
-            };
-        }
+        return {
+            label: subKey,
+            data: data,
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+            borderWidth: 0,
+            pointRadius: 0
+        };
     });
 
-    // 1. 左側Y軸専用チャートの生成
     categoryYAxisInstance = new Chart(ctxYAxis, {
         type: graphShape,
-        data: {
-            labels: displayLabels,
-            datasets: yAxisDatasets
-        },
+        data: { labels: displayLabels, datasets: yAxisDatasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: { top: 0, bottom: 0, left: 0, right: 0 }
-            },
-            scales: {
-                x: { display: false },
-                y: sharedYScale
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false }
-            }
+            layout: { padding: { top: 0, bottom: 0, left: 0, right: 0 } },
+            scales: { x: { display: false }, y: sharedYScale },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
         }
     });
 
-    // 1.5. 右側Y軸専用チャートの生成
     window.categoryYAxisRightInstance = new Chart(ctxYAxisRight, {
         type: graphShape,
-        data: {
-            labels: displayLabels,
-            datasets: yAxisDatasets
-        },
+        data: { labels: displayLabels, datasets: yAxisDatasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: { top: 0, bottom: 0, left: 0, right: 0 }
-            },
-            scales: {
-                x: { display: false },
-                y: rightYScale
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false }
-            }
+            layout: { padding: { top: 0, bottom: 0, left: 0, right: 0 } },
+            scales: { x: { display: false }, y: rightYScale },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
         }
     });
 
-    // 2. メインのスクロール用チャートの生成
     categoryChartInstance = new Chart(ctxMain, {
         type: graphShape,
-        data: {
-            labels: displayLabels,
-            datasets: datasets
-        },
+        data: { labels: displayLabels, datasets: datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -751,15 +683,10 @@ function renderCategoryChart() {
                     ticks: { color: textColor },
                     grid: { color: gridColor }
                 },
-                y: {
-                    ...sharedYScale,
-                    display: false
-                }
+                y: { ...sharedYScale, display: false }
             },
             plugins: {
-                legend: {
-                    labels: { color: textColor }
-                }
+                legend: { labels: { color: textColor } }
             },
             onClick: (e, elements) => {
                 if (elements.length > 0) {
@@ -777,7 +704,6 @@ function renderCategoryChart() {
         }
     });
 
-    // 3. メインチャートのX軸高さを取得し、左右のY軸チャートのパディングに適用
     setTimeout(() => {
         if (categoryChartInstance && categoryYAxisInstance && window.categoryYAxisRightInstance) {
             const xAxisHeight = categoryChartInstance.scales.x.height;
@@ -830,7 +756,7 @@ function renderCategoryChart() {
 }
 
 // -------------------------------------------------------------
-// 3. 選択期間の統計（ドーナッツグラフ 3種） & 要素別件数カードの更新
+// 3. 選択期間の統計（ドーナッツグラフ 4種） & 要素別件数カードの更新
 // -------------------------------------------------------------
 function renderPeriodDonutCharts() {
     const rawItems = (window.appState && window.appState.items) ? window.appState.items : [];
@@ -960,7 +886,7 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
     if (!ctx) return null;
 
     if (canvas.parentElement) {
-        canvas.parentElement.style.minHeight = '80px';
+        canvas.parentElement.style.minHeight = '60px';
         canvas.parentElement.style.position = 'relative';
     }
 
@@ -969,6 +895,8 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
         instance.data.datasets[0].data = data;
         instance.data.datasets[0].backgroundColor = colors;
         instance.update();
+        // ウィンドウリサイズ等に合わせ明示的にサイズ再調整を促す
+        instance.resize();
         return instance;
     }
 
@@ -987,7 +915,7 @@ function createDonutChart(instance, canvasId, labels, data, colors, textColor) {
             maintainAspectRatio: false,
             animation: {
                 animateRotate: true,
-                duration: 1000
+                duration: 800
             },
             plugins: {
                 legend: {
@@ -1013,7 +941,6 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
         marqueeInterval = null;
     }
 
-    // ★ 要素別件数カードのタイトルにもグラフ表記を使用
     cardTitleEl.textContent = `要素別件数（${displayPeriodKey || '未選択'}）`;
 
     const totalCount = periodItems.length;
@@ -1108,7 +1035,6 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
         return;
     }
 
-    // まず1セット分の要素を描画して、コンテナ内での収まり具合を判定する
     elementData.forEach(el => {
         const itemBox = document.createElement('div');
         itemBox.className = 'element-item-box';
@@ -1119,9 +1045,7 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
         scrollContainer.appendChild(itemBox);
     });
 
-    // 1セット描画した時点での全幅（scrollWidth）が、表示エリア（clientWidth）より大きい場合のみ2セットに複製してスクロールさせる
     if (scrollContainer.scrollWidth > scrollContainer.clientWidth) {
-        // 既に1セット分が描画されているので、もう1セット分を追加して複製する
         elementData.forEach(el => {
             const itemBox = document.createElement('div');
             itemBox.className = 'element-item-box';
@@ -1161,7 +1085,6 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
             startMarquee();
         };
     } else {
-        // エリア内に収まる場合はマウスイベントのクリアやホバー処理をリセット
         scrollContainer.onmouseenter = null;
         scrollContainer.onmouseleave = null;
     }
