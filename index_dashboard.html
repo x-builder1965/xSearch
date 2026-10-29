@@ -2,7 +2,7 @@
  copyright = 'Copyright © 2026- @x-builder, Japan';
  email     = 'x-builder@gmail.com';
  appName   = 'xSearch -プレイリスト検索-';
- version   = 'Ver1.48.1';
+ version   = 'Ver1.49.1';
  ------------------------------------------------------------------------- -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -42,9 +42,9 @@
                 </table>
             </div>
         </section>
-        <!-- 下部エリア：グループA・B（左右配置） -->
+        <!-- 下部エリア：グループA・B（上下配置） -->
         <section class="dashboard-section stats-section">
-            <!-- グループA（左側：分類統計カード ＋ 要素別件数カード を縦並び） -->
+            <!-- グループA（上部：分類統計カード ＋ 要素別件数カード を横並び） -->
             <div class="dashboard-group-a">
                 <!-- 分類統計カード -->
                 <div class="stats-card category-stats-card">
@@ -94,17 +94,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- 要素別件数カード -->
-                <div class="element-count-card">
-                    <div id="element-card-title" class="element-count-title">要素別件数（----）</div>
-                    <div id="element-total-count" class="element-total-count">全件数：0件</div>
-                    <div id="element-scroll-container" class="element-scroll-container">
-                        <!-- 動的生成される要素別件数リスト -->
-                    </div>
-                </div>
-            </div>
-            <!-- グループB（右側：選択期間の統計カード -->
-            <div class="dashboard-group-b">
                 <!-- 期間統計カード -->
                 <div class="stats-card period-stats-card">
                     <div class="card-header">
@@ -136,6 +125,17 @@
                                 <div class="canvas-box"><canvas id="viewCountDonutChart"></canvas></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            <!-- グループB（下部：選択期間の統計カード -->
+            <div class="dashboard-group-b">
+                <!-- 要素別件数カード -->
+                <div class="element-count-card">
+                    <div id="element-card-title" class="element-count-title">要素別件数（----）</div>
+                    <div id="element-total-count" class="element-total-count">全件数：0件</div>
+                    <div id="element-scroll-container" class="element-scroll-container">
+                        <!-- 動的生成される要素別件数リスト -->
                     </div>
                 </div>
             </div>

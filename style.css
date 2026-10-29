@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-;
- * version   = 'Ver1.48.1';
+ * version   = 'Ver1.49.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -848,27 +848,27 @@ caption {
 .summary-table th:nth-child(11), .summary-table td:nth-child(11) { width: 4.5%; text-align: right; }
 .summary-table th:nth-child(12), .summary-table td:nth-child(12) { width: 11%; text-align: right; }
 
-/* ダッシュボード下部全体（グループBの親レイアウト） */
+/* ダッシュボード下部全体（グループA・Bの親レイアウト） */
 .dashboard-section.stats-section {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 12px;
     flex: 1;
     min-height: 0;
     min-width: 0; /* はみ出し防止 */
 }
-/* グループA（分類統計カード ＋ 要素別件数カード を縦並びにするコンテナ） */
+/* グループA（分類統計カード ＋ 期間統計カード を横並びにするコンテナ） */
 .dashboard-group-a {
-    flex: 80;
+    flex: 90;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 12px;
     min-height: 0;
     min-width: 0; /* flexアイテムが勝手に広がらないようにする */
 }
-/* グループB（右側：期間統計カード） */
+/* グループB（右側：要素別件数カード） */
 .dashboard-group-b {
-    flex: 20;
+    flex: 10;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -877,7 +877,7 @@ caption {
 
 /* 分類統計カード */
 .category-stats-card {
-    width: 100%;
+    width: 80%;
     flex: 1;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
@@ -957,7 +957,7 @@ caption {
 
 /* 期間統計カード */
 .period-stats-card {
-    width: 100%;
+    width: 20%;
     height: 100%;
     background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
