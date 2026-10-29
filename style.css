@@ -442,29 +442,25 @@ th {
 }
 
 /* 各列の幅定義（画面幅に応じて流動的に変化） */
-#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: clamp(90px, 8vw, 130px); }     /* 分類 */
-#playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 24px;  text-align: center; }    /* S50音 */
-#playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: clamp(100px, 9vw, 140px); text-align: center; } /* S放映期間 */
-#playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: clamp(70px, 6vw, 96px);   text-align: center; } /* S評価 */
+#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 7%; }     /* 分類 */
+#playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 2.2%;  text-align: center; }  /* S50音 */
+#playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: 7.8%;  text-align: center; }  /* S放映期間 */
+#playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: 5.4%;  text-align: center; }  /* S評価 */
 /* 5番目（シリーズ）は自動拡大 */
-#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: clamp(180px, 18vw, 300px); }   /* ジャンル */
-#playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 40px;  text-align: center; }    /* 保存対象 */
-#playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: clamp(50px, 4.5vw, 70px); text-align: center; }/* TID */
-#playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 24px;  text-align: center; }    /* T50音 */
-#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: clamp(65px, 5.5vw, 82px); text-align: center; }/* T放映年月 */
-#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: clamp(70px, 6vw, 96px);   text-align: center; }/* T評価 */
+#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: 14%; }   /* ジャンル */
+#playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 2%;    text-align: center; }  /* 保存対象 */
+#playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: 4%;    text-align: center; }  /* TID */
+#playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 2.2%;  text-align: center; }  /* T50音 */
+#playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 4.6%;  text-align: center; }  /* T放映年月 */
+#playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 5.4%;  text-align: center; }  /* T評価 */
 /* 12番目（タイトル）は自動拡大 */
-#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: clamp(45px, 3.8vw, 58px); text-align: center; }/* 話数 */
-#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: clamp(40px, 3.5vw, 54px); text-align: center; }/* 視聴 */
-#playlist-table th:nth-child(15), #playlist-table td:nth-child(15) { width: clamp(40px, 3.5vw, 54px); text-align: center; }/* 状態 */
+#playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 3.6%;  text-align: center; }  /* 話数 */
+#playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 3%;    text-align: center; }  /* 視聴 */
+#playlist-table th:nth-child(15), #playlist-table td:nth-child(15) { width: 3%;    text-align: center; }  /* 状態 */
 
 #playlist-table td:nth-child(5),
 #playlist-table td:nth-child(12) {
-    max-width: 0;
-    min-width: 20px;
-}
-#playlist-table td:nth-child(6) {
-    max-width: 0;
+    width: auto;
 }
 
 /* 見出しポップアップメニュー */
