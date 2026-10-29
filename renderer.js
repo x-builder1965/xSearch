@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.48.1';
+// version   = 'Ver1.50.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -444,14 +444,138 @@ function renderTable() {
                 }
             });
 
+            // ジャンル列（index 5）のダブルクリックによる編集 ＆ オートコンプリート機能
+            if (i === 5) {
+                td.style.cursor = 'pointer';
+                td.addEventListener('dblclick', () => {
+                    if (td.querySelector('input')) return;
+
+                    const currentVal = item.genre ?? '';
+                    td.textContent = '';
+                    td.style.position = 'relative'; // サジェスト表示の基準位置
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = currentVal;
+                    input.style.width = '100%';
+                    input.style.boxSizing = 'border-box';
+                    // CSS変数を使用してダーク/ライトモードに対応
+                    input.style.backgroundColor = 'var(--panel-bg)';
+                    input.style.color = 'var(--text-color)';
+                    input.style.border = '1px solid var(--accent-color)';
+                    input.style.padding = '2px 4px';
+                    td.appendChild(input);
+                    input.focus();
+                    input.select();
+
+                    // 既存の全アイテムからジャンルの候補リスト（重複なし）を抽出
+                    const genreSet = new Set();
+                    appState.items.forEach(it => {
+                        if (it.genre) genreSet.add(it.genre.trim());
+                    });
+                    const allGenres = Array.from(genreSet);
+
+                    // サジェスト表示用コンテナ
+                    const suggestBox = document.createElement('div');
+                    suggestBox.style.position = 'absolute';
+                    suggestBox.style.top = '100%';
+                    suggestBox.style.left = '0';
+                    suggestBox.style.right = '0';
+                    suggestBox.style.maxHeight = '150px';
+                    suggestBox.style.overflowY = 'auto';
+                    // CSS変数で背景色やボーダーをテーマ対応
+                    suggestBox.style.backgroundColor = 'var(--panel-bg)';
+                    suggestBox.style.color = 'var(--text-color)';
+                    suggestBox.style.border = '1px solid var(--border-color)';
+                    suggestBox.style.zIndex = '1000';
+                    suggestBox.style.boxShadow = '0 4px 6px rgba(0,0,0,0.2)';
+                    td.appendChild(suggestBox);
+
+                    const renderSuggestions = (filterText) => {
+                        suggestBox.innerHTML = '';
+                        const matched = allGenres.filter(g => g.toLowerCase().includes(filterText.toLowerCase()));
+                        
+                        if (matched.length === 0 || (matched.length === 1 && matched[0] === filterText)) {
+                            suggestBox.style.display = 'none';
+                            return;
+                        }
+
+                        suggestBox.style.display = 'block';
+                        matched.forEach(candidate => {
+                            const div = document.createElement('div');
+                            div.textContent = candidate;
+                            div.style.padding = '4px 8px';
+                            div.style.cursor = 'pointer';
+                            div.style.fontSize = '12px';
+                            
+                            // ホバー時にテーマのホバーカラーを適用
+                            div.addEventListener('mouseover', () => div.style.backgroundColor = 'var(--hover-color)');
+                            div.addEventListener('mouseout', () => div.style.backgroundColor = 'transparent');
+                            
+                            div.addEventListener('mousedown', (e) => {
+                                e.preventDefault(); // フォーカス外れを防ぐ
+                                input.value = candidate;
+                                suggestBox.style.display = 'none';
+                                input.focus();
+                            });
+
+                            suggestBox.appendChild(div);
+                        });
+                    };
+
+                    input.addEventListener('input', () => {
+                        renderSuggestions(input.value);
+                    });
+
+                    let isFinished = false;
+
+                    const commitChange = () => {
+                        if (isFinished) return;
+                        isFinished = true;
+
+                        const newVal = input.value;
+                        if (newVal !== currentVal) {
+                            // 同一シリーズ名の行すべてのジャンルも同期して変更する
+                            appState.items.forEach(otherItem => {
+                                if (otherItem.seriesName === item.seriesName) {
+                                    otherItem.genre = newVal;
+                                }
+                            });
+                            saveToLocalStorage();
+                        }
+                        renderTable();
+                    };
+
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            commitChange();
+                        } else if (e.key === 'Escape') {
+                            isFinished = true;
+                            renderTable(); // 変更を破棄して再描画
+                        }
+                    });
+
+                    // 他エリアのクリックで編集モードを解除・確定する
+                    const outsideClickHandler = (e) => {
+                        if (!td.contains(e.target)) {
+                            document.removeEventListener('click', outsideClickHandler, true);
+                            commitChange();
+                        }
+                    };
+
+                    // イベント伝播の都合上、captureフェーズで監視
+                    setTimeout(() => {
+                        document.addEventListener('click', outsideClickHandler, true);
+                    }, 0);
+                });
+            }
+
             // シリーズ列（index 4）のクリックイベント
             if (i === 4) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
-                    // データ行「シリーズ」を左クリック時、視聴回数をカウントアップして保存
                     item.viewCount = (item.viewCount ?? 0) + 1;
                     
-                    // 同一シリーズの行すべての視聴回数も同期してカウントアップ（仕様要件）
                     appState.items.forEach(otherItem => {
                         if (otherItem.seriesName === item.seriesName) {
                             otherItem.viewCount = item.viewCount;
@@ -484,7 +608,7 @@ function renderTable() {
         const saveTd = document.createElement('td');
         saveTd.style.textAlign = 'center';
         
-        const saveSymbol = thSymbols[6]; // '[保存]'
+        const saveSymbol = thSymbols[6];
         saveTd.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -530,7 +654,6 @@ function renderTable() {
                 }
             });
 
-            // TID列（fieldsのindex 7）のクリックイベント
             if (i === 7 && textVal && textVal !== '-') {
                 td.style.cursor = 'pointer';
                 td.style.color = '#4da6ff';
@@ -540,11 +663,9 @@ function renderTable() {
                 });
             }
 
-            // タイトル列（fieldsのindex 11）のクリックイベント
             if (i === 11) { 
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', async () => {
-                    // データ行「タイトル」を左クリック時、視聴回数をカウントアップして保存
                     item.viewCount = (item.viewCount ?? 0) + 1;
                     saveToLocalStorage();
                     renderTable();
@@ -566,11 +687,9 @@ function renderTable() {
                 });
             }
 
-            // 話数(12)、視聴(13)、状態(14)などのクリックイベント・中央揃え
             if (i === 12 || i === 13 || i === 14) {
                 td.style.textAlign = 'center';
                 
-                // 「話数」または「状態」のとき、プレイリストをメモ帳で起動する挙動
                 if (i === 12 || i === 14) {
                     td.style.cursor = 'pointer';
                     td.addEventListener('click', async () => {
@@ -593,14 +712,11 @@ function renderTable() {
                         }
                     });
                 }
-
             }
 
-            // 視聴列（fieldsのindex 13にあたる）のクリックイベント
             if (i === 13) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('click', () => {
-                    // 左クリックで視聴回数を0クリア
                     item.viewCount = 0;
                     saveToLocalStorage();
                     renderTable();
