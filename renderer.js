@@ -1483,7 +1483,8 @@ function registerViewToggleEvents() {
         dashBtn.classList.remove('active');
         dashContainer.style.display = 'none';
         listContainer.style.display = 'flex';
-
+        setTimeout(() => restoreCursorPosition(), 50);
+        
         // 状態を保存してローカルストレージに書き込み
         appState.activeView = 'list';
         window.appState = appState;

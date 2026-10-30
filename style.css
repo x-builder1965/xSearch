@@ -434,6 +434,7 @@ th {
 /* 【追加】選択行のハイライト表示 */
 #playlist-table tr.selected-row td {
     background-color: var(--select-color) !important;
+    font-weight: bold !important;
 }
 #playlist-table {
     table-layout: fixed;
@@ -815,9 +816,9 @@ caption {
     padding: 0 clamp(4px, 0.8vw, 10px);
     font-size: clamp(0.95em, 1.1vw, 1.4em);
 }
-.summary-table tr.selected-row {
-    background-color: var(--table-hover-bg);
-    outline: 2px solid var(--accent-color);
+.summary-table tr.selected-row td {
+    background-color: var(--select-color) !important;
+    font-weight: bold !important;
 }
 .summary-table th:nth-child(1), .summary-table td:nth-child(1) { width: auto; text-align: left; font-weight: 900; }    
 .summary-table th:nth-child(2), .summary-table td:nth-child(2) { width: 11%; text-align: right; }
