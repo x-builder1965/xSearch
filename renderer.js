@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.50.1';
+// version   = 'Ver1.52.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -59,7 +59,8 @@ let appState = {                    // localStorage管理情報
     dashCategoryScale: 1.0,         // ダッシュボード：分類統計の縮尺倍率
     dashCategoryScrollLeft: 0,      // ダッシュボード：分類統計の横スクロール位置
     activeView: 'list',             // 現在の表示ビュー
-    lastScanTimestamp: ''           // 検索・再検索の実行日時
+    lastScanTimestamp: '',          // 検索・再検索の実行日時
+    selectedPlaylistPath: ''        // 【追加】選択中のプレイリストパス（カーソル位置記憶用）
 };
 let toastTimer = null;          // トースター表示タイマー
 let toastStartTime = 0;         // トースター表示開始時間
@@ -335,6 +336,11 @@ function loadFromLocalStorage() {
                 if (dashBtn) dashBtn.classList.remove('active');
                 if (dashContainer) dashContainer.style.display = 'none';
                 if (listContainer) listContainer.style.display = 'flex';
+                
+                // 【追加】リスト表示ビューの場合、描画完了後にカーソル位置（保存されたプレイリストパス）を復元
+                if (appState.selectedPlaylistPath) {
+                    setTimeout(() => restoreCursorPosition(), 50);
+                }
             }
 
         } catch (e) {
@@ -397,6 +403,40 @@ function getFilterValue(symbol, rawValue, item) {
     return String(rawValue ?? '');
 }
 
+// 【追加】カーソル位置（ハイライト＆スクロール位置）の復元処理関数
+function restoreCursorPosition() {
+    if (!appState.selectedPlaylistPath) return;
+
+    const tbody = document.getElementById('table-body');
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr');
+    let targetRow = null;
+
+    rows.forEach(tr => {
+        // 各行に紐付くパスを確認（dataset またはカスタム属性等で判定できるようにする）
+        if (tr.dataset.playlistPath === appState.selectedPlaylistPath) {
+            tr.classList.add('selected-row');
+            targetRow = tr;
+        } else {
+            tr.classList.remove('selected-row');
+        }
+    });
+
+    if (targetRow) {
+        // テーブルコンテナ内でのスクロール位置を調整
+        const container = document.querySelector('.table-container');
+        if (container) {
+            const containerRect = container.getBoundingClientRect();
+            const rowRect = targetRow.getBoundingClientRect();
+            
+            // コンテナの中央付近に表示されるようにスクロール位置を計算・調整
+            const scrollTop = container.scrollTop + (rowRect.top - containerRect.top) - (containerRect.height / 2) + (rowRect.height / 2);
+            container.scrollTop = Math.max(0, scrollTop);
+        }
+    }
+}
+
 // リスト描画
 function renderTable() {
     const tbody = document.getElementById('table-body');
@@ -404,6 +444,29 @@ function renderTable() {
 
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
+        
+        // 【追加】行要素に一意のプレイリストパス（またはファイルパス）を保持させる
+        const targetPlaylistPath = item.playlistPath || item.filePath || '';
+        tr.dataset.playlistPath = targetPlaylistPath;
+
+        // 【追加】起動・フィルタ時等の復元のために現在保持しているパスと一致すれば初期ハイライトを付与
+        if (targetPlaylistPath && targetPlaylistPath === appState.selectedPlaylistPath) {
+            tr.classList.add('selected-row');
+        }
+
+        // 【追加】行をクリックした時の処理（カーソル位置の保存、ハイライト切替）
+        tr.addEventListener('click', (e) => {
+            // チェックボックスや特定のリンククリック時は行選択の処理をスキップする場合の配慮
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'A') return;
+
+            appState.selectedPlaylistPath = targetPlaylistPath;
+            saveToLocalStorage();
+
+            // 既存の選択ハイライトをクリアして、クリックされた行に付与
+            const allRows = tbody.querySelectorAll('tr');
+            allRows.forEach(r => r.classList.remove('selected-row'));
+            tr.classList.add('selected-row');
+        });
 
         // 各フィールドの定義（新しい列順に合わせて調整）
         const fields = [
@@ -447,7 +510,8 @@ function renderTable() {
             // ジャンル列（index 5）のダブルクリックによる編集 ＆ オートコンプリート機能
             if (i === 5) {
                 td.style.cursor = 'pointer';
-                td.addEventListener('dblclick', () => {
+                td.addEventListener('dblclick', (e) => {
+                    e.stopPropagation(); // 行クリックイベントへのバブリングを防止
                     if (td.querySelector('input')) return;
 
                     const currentVal = item.genre ?? '';
@@ -573,7 +637,8 @@ function renderTable() {
             // シリーズ列（index 4）のクリックイベント
             if (i === 4) {
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', async () => {
+                td.addEventListener('click', async (e) => {
+                    e.stopPropagation(); // 行クリックとの重複を整理（必要に応じて）
                     item.viewCount = (item.viewCount ?? 0) + 1;
                     
                     appState.items.forEach(otherItem => {
@@ -657,7 +722,8 @@ function renderTable() {
             if (i === 7 && textVal && textVal !== '-') {
                 td.style.cursor = 'pointer';
                 td.style.color = '#4da6ff';
-                td.addEventListener('click', () => {
+                td.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
                     window.api.openExternalUrl(tidUrl);
                 });
@@ -665,7 +731,9 @@ function renderTable() {
 
             if (i === 11) { 
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', async () => {
+                td.style.color = 'var(--text-color)';
+                td.addEventListener('click', async (e) => {
+                    e.stopPropagation();
                     item.viewCount = (item.viewCount ?? 0) + 1;
                     saveToLocalStorage();
                     renderTable();
@@ -692,7 +760,8 @@ function renderTable() {
                 
                 if (i === 12 || i === 14) {
                     td.style.cursor = 'pointer';
-                    td.addEventListener('click', async () => {
+                    td.addEventListener('click', async (e) => {
+                        e.stopPropagation();
                         const targetPlaylistPath = item.playlistPath || item.filePath;
                         
                         if (!targetPlaylistPath) {
@@ -716,19 +785,17 @@ function renderTable() {
 
             if (i === 13) {
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', () => {
+                td.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     item.viewCount = 0;
                     saveToLocalStorage();
                     renderTable();
                 });
             }
-            
             tr.appendChild(td);
         }
-
         tbody.appendChild(tr);
     });
-
     updateSelectAllCheckbox();
 }
 
@@ -1804,9 +1871,29 @@ function applyFilter() {
     const sourceItems = appState.rawItems || appState.items;
     const filteredItems = filterItems(sourceItems, query);
 
+    // 【対策】現在選択されているプレイリストパスが、今回のフィルタ後のリストに存在するかチェックする
+    if (appState.selectedPlaylistPath) {
+        const existsInFiltered = filteredItems.some(item => {
+            const path = item.playlistPath || item.filePath || '';
+            return path === appState.selectedPlaylistPath;
+        });
+
+        // フィルタによって非表示になった場合は、選択状態（ハイライト記憶）を一旦クリアする
+        // ※これをしないと、非表示になった古いパスが残り続け、再描画時に意図しない挙動を引き起こす原因になります
+        if (!existsInFiltered) {
+            appState.selectedPlaylistPath = '';
+            saveToLocalStorage();
+        }
+    }
+
     // 表示用リストを更新
     appState.items = filteredItems;
     renderTable();
+
+    // 保持しているカーソル位置（プレイリストパス）がある場合のみ復元
+    if (appState.selectedPlaylistPath) {
+        restoreCursorPosition();
+    }
 
     // フィルタ件数の更新 ("表示行数 / 全行数")
     const countElem = document.getElementById('filter-count');

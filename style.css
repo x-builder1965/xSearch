@@ -2,9 +2,8 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-';
- * version   = 'Ver1.51.2';
+ * version   = 'Ver1.52.2';
  * --------------------------------------------------------------------- */
-
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
 :root {
@@ -17,6 +16,7 @@
     --count-color: #b67ece;
     --hover-color: #333333;
     --list-hover-color: #424242;
+    --select-color: rgba(173, 83, 212, 0.35); /* 【追加】選択行のハイライトカラー */
     /* スクロールバー用 */
     --scrollbar-track: #121212;
     --scrollbar-thumb: #999999;
@@ -37,7 +37,6 @@
     --text-muted: #aaaaaab4;
     --sub-item-text: #b0bec5;
 }
-
 /* ライトモード */
 [data-theme="light"] {
     --app-color: #a43fcf; /* 紫色 */
@@ -49,6 +48,7 @@
     --count-color: #5b4166;
     --hover-color: #e5e5e5;
     --list-hover-color: #e5e5e5;
+    --select-color: rgba(123, 30, 163, 0.2); /* 【追加】選択行のハイライトカラー */
     /* スクロールバー用 */
     --scrollbar-track: #f1f1f1;
     --scrollbar-thumb: #747474;
@@ -431,7 +431,10 @@ th {
 #playlist-table tr:hover td {
     background-color: var(--list-hover-color);
 }
-
+/* 【追加】選択行のハイライト表示 */
+#playlist-table tr.selected-row td {
+    background-color: var(--select-color) !important;
+}
 #playlist-table {
     table-layout: fixed;
     width: 100%;
@@ -440,28 +443,22 @@ th {
     background-color: var(--heading-color);
     color: var(--text-color);
 }
-
 /* 各列の幅定義（画面幅に応じて流動的に変化） */
-#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 7%; }     /* 分類 */
+#playlist-table th:nth-child(1),  #playlist-table td:nth-child(1)  { width: 7%; }   /* 分類 */
 #playlist-table th:nth-child(2),  #playlist-table td:nth-child(2)  { width: 2.2%;  text-align: center; }  /* S50音 */
 #playlist-table th:nth-child(3),  #playlist-table td:nth-child(3)  { width: 7.8%;  text-align: center; }  /* S放映期間 */
 #playlist-table th:nth-child(4),  #playlist-table td:nth-child(4)  { width: 5.4%;  text-align: center; }  /* S評価 */
-/* 5番目（シリーズ）は自動拡大 */
-#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: 14%; }   /* ジャンル */
+#playlist-table td:nth-child(5) { width: auto; }                                    /* シリーズは自動拡大 */
+#playlist-table th:nth-child(6),  #playlist-table td:nth-child(6)  { width: 14%; }  /* ジャンル */
 #playlist-table th:nth-child(7),  #playlist-table td:nth-child(7)  { width: 2%;    text-align: center; }  /* 保存対象 */
 #playlist-table th:nth-child(8),  #playlist-table td:nth-child(8)  { width: 4%;    text-align: center; }  /* TID */
 #playlist-table th:nth-child(9),  #playlist-table td:nth-child(9)  { width: 2.2%;  text-align: center; }  /* T50音 */
 #playlist-table th:nth-child(10), #playlist-table td:nth-child(10) { width: 4.6%;  text-align: center; }  /* T放映年月 */
 #playlist-table th:nth-child(11), #playlist-table td:nth-child(11) { width: 5.4%;  text-align: center; }  /* T評価 */
-/* 12番目（タイトル）は自動拡大 */
+#playlist-table td:nth-child(12) { width: auto; }                                   /* タイトルは自動拡大 */
 #playlist-table th:nth-child(13), #playlist-table td:nth-child(13) { width: 3.6%;  text-align: center; }  /* 話数 */
 #playlist-table th:nth-child(14), #playlist-table td:nth-child(14) { width: 3%;    text-align: center; }  /* 視聴 */
 #playlist-table th:nth-child(15), #playlist-table td:nth-child(15) { width: 3%;    text-align: center; }  /* 状態 */
-
-#playlist-table td:nth-child(5),
-#playlist-table td:nth-child(12) {
-    width: auto;
-}
 
 /* 見出しポップアップメニュー */
 .menu-style {
