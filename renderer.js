@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.52.1';
+// version   = 'Ver1.53.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -442,7 +442,7 @@ function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
 
-    // 【追加】クリックされた行を選択状態（カーソル位置）として保存・ハイライトする共通ヘルパー
+    // クリックされた行を選択状態（カーソル位置）として保存・ハイライトする共通ヘルパー
     const handleRowSelection = (item, tr) => {
         const targetPlaylistPath = item.playlistPath || item.filePath || '';
         if (targetPlaylistPath) {
@@ -465,7 +465,7 @@ function renderTable() {
             tr.classList.add('selected-row');
         }
 
-        // 通常の行クリック時の処理（セル以外の余白や他列クリック用）
+        // 行全体のクリック時の処理（セル以外の余白や他列クリック用）
         tr.addEventListener('click', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'A') return;
             handleRowSelection(item, tr);
@@ -498,6 +498,11 @@ function renderTable() {
             td.title = textVal;
 
             const symbol = thSymbols[i];
+
+            // 【追加】どのセルをクリックしても基本は行選択が確実に行われるようにする
+            td.addEventListener('click', (e) => {
+                handleRowSelection(item, tr);
+            });
 
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
@@ -628,12 +633,11 @@ function renderTable() {
                 });
             }
 
-            // --- シリーズ列（index 4） ---
+            // --- シリーズ列（index 4）：ダブルクリックでプレイヤー起動等 ---
             if (i === 4) {
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', async (e) => {
+                td.addEventListener('dblclick', async (e) => {
                     e.stopPropagation();
-                    // 【追加】行位置の保存・ハイライト適用
                     handleRowSelection(item, tr);
 
                     item.viewCount = (item.viewCount ?? 0) + 1;
@@ -705,6 +709,11 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
+            // セルクリック時は行選択のみを実行
+            td.addEventListener('click', (e) => {
+                handleRowSelection(item, tr);
+            });
+
             td.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -716,13 +725,12 @@ function renderTable() {
                 }
             });
 
-            // --- TID列（index 7） ---
+            // --- TID列（index 7）：ダブルクリックでブラウザ表示 ---
             if (i === 7 && textVal && textVal !== '-') {
                 td.style.cursor = 'pointer';
                 td.style.color = '#4da6ff';
-                td.addEventListener('click', (e) => {
+                td.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
-                    // 【追加】行位置の保存・ハイライト適用
                     handleRowSelection(item, tr);
 
                     const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
@@ -730,13 +738,12 @@ function renderTable() {
                 });
             }
 
-            // --- タイトル列（index 11） ---
+            // --- タイトル列（index 11）：ダブルクリックで動画再生等 ---
             if (i === 11) { 
                 td.style.cursor = 'pointer';
                 td.style.color = 'var(--text-color)';
-                td.addEventListener('click', async (e) => {
+                td.addEventListener('dblclick', async (e) => {
                     e.stopPropagation();
-                    // 【追加】行位置の保存・ハイライト適用
                     handleRowSelection(item, tr);
 
                     item.viewCount = (item.viewCount ?? 0) + 1;
@@ -760,13 +767,12 @@ function renderTable() {
                 });
             }
 
-            // --- 話数（12） / 状態（14）：メモ帳起動 ---
+            // --- 話数（12） / 状態（14）：ダブルクリックでメモ帳起動 ---
             if (i === 12 || i === 14) {
                 td.style.textAlign = 'center';
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', async (e) => {
+                td.addEventListener('dblclick', async (e) => {
                     e.stopPropagation();
-                    // 【追加】行位置の保存・ハイライト適用
                     handleRowSelection(item, tr);
 
                     const targetPlaylistPath = item.playlistPath || item.filePath;
@@ -788,13 +794,12 @@ function renderTable() {
                 });
             }
 
-            // --- 視聴回数リセット列（index 13） ---
+            // --- 視聴回数リセット列（index 13）：ダブルクリックで視聴回数リセット ---
             if (i === 13) {
                 td.style.textAlign = 'center';
                 td.style.cursor = 'pointer';
-                td.addEventListener('click', (e) => {
+                td.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
-                    // 【追加】行位置の保存・ハイライト適用
                     handleRowSelection(item, tr);
 
                     item.viewCount = 0;
