@@ -270,9 +270,14 @@ button.secondary {
     gap: 12px;
 }
 .path-label {
-    font-size: clamp(0.75rem, 0.9rem, 1rem);
     width: 100%;
-    color: #888;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 10px;
+    outline: none;
+    font-size: clamp(0.95rem, 0.9vw, 1.25rem);
 }
 #save-btn,
 #player-config-btn {
