@@ -2,9 +2,10 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.48.1';
+// version   = 'Ver1.55.1';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const gotTheLock = app.requestSingleInstanceLock();     // 🔧 単一インスタンスロックの取得（重複起動の判定）
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
@@ -469,12 +470,46 @@ const aniListCache = new Map();         // リクエスト結果のキャッシ�
 const syobocalCache = new Map();        // リクエスト結果のキャッシュ：key: titleName, value: tid
 const store = new Store();              // main.js版localStorage
 
+let mainWindow = null;                  // mainWindowのスコープに注意してください
+let isSecondaryInstance = false;        // 二重起動（多重起動）判定フラグ（true の場合はセカニアリインスタンスとして動作）
 let currentCancelToken = null;          // キャンセル状態を管理するマップまたは変数
 let lastApiCallTime = 0;                // レートリミット管理用変数
 let isAniListRateLimited = false;       // AniListAPIアクセス制限フラグ
 let isSyobocalRateLimited = false;      // しょぼいカレンダーAPIアクセス制限フラグ
 let isSyobocalStoreLoaded = false;      // しょぼいカレンダーAPI メモリキャッシュロードフラグ
 let isAniListStoreLoaded = false;       // AniListAPI メモリキャッシュロードフラグ
+
+// 初回起動判定
+setupFirstLaunch();
+
+// 初回起動判定
+function setupFirstLaunch() {
+    if (!gotTheLock) {
+        // 2つ目以降の起動（重複起動）の場合：即座にアプリを終了する
+        app.quit();
+    } else {
+        // 初回起動（プライマリインスタンス）の場合
+        app.on('second-instance', (event, commandLine, workingDirectory) => {
+            if (mainWindow) {
+                if (mainWindow.isMinimized()) mainWindow.restore();
+                mainWindow.focus();
+            }
+        });
+
+        app.whenReady().then(() => {
+            createWindow();
+
+            app.on('activate', () => {
+                if (BrowserWindow.getAllWindows().length === 0) createWindow();
+            });
+        });
+    }
+}
+
+// 初回起動判定結果返却
+ipcMain.handle('check-secondary-instance', async () => {
+    return isSecondaryInstance;
+});
 
 async function throttleApiCall(apiName = 'API') {
     const now = Date.now();
@@ -487,7 +522,7 @@ async function throttleApiCall(apiName = 'API') {
 }
 
 function createWindow() {
-    const mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
         title: 'xSearch -プレイリスト検索-',
@@ -511,14 +546,6 @@ function createWindow() {
         mainWindow.reload();
     });
 }
-
-app.whenReady().then(() => {
-    createWindow();
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
-});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.exit();
