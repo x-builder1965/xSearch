@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.53.1';
+// version   = 'Ver1.54.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -273,7 +273,6 @@ function loadFromLocalStorage() {
                 const pathLabel = document.getElementById('current-dir-path');
                 if (pathLabel) pathLabel.textContent = appState.selectedDir;
             }
-
             if (typeof renderTable === 'function' && appState.items.length > 0) {
                 renderTable();
             }
@@ -346,6 +345,8 @@ function loadFromLocalStorage() {
         } catch (e) {
             console.error('Failed to load localStorage:', e);
         }
+    } else {
+console.log('loadFromLocalStorage9');
     }
 }
 
@@ -442,6 +443,39 @@ function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
 
+    // 【追加】指定された項目・優先順位で昇順に並べ替える
+    appState.items.sort((a, b) => {
+        // 1. 分類 (category)
+        const catA = a.category ?? '';
+        const catB = b.category ?? '';
+        if (catA !== catB) return catA.localeCompare(catB, 'ja');
+
+        // 2. シリーズ50音 (seriesKana)
+        const sKanaA = a.seriesKana ?? '';
+        const sKanaB = b.seriesKana ?? '';
+        if (sKanaA !== sKanaB) return sKanaA.localeCompare(sKanaB, 'ja');
+
+        // 3. 放映期間 (seriesPeriod)
+        const sPeriodA = a.seriesPeriod ?? '';
+        const sPeriodB = b.seriesPeriod ?? '';
+        if (sPeriodA !== sPeriodB) return sPeriodA.localeCompare(sPeriodB, 'ja');
+
+        // 4. シリーズ (seriesName)
+        const sNameA = a.seriesName ?? '';
+        const sNameB = b.seriesName ?? '';
+        if (sNameA !== sNameB) return sNameA.localeCompare(sNameB, 'ja');
+
+        // 5. 放映年月 (titleDate)
+        const tDateA = a.titleDate ?? '';
+        const tDateB = b.titleDate ?? '';
+        if (tDateA !== tDateB) return tDateA.localeCompare(tDateB, 'ja');
+
+        // 6. タイトル (titleName)
+        const tNameA = a.titleName ?? '';
+        const tNameB = b.titleName ?? '';
+        return tNameA.localeCompare(tNameB, 'ja');
+    });
+
     // クリックされた行を選択状態（カーソル位置）として保存・ハイライトする共通ヘルパー
     const handleRowSelection = (item, tr) => {
         const targetPlaylistPath = item.playlistPath || item.filePath || '';
@@ -499,7 +533,7 @@ function renderTable() {
 
             const symbol = thSymbols[i];
 
-            // 【追加】どのセルをクリックしても基本は行選択が確実に行われるようにする
+            // どのセルをクリックしても基本は行選択が確実に行われるようにする
             td.addEventListener('click', (e) => {
                 handleRowSelection(item, tr);
             });
