@@ -536,9 +536,9 @@ th {
     position: relative;
     margin-bottom: 0.5em;
 }
-h1 {
-    font-size: clamp(1.2em, 1.6em, 2em);
-    color: var(--app-title-color);
+.header-row h1 {
+    font-size: clamp(1.2em, 2.6em, 3em);
+    color: var(--app-color);
     text-shadow: 0 0 0.8em var(--heading-shadow);
     margin: 0;
     text-align: center;
