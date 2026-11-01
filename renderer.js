@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.54.1';
+// version   = 'Ver1.56.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -53,14 +53,18 @@ let appState = {                    // localStorage管理情報
     playerAppPath: '',              // プレイヤーアプリのパス
     dashSelectedCategory: '全て',   // ダッシュボード：選択分類
     dashPeriodUnit: 'monthly',      // ダッシュボード：選択期間単位
-    dashGraphShape: 'bar',          // ダッシュボード：選択グラフ形状（追加）
+    dashGraphShape: 'bar',          // ダッシュボード：選択グラフ形状
     dashMetricType: 'rating',       // ダッシュボード：選択要素
     dashSelectedPeriodKey: null,    // ダッシュボード：選択期間
     dashCategoryScale: 1.0,         // ダッシュボード：分類統計の縮尺倍率
     dashCategoryScrollLeft: 0,      // ダッシュボード：分類統計の横スクロール位置
     activeView: 'list',             // 現在の表示ビュー
     lastScanTimestamp: '',          // 検索・再検索の実行日時
-    selectedPlaylistPath: ''        // 【追加】選択中のプレイリストパス（カーソル位置記憶用）
+    selectedPlaylistPath: '',       // 選択中のプレイリストパス（カーソル位置記憶用）
+    genreModalWidth: '800px',       // ジャンル編集モーダルの幅
+    genreModalHeight: '250px',      // ジャンル編集モーダルの高さ
+    genreModalX: null,              // ジャンル編集モーダルのX座標（左からの位置）
+    genreModalY: null               // ジャンル編集モーダルのY座標（上からの位置）
 };
 let toastTimer = null;          // トースター表示タイマー
 let toastStartTime = 0;         // トースター表示開始時間
@@ -345,8 +349,6 @@ function loadFromLocalStorage() {
         } catch (e) {
             console.error('Failed to load localStorage:', e);
         }
-    } else {
-console.log('loadFromLocalStorage9');
     }
 }
 
@@ -549,27 +551,149 @@ function renderTable() {
                 }
             });
 
-            // ジャンル列（index 5）のダブルクリック編集
+            // ジャンル列（index 5）のダブルクリック編集（ドラッグ＆ドロップ移動対応版）
             if (i === 5) {
                 td.style.cursor = 'pointer';
                 td.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
-                    if (td.querySelector('input')) return;
+                    if (document.getElementById('genre-modal-overlay')) return;
 
                     const currentVal = item.genre ?? '';
-                    td.textContent = '';
-                    td.style.position = 'relative';
 
-                    const input = document.createElement('input');
-                    input.type = 'text';
+                    // 背景のオーバーレイ（暗転幕）
+                    const overlay = document.createElement('div');
+                    overlay.id = 'genre-modal-overlay';
+                    overlay.style.position = 'fixed';
+                    overlay.style.top = '0';
+                    overlay.style.left = '0';
+                    overlay.style.width = '100vw';
+                    overlay.style.height = '100vh';
+                    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                    overlay.style.zIndex = '9999';
+
+                    // ポップアップ本体のコンテナ（position: absoluteに変更してドラッグ移動可能に）
+                    const modalBox = document.createElement('div');
+                    modalBox.style.position = 'absolute';
+                    modalBox.style.backgroundColor = 'var(--panel-bg)';
+                    modalBox.style.color = 'var(--text-color)';
+                    modalBox.style.padding = '20px';
+                    modalBox.style.borderRadius = '8px';
+                    modalBox.style.boxShadow = '0 8px 16px rgba(0,0,0,0.3)';
+                    modalBox.style.width = appState.genreModalWidth || '800px';
+                    modalBox.style.height = appState.genreModalHeight || '250px';
+                    modalBox.style.resize = 'both';
+                    modalBox.style.overflow = 'auto';
+                    modalBox.style.boxSizing = 'border-box';
+                    modalBox.style.display = 'flex';
+                    modalBox.style.flexDirection = 'column';
+
+                    // ── 初期位置の設定（保存されていればそこ、なければ画面中央） ──
+                    overlay.appendChild(modalBox);
+                    document.body.appendChild(overlay); // 一度DOMに追加してサイズを確定させる
+
+                    if (appState.genreModalX !== null && appState.genreModalY !== null) {
+                        modalBox.style.left = appState.genreModalX + 'px';
+                        modalBox.style.top = appState.genreModalY + 'px';
+                    } else {
+                        const windowWidth = window.innerWidth;
+                        const windowHeight = window.innerHeight;
+                        const rect = modalBox.getBoundingClientRect();
+                        modalBox.style.left = Math.max(20, (windowWidth - rect.width) / 2) + 'px';
+                        modalBox.style.top = Math.max(20, (windowHeight - rect.height) / 2) + 'px';
+                    }
+
+                    // ── 【追加】タイトルバー部分をドラッグして移動できるようにする処理 ──
+                    const titleEl = document.createElement('div');
+                    titleEl.textContent = `シリーズ: ${item.seriesName || ''}`;
+                    titleEl.style.fontSize = '14px';
+                    titleEl.style.marginBottom = '10px';
+                    titleEl.style.fontWeight = 'bold';
+                    titleEl.style.flexShrink = '0';
+                    titleEl.style.cursor = 'move'; // ドラッグ可能カーソル
+                    modalBox.appendChild(titleEl);
+
+                    let isDragging = false;
+                    let dragOffsetX = 0;
+                    let dragOffsetY = 0;
+
+                    titleEl.addEventListener('mousedown', (ev) => {
+                        // リサイズハンドルや他の要素を除外し、タイトル付近を掴んだ時のみ
+                        isDragging = true;
+                        const rect = modalBox.getBoundingClientRect();
+                        dragOffsetX = ev.clientX - rect.left;
+                        dragOffsetY = ev.clientY - rect.top;
+                        ev.preventDefault();
+                    });
+
+                    const handleMouseMove = (ev) => {
+                        if (!isDragging) return;
+                        const newX = ev.clientX - dragOffsetX;
+                        const newY = ev.clientY - dragOffsetY;
+                        modalBox.style.left = newX + 'px';
+                        modalBox.style.top = newY + 'px';
+                    };
+
+                    const handleMouseUpGlobal = () => {
+                        if (isDragging) {
+                            isDragging = false;
+                            // 移動先座標を保存
+                            appState.genreModalX = parseInt(modalBox.style.left, 10);
+                            appState.genreModalY = parseInt(modalBox.style.top, 10);
+                            saveToLocalStorage();
+                        }
+                    };
+
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUpGlobal);
+
+                    // リサイズ操作のトラッキング
+                    let isResized = false;
+                    modalBox.addEventListener('mousedown', (e) => {
+                        const rect = modalBox.getBoundingClientRect();
+                        if (rect.right - e.clientX < 20 && rect.bottom - e.clientY < 20) {
+                            isResized = true;
+                        }
+                    });
+
+                    const handleResizeMouseUp = () => {
+                        if (isResized) {
+                            appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
+                            appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
+                            saveToLocalStorage();
+                            isResized = false;
+                        }
+                    };
+                    document.addEventListener('mouseup', handleResizeMouseUp);
+
+                    // 入力フィールド
+                    const input = document.createElement('textarea');
                     input.value = currentVal;
                     input.style.width = '100%';
+                    input.style.flex = '1';
+                    input.style.minHeight = '60px';
+                    input.style.resize = 'none';
                     input.style.boxSizing = 'border-box';
                     input.style.backgroundColor = 'var(--panel-bg)';
                     input.style.color = 'var(--text-color)';
                     input.style.border = '1px solid var(--accent-color)';
-                    input.style.padding = '2px 4px';
-                    td.appendChild(input);
+                    input.style.padding = '8px';
+                    input.style.fontSize = '14px';
+                    input.style.borderRadius = '4px';
+                    input.style.fontFamily = 'inherit';
+                    modalBox.appendChild(input);
+
+                    // サジェストリスト用のコンテナ
+                    const suggestBox = document.createElement('div');
+                    suggestBox.style.maxHeight = '150px';
+                    suggestBox.style.overflowY = 'auto';
+                    suggestBox.style.backgroundColor = 'var(--panel-bg)';
+                    suggestBox.style.color = 'var(--text-color)';
+                    suggestBox.style.border = '1px solid var(--border-color)';
+                    suggestBox.style.marginTop = '4px';
+                    suggestBox.style.borderRadius = '4px';
+                    suggestBox.style.display = 'none';
+                    modalBox.appendChild(suggestBox);
+
                     input.focus();
                     input.select();
 
@@ -578,20 +702,6 @@ function renderTable() {
                         if (it.genre) genreSet.add(it.genre.trim());
                     });
                     const allGenres = Array.from(genreSet);
-
-                    const suggestBox = document.createElement('div');
-                    suggestBox.style.position = 'absolute';
-                    suggestBox.style.top = '100%';
-                    suggestBox.style.left = '0';
-                    suggestBox.style.right = '0';
-                    suggestBox.style.maxHeight = '150px';
-                    suggestBox.style.overflowY = 'auto';
-                    suggestBox.style.backgroundColor = 'var(--panel-bg)';
-                    suggestBox.style.color = 'var(--text-color)';
-                    suggestBox.style.border = '1px solid var(--border-color)';
-                    suggestBox.style.zIndex = '1000';
-                    suggestBox.style.boxShadow = '0 4px 6px rgba(0,0,0,0.2)';
-                    td.appendChild(suggestBox);
 
                     const renderSuggestions = (filterText) => {
                         suggestBox.innerHTML = '';
@@ -606,9 +716,9 @@ function renderTable() {
                         matched.forEach(candidate => {
                             const div = document.createElement('div');
                             div.textContent = candidate;
-                            div.style.padding = '4px 8px';
+                            div.style.padding = '6px 10px';
                             div.style.cursor = 'pointer';
-                            div.style.fontSize = '12px';
+                            div.style.fontSize = '13px';
                             
                             div.addEventListener('mouseover', () => div.style.backgroundColor = 'var(--hover-color)');
                             div.addEventListener('mouseout', () => div.style.backgroundColor = 'transparent');
@@ -633,6 +743,17 @@ function renderTable() {
                         if (isFinished) return;
                         isFinished = true;
 
+                        // イベントリスナーのクリーンアップ
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUpGlobal);
+                        document.removeEventListener('mouseup', handleResizeMouseUp);
+
+                        // 確定時の最終コンテナサイズと座標を保存
+                        appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
+                        appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
+                        appState.genreModalX = parseInt(modalBox.style.left, 10);
+                        appState.genreModalY = parseInt(modalBox.style.top, 10);
+
                         const newVal = input.value;
                         if (newVal !== currentVal) {
                             appState.items.forEach(otherItem => {
@@ -640,30 +761,44 @@ function renderTable() {
                                     otherItem.genre = newVal;
                                 }
                             });
-                            saveToLocalStorage();
+                        }
+                        saveToLocalStorage();
+
+                        if (document.body.contains(overlay)) {
+                            document.body.removeChild(overlay);
                         }
                         renderTable();
                     };
 
                     input.addEventListener('keydown', (ev) => {
-                        if (ev.key === 'Enter') {
+                        if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
                             commitChange();
                         } else if (ev.key === 'Escape') {
                             isFinished = true;
+                            document.removeEventListener('mousemove', handleMouseMove);
+                            document.removeEventListener('mouseup', handleMouseUpGlobal);
+                            document.removeEventListener('mouseup', handleResizeMouseUp);
+
+                            // キャンセル時も現在のサイズと座標を保存
+                            appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
+                            appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
+                            appState.genreModalX = parseInt(modalBox.style.left, 10);
+                            appState.genreModalY = parseInt(modalBox.style.top, 10);
+                            saveToLocalStorage();
+
+                            if (document.body.contains(overlay)) {
+                                document.body.removeChild(overlay);
+                            }
                             renderTable();
                         }
                     });
 
-                    const outsideClickHandler = (ev) => {
-                        if (!td.contains(ev.target)) {
-                            document.removeEventListener('click', outsideClickHandler, true);
+                    // 背景クリックで閉じる処理
+                    overlay.addEventListener('click', (ev) => {
+                        if (ev.target === overlay) {
                             commitChange();
                         }
-                    };
-
-                    setTimeout(() => {
-                        document.addEventListener('click', outsideClickHandler, true);
-                    }, 0);
+                    });
                 });
             }
 
