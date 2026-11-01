@@ -602,14 +602,54 @@ function renderTable() {
                         modalBox.style.top = Math.max(20, (windowHeight - rect.height) / 2) + 'px';
                     }
 
-                    // ── 【追加】タイトルバー部分をドラッグして移動できるようにする処理 ──
+                    // ── タイトルバー（Flexboxにして右側に ✅・❌ ボタンを配置） ──
                     const titleEl = document.createElement('div');
-                    titleEl.textContent = `シリーズ: ${item.seriesName || ''}`;
-                    titleEl.style.fontSize = '14px';
+                    titleEl.style.display = 'flex';
+                    titleEl.style.justifyContent = 'space-between';
+                    titleEl.style.alignItems = 'center';
                     titleEl.style.marginBottom = '10px';
-                    titleEl.style.fontWeight = 'bold';
                     titleEl.style.flexShrink = '0';
-                    titleEl.style.cursor = 'move'; // ドラッグ可能カーソル
+                    titleEl.style.cursor = 'move'; // タイトルバー全体をドラッグ可能に
+
+                    // タイトルテキスト
+                    const titleText = document.createElement('span');
+                    titleText.textContent = `シリーズ: ${item.seriesName || ''}`;
+                    titleText.style.fontSize = '14px';
+                    titleText.style.fontWeight = 'bold';
+                    titleEl.appendChild(titleText);
+
+                    // ボタンをまとめるコンテナ
+                    const btnContainer = document.createElement('div');
+                    btnContainer.style.display = 'flex';
+                    btnContainer.style.gap = '6px';
+
+                    // ✅ 確定終了ボタン
+                    const okBtn = document.createElement('button');
+                    okBtn.textContent = '✅';
+                    okBtn.title = '確定して閉じる (Ctrl+Enter)';
+                    okBtn.style.cursor = 'pointer';
+                    okBtn.style.background = 'transparent';
+                    okBtn.style.border = '1px solid var(--border-color)';
+                    okBtn.style.borderRadius = '4px';
+                    okBtn.style.padding = '2px 6px';
+                    okBtn.style.fontSize = '12px';
+                    okBtn.style.color = 'var(--text-color)';
+
+                    // ❌ 破棄終了ボタン
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.textContent = '❌';
+                    cancelBtn.title = '破棄して閉じる (Escape)';
+                    cancelBtn.style.cursor = 'pointer';
+                    cancelBtn.style.background = 'transparent';
+                    cancelBtn.style.border = '1px solid var(--border-color)';
+                    cancelBtn.style.borderRadius = '4px';
+                    cancelBtn.style.padding = '2px 6px';
+                    cancelBtn.style.fontSize = '12px';
+                    cancelBtn.style.color = 'var(--text-color)';
+
+                    btnContainer.appendChild(okBtn);
+                    btnContainer.appendChild(cancelBtn);
+                    titleEl.appendChild(btnContainer);
                     modalBox.appendChild(titleEl);
 
                     let isDragging = false;
@@ -617,7 +657,8 @@ function renderTable() {
                     let dragOffsetY = 0;
 
                     titleEl.addEventListener('mousedown', (ev) => {
-                        // リサイズハンドルや他の要素を除外し、タイトル付近を掴んだ時のみ
+                        // ボタン自身をクリックした場合はドラッグを開始しない
+                        if (ev.target === okBtn || ev.target === cancelBtn) return;
                         isDragging = true;
                         const rect = modalBox.getBoundingClientRect();
                         dragOffsetX = ev.clientX - rect.left;
@@ -636,7 +677,6 @@ function renderTable() {
                     const handleMouseUpGlobal = () => {
                         if (isDragging) {
                             isDragging = false;
-                            // 移動先座標を保存
                             appState.genreModalX = parseInt(modalBox.style.left, 10);
                             appState.genreModalY = parseInt(modalBox.style.top, 10);
                             saveToLocalStorage();
@@ -694,6 +734,9 @@ function renderTable() {
                     suggestBox.style.display = 'none';
                     modalBox.appendChild(suggestBox);
 
+                    overlay.appendChild(modalBox);
+                    document.body.appendChild(overlay);
+
                     input.focus();
                     input.select();
 
@@ -739,16 +782,16 @@ function renderTable() {
                     });
 
                     let isFinished = false;
+                    
+                    // 確定終了（✅ または Ctrl+Enter）
                     const commitChange = () => {
                         if (isFinished) return;
                         isFinished = true;
 
-                        // イベントリスナーのクリーンアップ
                         document.removeEventListener('mousemove', handleMouseMove);
                         document.removeEventListener('mouseup', handleMouseUpGlobal);
                         document.removeEventListener('mouseup', handleResizeMouseUp);
 
-                        // 確定時の最終コンテナサイズと座標を保存
                         appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
                         appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
                         appState.genreModalX = parseInt(modalBox.style.left, 10);
@@ -761,7 +804,32 @@ function renderTable() {
                                     otherItem.genre = newVal;
                                 }
                             });
+                            saveToLocalStorage();
+                        } else {
+                            // 値が変わっていなくてもサイズや位置を保存
+                            saveToLocalStorage();
                         }
+
+                        if (document.body.contains(overlay)) {
+                            document.body.removeChild(overlay);
+                        }
+                        renderTable();
+                    };
+
+                    // 破棄終了（❌ または Escape）
+                    const discardChange = () => {
+                        if (isFinished) return;
+                        isFinished = true;
+
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUpGlobal);
+                        document.removeEventListener('mouseup', handleResizeMouseUp);
+
+                        // 破棄時もコンテナのサイズと座標の変更は保存しておくと便利です
+                        appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
+                        appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
+                        appState.genreModalX = parseInt(modalBox.style.left, 10);
+                        appState.genreModalY = parseInt(modalBox.style.top, 10);
                         saveToLocalStorage();
 
                         if (document.body.contains(overlay)) {
@@ -770,30 +838,26 @@ function renderTable() {
                         renderTable();
                     };
 
+                    // ボタンのクリックイベント紐付け
+                    okBtn.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        commitChange();
+                    });
+
+                    cancelBtn.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        discardChange();
+                    });
+
                     input.addEventListener('keydown', (ev) => {
                         if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
                             commitChange();
                         } else if (ev.key === 'Escape') {
-                            isFinished = true;
-                            document.removeEventListener('mousemove', handleMouseMove);
-                            document.removeEventListener('mouseup', handleMouseUpGlobal);
-                            document.removeEventListener('mouseup', handleResizeMouseUp);
-
-                            // キャンセル時も現在のサイズと座標を保存
-                            appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
-                            appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
-                            appState.genreModalX = parseInt(modalBox.style.left, 10);
-                            appState.genreModalY = parseInt(modalBox.style.top, 10);
-                            saveToLocalStorage();
-
-                            if (document.body.contains(overlay)) {
-                                document.body.removeChild(overlay);
-                            }
-                            renderTable();
+                            discardChange();
                         }
                     });
 
-                    // 背景クリックで閉じる処理
+                    // 背景クリックで確定終了する場合（または破棄にしたい場合はdiscardChangeに変更可能）
                     overlay.addEventListener('click', (ev) => {
                         if (ev.target === overlay) {
                             commitChange();
