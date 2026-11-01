@@ -576,9 +576,6 @@ th {
 #changelogCloseBtn:active {
     transform: translateY(-50%) scale(0.95);
 }
-.sub-title {
-    background-color: var(--subtitle-bg);
-}
 
 /* 🔲ヘルプ🔲 */
 .help-table-container {
@@ -610,6 +607,10 @@ th {
     overflow-y: auto;
     display: block;
 }       
+.body-table .sub-title {
+    background-color: var(--subtitle-bg);
+    line-height: 1.1em;
+}
 .body-table::-webkit-scrollbar,
 .changelog-Content::-webkit-scrollbar {
     width: 8px;
@@ -711,6 +712,9 @@ caption {
 .changelog-list li.sub-title:hover {
     background-color: var(--subtitle-bg-hover);
     transition: background-color 0.3s ease;
+}
+.changelog-list .sub-title {
+    background-color: var(--subtitle-bg);
 }
 
 /* 🔲copyright＆email🔲 */
