@@ -1063,6 +1063,7 @@ caption {
     min-width: 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    background-color: var(--bg-color);
 }
 .element-scroll-container::-webkit-scrollbar {
     display: none;
