@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.56.1';
+// version   = 'Ver1.57.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -722,64 +722,11 @@ function renderTable() {
                     input.style.fontFamily = 'inherit';
                     modalBox.appendChild(input);
 
-                    // サジェストリスト用のコンテナ
-                    const suggestBox = document.createElement('div');
-                    suggestBox.style.maxHeight = '150px';
-                    suggestBox.style.overflowY = 'auto';
-                    suggestBox.style.backgroundColor = 'var(--panel-bg)';
-                    suggestBox.style.color = 'var(--text-color)';
-                    suggestBox.style.border = '1px solid var(--border-color)';
-                    suggestBox.style.marginTop = '4px';
-                    suggestBox.style.borderRadius = '4px';
-                    suggestBox.style.display = 'none';
-                    modalBox.appendChild(suggestBox);
-
                     overlay.appendChild(modalBox);
                     document.body.appendChild(overlay);
 
                     input.focus();
                     input.select();
-
-                    const genreSet = new Set();
-                    appState.items.forEach(it => {
-                        if (it.genre) genreSet.add(it.genre.trim());
-                    });
-                    const allGenres = Array.from(genreSet);
-
-                    const renderSuggestions = (filterText) => {
-                        suggestBox.innerHTML = '';
-                        const matched = allGenres.filter(g => g.toLowerCase().includes(filterText.toLowerCase()));
-                        
-                        if (matched.length === 0 || (matched.length === 1 && matched[0] === filterText)) {
-                            suggestBox.style.display = 'none';
-                            return;
-                        }
-
-                        suggestBox.style.display = 'block';
-                        matched.forEach(candidate => {
-                            const div = document.createElement('div');
-                            div.textContent = candidate;
-                            div.style.padding = '6px 10px';
-                            div.style.cursor = 'pointer';
-                            div.style.fontSize = '13px';
-                            
-                            div.addEventListener('mouseover', () => div.style.backgroundColor = 'var(--hover-color)');
-                            div.addEventListener('mouseout', () => div.style.backgroundColor = 'transparent');
-                            
-                            div.addEventListener('mousedown', (ev) => {
-                                ev.preventDefault();
-                                input.value = candidate;
-                                suggestBox.style.display = 'none';
-                                input.focus();
-                            });
-
-                            suggestBox.appendChild(div);
-                        });
-                    };
-
-                    input.addEventListener('input', () => {
-                        renderSuggestions(input.value);
-                    });
 
                     let isFinished = false;
                     
@@ -825,7 +772,7 @@ function renderTable() {
                         document.removeEventListener('mouseup', handleMouseUpGlobal);
                         document.removeEventListener('mouseup', handleResizeMouseUp);
 
-                        // 破棄時もコンテナのサイズと座標の変更は保存しておくと便利です
+                        // 破棄時もコンテナのサイズと座標の変更は保存
                         appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
                         appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
                         appState.genreModalX = parseInt(modalBox.style.left, 10);
@@ -857,7 +804,7 @@ function renderTable() {
                         }
                     });
 
-                    // 背景クリックで確定終了する場合（または破棄にしたい場合はdiscardChangeに変更可能）
+                    // 背景クリックで確定終了する場合
                     overlay.addEventListener('click', (ev) => {
                         if (ev.target === overlay) {
                             commitChange();
