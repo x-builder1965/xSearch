@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.51.2';
+// version   = 'Ver1.58.1';
 // ---------------------------------------------------------------------
 
 // 定数定義
@@ -46,6 +46,10 @@ const KANA_GROUP_COLORS = [
     '#607d8b', // 不明
     '#795548'  // その他
 ];
+
+// 視聴回数
+const VIEW_COUNT_KEYS = ['0回', '1回', '2回', '3回', '4回', '5回以上'];
+const VIEW_COUNT_COLORS = ['#7f8c8d', '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'];
 
 let categoryChartInstance = null;
 let categoryYAxisInstance = null;   // Y軸専用チャートのインスタンス
@@ -222,8 +226,18 @@ function renderSummaryTable() {
     categories.forEach(cat => {
         const filtered = (cat === '全て') ? rawItems : rawItems.filter(i => i.category === cat);
 
-        const seriesSet = new Set(filtered.map(i => i.seriesName).filter(Boolean));
+        // 【修正点】分類（category）＋シリーズ名（seriesName）の複合キーでユニーク数を算出
+        const seriesSet = new Set(
+            filtered.map(i => {
+                // アイテム自体に category が保持されていることを前提に、
+                // 「全て」の行のときは i.category を使い、個別カテゴリのときは cat（または i.category）を使用
+                const itemCat = i.category;
+                const itemSeries = i.seriesName;
+                return (itemCat && itemSeries) ? `${itemCat}_${itemSeries}` : null;
+            }).filter(Boolean)
+        );
         const seriesCount = seriesSet.size;
+        
         const titleCount = filtered.length;
         const episodeCount = filtered.reduce((sum, i) => sum + (parseInt(i.episodeCount, 10) || 0), 0);
 
@@ -300,160 +314,9 @@ function renderSummaryTable() {
     });
 }
 
-function getGenreMaster(items) {
-    const genreSet = new Set();
-    items.forEach(i => {
-        if (i.genre && i.genre !== '-') {
-            i.genre.split(',').map(g => g.trim()).forEach(g => {
-                if (g && !g.startsWith('#')) genreSet.add(g);
-            });
-        }
-    });
-
-    let labels = Array.from(genreSet).sort((a, b) => a.localeCompare(b, 'ja'));
-    if (labels.includes('不明')) {
-        labels = labels.filter(g => g !== '不明');
-        labels.push('不明');
-    } else {
-        labels.push('不明');
-    }
-
-    const colors = labels.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
-    return { labels, colors };
-}
-
-function generateAllPeriodKeys(unit) {
-    const keys = [];
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-
-    let y = 1970;
-    let m = 1;
-
-    switch (unit) {
-        case 'monthly': {
-            while (y < currentYear || (y === currentYear && m <= currentMonth)) {
-                const mStr = String(m).padStart(2, '0');
-                keys.push(`${y}${mStr}`);
-                m++;
-                if (m > 12) {
-                    m = 1;
-                    y++;
-                }
-            }
-            break;
-        }
-        case 'season': {
-            while (y < currentYear || (y === currentYear && (
-                (m <= 2 && 'A') ||
-                (m >= 3 && m <= 5 && 'B') ||
-                (m >= 6 && m <= 8 && 'C') ||
-                (m >= 9 && 'D')
-            ))) {
-                ['A', 'B', 'C', 'D'].forEach(code => {
-                    const seasonKey = `${y}${code}`;
-                    const seasonEndMonth = code === 'A' ? 2 : code === 'B' ? 5 : code === 'C' ? 8 : 11;
-                    if (y < currentYear || (y === currentYear && seasonEndMonth <= currentMonth + 2)) {
-                        if (!keys.includes(seasonKey)) {
-                            keys.push(seasonKey);
-                        }
-                    }
-                });
-                y++;
-            }
-            break;
-        }
-        case 'year': {
-            while (y <= currentYear) {
-                keys.push(`${y}年`);
-                y++;
-            }
-            break;
-        }
-        case '5year': {
-            let startY = 1970;
-            while (startY <= currentYear) {
-                keys.push(`${startY}～${startY + 4}年`);
-                startY += 5;
-            }
-            break;
-        }
-        case 'all': {
-            keys.push('全期間');
-            break;
-        }
-        default: {
-            while (y <= currentYear) {
-                keys.push(`${y}年`);
-                y++;
-            }
-            break;
-        }
-    }
-    return keys;
-}
-
-const VIEW_COUNT_KEYS = ['0回', '1回', '2回', '3回', '4回', '5回以上'];
-const VIEW_COUNT_COLORS = ['#7f8c8d', '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'];
-
-function getScaleViewCountKey(count) {
-    const c = count ?? 0;
-    if (c === 0) return '0回';
-    if (c === 1) return '1回';
-    if (c === 2) return '2回';
-    if (c === 3) return '3回';
-    if (c === 4) return '4回';
-    return '5回以上';
-}
-
-function getPeriodKey(dateStr, unit) {
-    if (!dateStr || dateStr === '-') return '不明';
-    const cleanDate = dateStr.replace(/[^0-9]/g, '');
-    if (cleanDate.length < 4) return '不明';
-
-    const year = parseInt(cleanDate.substring(0, 4), 10);
-    const month = cleanDate.length >= 6 ? parseInt(cleanDate.substring(4, 6), 10) : 1;
-
-    switch (unit) {
-        case 'monthly':
-            return cleanDate.length >= 6 ? cleanDate.substring(0, 6) : `${year}01`;
-        case 'season': {
-            if (month === 12) return `${year + 1}A`;
-            if (month === 1 || month === 2) return `${year}A`;
-            if (month >= 3 && month <= 5) return `${year}B`;
-            if (month >= 6 && month <= 8) return `${year}C`;
-            if (month >= 9 && month <= 11) return `${year}D`;
-            return `${year}年`;
-        }
-        case 'year':
-            return `${year}年`;
-        case '5year': {
-            if (year < 1970) return '1970年以前';
-            const startYear = 1970 + Math.floor((year - 1970) / 5) * 5;
-            return `${startYear}～${startYear + 4}年`;
-        }
-        case 'all':
-            return '全期間';
-        default:
-            return `${year}年`;
-    }
-}
-
-function formatPeriodDisplayLabel(pKey, unit) {
-    if (unit === 'season' && /^\d{4}[ABCD]$/.test(pKey)) {
-        const yearStr = pKey.substring(0, 4);
-        const code = pKey.substring(4);
-        switch (code) {
-            case 'A': return `${yearStr}冬`;
-            case 'B': return `${yearStr}春`;
-            case 'C': return `${yearStr}夏`;
-            case 'D': return `${yearStr}秋`;
-        }
-    }
-    return pKey;
-}
-
+// -------------------------------------------------------------
+// 2. 選択分類の統計（棒グラフ・折れ線グラフ）
+// -------------------------------------------------------------
 function renderCategoryChart() {
     const ctxMain = document.getElementById('categoryChart')?.getContext('2d');
     const ctxYAxis = document.getElementById('categoryChartYAxis')?.getContext('2d');
@@ -753,6 +616,100 @@ function renderCategoryChart() {
             scrollContainer.scrollLeft = savedScrollLeft;
         }
     }, 50);
+}
+
+function getGenreMaster(items) {
+    const genreSet = new Set();
+    items.forEach(i => {
+        if (i.genre && i.genre !== '-') {
+            i.genre.split(',').map(g => g.trim()).forEach(g => {
+                if (g && !g.startsWith('#')) genreSet.add(g);
+            });
+        }
+    });
+
+    let labels = Array.from(genreSet).sort((a, b) => a.localeCompare(b, 'ja'));
+    if (labels.includes('不明')) {
+        labels = labels.filter(g => g !== '不明');
+        labels.push('不明');
+    } else {
+        labels.push('不明');
+    }
+
+    const colors = labels.map((g, idx) => g === '不明' ? '#607d8b' : `hsl(${(idx * 137.5) % 360}, 65%, 55%)`);
+    return { labels, colors };
+}
+
+function generateAllPeriodKeys(unit) {
+    const keys = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    let y = 1970;
+    let m = 1;
+
+    switch (unit) {
+        case 'monthly': {
+            while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+                const mStr = String(m).padStart(2, '0');
+                keys.push(`${y}${mStr}`);
+                m++;
+                if (m > 12) {
+                    m = 1;
+                    y++;
+                }
+            }
+            break;
+        }
+        case 'season': {
+            while (y < currentYear || (y === currentYear && (
+                (m <= 2 && 'A') ||
+                (m >= 3 && m <= 5 && 'B') ||
+                (m >= 6 && m <= 8 && 'C') ||
+                (m >= 9 && 'D')
+            ))) {
+                ['A', 'B', 'C', 'D'].forEach(code => {
+                    const seasonKey = `${y}${code}`;
+                    const seasonEndMonth = code === 'A' ? 2 : code === 'B' ? 5 : code === 'C' ? 8 : 11;
+                    if (y < currentYear || (y === currentYear && seasonEndMonth <= currentMonth + 2)) {
+                        if (!keys.includes(seasonKey)) {
+                            keys.push(seasonKey);
+                        }
+                    }
+                });
+                y++;
+            }
+            break;
+        }
+        case 'year': {
+            while (y <= currentYear) {
+                keys.push(`${y}年`);
+                y++;
+            }
+            break;
+        }
+        case '5year': {
+            let startY = 1970;
+            while (startY <= currentYear) {
+                keys.push(`${startY}～${startY + 4}年`);
+                startY += 5;
+            }
+            break;
+        }
+        case 'all': {
+            keys.push('全期間');
+            break;
+        }
+        default: {
+            while (y <= currentYear) {
+                keys.push(`${y}年`);
+                y++;
+            }
+            break;
+        }
+    }
+    return keys;
 }
 
 // -------------------------------------------------------------
@@ -1088,4 +1045,61 @@ function renderElementCountCard(periodItems, displayPeriodKey, metric, allCatego
         scrollContainer.onmouseenter = null;
         scrollContainer.onmouseleave = null;
     }
+}
+
+function getScaleViewCountKey(count) {
+    const c = count ?? 0;
+    if (c === 0) return '0回';
+    if (c === 1) return '1回';
+    if (c === 2) return '2回';
+    if (c === 3) return '3回';
+    if (c === 4) return '4回';
+    return '5回以上';
+}
+
+function getPeriodKey(dateStr, unit) {
+    if (!dateStr || dateStr === '-') return '不明';
+    const cleanDate = dateStr.replace(/[^0-9]/g, '');
+    if (cleanDate.length < 4) return '不明';
+
+    const year = parseInt(cleanDate.substring(0, 4), 10);
+    const month = cleanDate.length >= 6 ? parseInt(cleanDate.substring(4, 6), 10) : 1;
+
+    switch (unit) {
+        case 'monthly':
+            return cleanDate.length >= 6 ? cleanDate.substring(0, 6) : `${year}01`;
+        case 'season': {
+            if (month === 12) return `${year + 1}A`;
+            if (month === 1 || month === 2) return `${year}A`;
+            if (month >= 3 && month <= 5) return `${year}B`;
+            if (month >= 6 && month <= 8) return `${year}C`;
+            if (month >= 9 && month <= 11) return `${year}D`;
+            return `${year}年`;
+        }
+        case 'year':
+            return `${year}年`;
+        case '5year': {
+            if (year < 1970) return '1970年以前';
+            const startYear = 1970 + Math.floor((year - 1970) / 5) * 5;
+            return `${startYear}～${startYear + 4}年`;
+        }
+        case 'all':
+            return '全期間';
+        default:
+            return `${year}年`;
+    }
+}
+
+function formatPeriodDisplayLabel(pKey, unit) {
+    if (unit === 'season' && /^\d{4}[ABCD]$/.test(pKey)) {
+        const yearStr = pKey.substring(0, 4);
+        const code = pKey.substring(4);
+        switch (code) {
+            case 'A': return `${yearStr}冬`;
+            case 'B': return `${yearStr}春`;
+            case 'C': return `${yearStr}夏`;
+            case 'D': return `${yearStr}秋`;
+        }
+    }
+    return pKey;
 }
