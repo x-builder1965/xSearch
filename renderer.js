@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.57.1';
+// version   = 'Ver1.59.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -41,6 +41,33 @@ const thSymbols = [
     '[話数]', 
     '[視聴]',
     '[状態]'
+];
+// カラム定義テーブル
+const TABLE_COLUMNS = [
+    { index: 0, key: 'category', label: '分類', symbol: 'category', align: 'left' },
+    { index: 1, key: 'seriesKana', label: 'S音', symbol: 'seriesKana', align: 'left' },
+    { index: 2, key: 'seriesPeriod', label: '放映期間', symbol: 'seriesPeriod', align: 'left' },
+    { index: 3, key: 'seriesRating', label: '評価', symbol: 'seriesRating', align: 'left' },
+    { index: 4, key: 'seriesName', label: 'シリーズ', symbol: 'seriesName', align: 'left', dblclick: handleSeriesDblClick },
+    { index: 5, key: 'genre', label: 'ジャンル', symbol: 'genre', align: 'left', dblclick: handleGenreDblClick },
+    { index: 6, key: null, label: '保存', symbol: 'save', align: 'center', isCheckbox: true },
+    { index: 7, key: 'tid', label: 'TID', symbol: 'tid', align: 'left', dblclick: handleTidDblClick },
+    { index: 8, key: 'titleKana', label: 'T音', symbol: 'titleKana', align: 'left' },
+    { index: 9, key: 'titleDate', label: '放映年月', symbol: 'titleDate', align: 'left' },
+    { index: 10, key: 'titleRating', label: 'T評価', symbol: 'titleRating', align: 'left' },
+    { index: 11, key: 'titleName', label: 'タイトル', symbol: 'titleName', align: 'left', dblclick: handleTitleDblClick },
+    { index: 12, key: 'episodeCount', label: '話数', symbol: 'episodeCount', align: 'center', dblclick: handleNotepadDblClick },
+    { index: 13, key: 'viewCount', label: '視聴', symbol: 'viewCount', align: 'center', dblclick: handleResetViewCount },
+    { index: 14, key: 'playlistStatus', label: '状態', symbol: 'playlistStatus', align: 'center', dblclick: handleNotepadDblClick }
+];
+// ソート定義（優先順位順）
+const SORT_CONFIG = [
+    { key: 'category', defaultVal: '' },
+    { key: 'seriesKana', defaultVal: '' },
+    { key: 'seriesPeriod', defaultVal: '' },
+    { key: 'seriesName', defaultVal: '' },
+    { key: 'titleDate', defaultVal: '' },
+    { key: 'titleName', defaultVal: '' }
 ];
 
 // 🔲グルーバル共通変数🔲
@@ -445,55 +472,12 @@ function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
 
-    // 【追加】指定された項目・優先順位で昇順に並べ替える
-    appState.items.sort((a, b) => {
-        // 1. 分類 (category)
-        const catA = a.category ?? '';
-        const catB = b.category ?? '';
-        if (catA !== catB) return catA.localeCompare(catB, 'ja');
+    // 1. ソート実行
+    sortItems(appState.items);
 
-        // 2. シリーズ50音 (seriesKana)
-        const sKanaA = a.seriesKana ?? '';
-        const sKanaB = b.seriesKana ?? '';
-        if (sKanaA !== sKanaB) return sKanaA.localeCompare(sKanaB, 'ja');
-
-        // 3. 放映期間 (seriesPeriod)
-        const sPeriodA = a.seriesPeriod ?? '';
-        const sPeriodB = b.seriesPeriod ?? '';
-        if (sPeriodA !== sPeriodB) return sPeriodA.localeCompare(sPeriodB, 'ja');
-
-        // 4. シリーズ (seriesName)
-        const sNameA = a.seriesName ?? '';
-        const sNameB = b.seriesName ?? '';
-        if (sNameA !== sNameB) return sNameA.localeCompare(sNameB, 'ja');
-
-        // 5. 放映年月 (titleDate)
-        const tDateA = a.titleDate ?? '';
-        const tDateB = b.titleDate ?? '';
-        if (tDateA !== tDateB) return tDateA.localeCompare(tDateB, 'ja');
-
-        // 6. タイトル (titleName)
-        const tNameA = a.titleName ?? '';
-        const tNameB = b.titleName ?? '';
-        return tNameA.localeCompare(tNameB, 'ja');
-    });
-
-    // クリックされた行を選択状態（カーソル位置）として保存・ハイライトする共通ヘルパー
-    const handleRowSelection = (item, tr) => {
-        const targetPlaylistPath = item.playlistPath || item.filePath || '';
-        if (targetPlaylistPath) {
-            appState.selectedPlaylistPath = targetPlaylistPath;
-            saveToLocalStorage();
-        }
-        const allRows = tbody.querySelectorAll('tr');
-        allRows.forEach(r => r.classList.remove('selected-row'));
-        tr.classList.add('selected-row');
-    };
-
+    // 2. 行描画ループ
     appState.items.forEach((item, index) => {
         const tr = document.createElement('tr');
-        
-        // 行要素に一意のプレイリストパスを保持
         const targetPlaylistPath = item.playlistPath || item.filePath || '';
         tr.dataset.playlistPath = targetPlaylistPath;
 
@@ -501,500 +485,559 @@ function renderTable() {
             tr.classList.add('selected-row');
         }
 
-        // 行全体のクリック時の処理（セル以外の余白や他列クリック用）
         tr.addEventListener('click', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'A') return;
-            handleRowSelection(item, tr);
+            handleRowSelection(item, tr, tbody);
         });
 
-        // 各フィールドの定義
-        const fields = [
-            item.category,      // index 0: 分類
-            item.seriesKana,    // index 1: S音
-            item.seriesPeriod,  // index 2: 放映期間
-            item.seriesRating,  // index 3: 評価
-            item.seriesName,    // index 4: シリーズ
-            item.genre,         // index 5: ジャンル
-            null,               // index 6: 保存対象（チェックボックス用プレースホルダー）
-            item.tid,           // index 7: TID
-            item.titleKana,     // index 8: T音
-            item.titleDate,     // index 9: 放映年月
-            item.titleRating,   // index 10: T評価
-            item.titleName,     // index 11: タイトル
-            item.episodeCount,  // index 12: 話数
-            item.viewCount ?? 0,// index 13: 視聴（視聴回数）
-            getStatusIcon(item.playlistStatus, item) // index 14: 状態
-        ];
-
-        // --- 0〜5番目の描画（分類 〜 ジャンル） ---
-        for (let i = 0; i <= 5; i++) {
+        // 3. カラム定義に基づいたセルの動的生成
+        TABLE_COLUMNS.forEach(col => {
             const td = document.createElement('td');
-            const textVal = fields[i] ?? '';
-            td.textContent = textVal;
-            td.title = textVal;
+            td.style.textAlign = col.align;
 
-            const symbol = thSymbols[i];
-
-            // どのセルをクリックしても基本は行選択が確実に行われるようにする
-            td.addEventListener('click', (e) => {
-                handleRowSelection(item, tr);
-            });
-
-            td.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                closePopupMenu();
-
-                if (symbol) {
-                    const val = getFilterValue(symbol, textVal, item);
-                    insertFilterItem(symbol, val);
-                }
-            });
-
-            // ジャンル列（index 5）のダブルクリック編集（ドラッグ＆ドロップ移動対応版）
-            if (i === 5) {
-                td.style.cursor = 'pointer';
-                td.addEventListener('dblclick', (e) => {
-                    e.stopPropagation();
-                    if (document.getElementById('genre-modal-overlay')) return;
-
-                    const currentVal = item.genre ?? '';
-
-                    // 背景のオーバーレイ（暗転幕）
-                    const overlay = document.createElement('div');
-                    overlay.id = 'genre-modal-overlay';
-                    overlay.style.position = 'fixed';
-                    overlay.style.top = '0';
-                    overlay.style.left = '0';
-                    overlay.style.width = '100vw';
-                    overlay.style.height = '100vh';
-                    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-                    overlay.style.zIndex = '9999';
-
-                    // ポップアップ本体のコンテナ（position: absoluteに変更してドラッグ移動可能に）
-                    const modalBox = document.createElement('div');
-                    modalBox.style.position = 'absolute';
-                    modalBox.style.backgroundColor = 'var(--panel-bg)';
-                    modalBox.style.color = 'var(--text-color)';
-                    modalBox.style.padding = '20px';
-                    modalBox.style.borderRadius = '8px';
-                    modalBox.style.boxShadow = '0 8px 16px rgba(0,0,0,0.3)';
-                    modalBox.style.width = appState.genreModalWidth || '800px';
-                    modalBox.style.height = appState.genreModalHeight || '250px';
-                    modalBox.style.resize = 'both';
-                    modalBox.style.overflow = 'auto';
-                    modalBox.style.boxSizing = 'border-box';
-                    modalBox.style.display = 'flex';
-                    modalBox.style.flexDirection = 'column';
-
-                    // ── 初期位置の設定（保存されていればそこ、なければ画面中央） ──
-                    overlay.appendChild(modalBox);
-                    document.body.appendChild(overlay); // 一度DOMに追加してサイズを確定させる
-
-                    if (appState.genreModalX !== null && appState.genreModalY !== null) {
-                        modalBox.style.left = appState.genreModalX + 'px';
-                        modalBox.style.top = appState.genreModalY + 'px';
-                    } else {
-                        const windowWidth = window.innerWidth;
-                        const windowHeight = window.innerHeight;
-                        const rect = modalBox.getBoundingClientRect();
-                        modalBox.style.left = Math.max(20, (windowWidth - rect.width) / 2) + 'px';
-                        modalBox.style.top = Math.max(20, (windowHeight - rect.height) / 2) + 'px';
-                    }
-
-                    // ── タイトルバー（Flexboxにして右側に ✅・❌ ボタンを配置） ──
-                    const titleEl = document.createElement('div');
-                    titleEl.style.display = 'flex';
-                    titleEl.style.justifyContent = 'space-between';
-                    titleEl.style.alignItems = 'center';
-                    titleEl.style.marginBottom = '10px';
-                    titleEl.style.flexShrink = '0';
-                    titleEl.style.cursor = 'move'; // タイトルバー全体をドラッグ可能に
-
-                    // タイトルテキスト
-                    const titleText = document.createElement('span');
-                    titleText.textContent = `シリーズ: ${item.seriesName || ''}`;
-                    titleText.style.fontSize = '14px';
-                    titleText.style.fontWeight = 'bold';
-                    titleEl.appendChild(titleText);
-
-                    // ボタンをまとめるコンテナ
-                    const btnContainer = document.createElement('div');
-                    btnContainer.style.display = 'flex';
-                    btnContainer.style.gap = '6px';
-
-                    // ✅ 確定終了ボタン
-                    const okBtn = document.createElement('button');
-                    okBtn.textContent = '✅';
-                    okBtn.title = '確定して閉じる (Ctrl+Enter)';
-                    okBtn.style.cursor = 'pointer';
-                    okBtn.style.background = 'transparent';
-                    okBtn.style.border = '1px solid var(--border-color)';
-                    okBtn.style.borderRadius = '4px';
-                    okBtn.style.padding = '2px 6px';
-                    okBtn.style.fontSize = '12px';
-                    okBtn.style.color = 'var(--text-color)';
-
-                    // ❌ 破棄終了ボタン
-                    const cancelBtn = document.createElement('button');
-                    cancelBtn.textContent = '❌';
-                    cancelBtn.title = '破棄して閉じる (Escape)';
-                    cancelBtn.style.cursor = 'pointer';
-                    cancelBtn.style.background = 'transparent';
-                    cancelBtn.style.border = '1px solid var(--border-color)';
-                    cancelBtn.style.borderRadius = '4px';
-                    cancelBtn.style.padding = '2px 6px';
-                    cancelBtn.style.fontSize = '12px';
-                    cancelBtn.style.color = 'var(--text-color)';
-
-                    btnContainer.appendChild(okBtn);
-                    btnContainer.appendChild(cancelBtn);
-                    titleEl.appendChild(btnContainer);
-                    modalBox.appendChild(titleEl);
-
-                    let isDragging = false;
-                    let dragOffsetX = 0;
-                    let dragOffsetY = 0;
-
-                    titleEl.addEventListener('mousedown', (ev) => {
-                        // ボタン自身をクリックした場合はドラッグを開始しない
-                        if (ev.target === okBtn || ev.target === cancelBtn) return;
-                        isDragging = true;
-                        const rect = modalBox.getBoundingClientRect();
-                        dragOffsetX = ev.clientX - rect.left;
-                        dragOffsetY = ev.clientY - rect.top;
-                        ev.preventDefault();
-                    });
-
-                    const handleMouseMove = (ev) => {
-                        if (!isDragging) return;
-                        const newX = ev.clientX - dragOffsetX;
-                        const newY = ev.clientY - dragOffsetY;
-                        modalBox.style.left = newX + 'px';
-                        modalBox.style.top = newY + 'px';
-                    };
-
-                    const handleMouseUpGlobal = () => {
-                        if (isDragging) {
-                            isDragging = false;
-                            appState.genreModalX = parseInt(modalBox.style.left, 10);
-                            appState.genreModalY = parseInt(modalBox.style.top, 10);
-                            saveToLocalStorage();
-                        }
-                    };
-
-                    document.addEventListener('mousemove', handleMouseMove);
-                    document.addEventListener('mouseup', handleMouseUpGlobal);
-
-                    // リサイズ操作のトラッキング
-                    let isResized = false;
-                    modalBox.addEventListener('mousedown', (e) => {
-                        const rect = modalBox.getBoundingClientRect();
-                        if (rect.right - e.clientX < 20 && rect.bottom - e.clientY < 20) {
-                            isResized = true;
-                        }
-                    });
-
-                    const handleResizeMouseUp = () => {
-                        if (isResized) {
-                            appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
-                            appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
-                            saveToLocalStorage();
-                            isResized = false;
-                        }
-                    };
-                    document.addEventListener('mouseup', handleResizeMouseUp);
-
-                    // 入力フィールド
-                    const input = document.createElement('textarea');
-                    input.value = currentVal;
-                    input.style.width = '100%';
-                    input.style.flex = '1';
-                    input.style.minHeight = '60px';
-                    input.style.resize = 'none';
-                    input.style.boxSizing = 'border-box';
-                    input.style.backgroundColor = 'var(--panel-bg)';
-                    input.style.color = 'var(--text-color)';
-                    input.style.border = '1px solid var(--accent-color)';
-                    input.style.padding = '8px';
-                    input.style.fontSize = '14px';
-                    input.style.borderRadius = '4px';
-                    input.style.fontFamily = 'inherit';
-                    modalBox.appendChild(input);
-
-                    overlay.appendChild(modalBox);
-                    document.body.appendChild(overlay);
-
-                    input.focus();
-                    input.select();
-
-                    let isFinished = false;
-                    
-                    // 確定終了（✅ または Ctrl+Enter）
-                    const commitChange = () => {
-                        if (isFinished) return;
-                        isFinished = true;
-
-                        document.removeEventListener('mousemove', handleMouseMove);
-                        document.removeEventListener('mouseup', handleMouseUpGlobal);
-                        document.removeEventListener('mouseup', handleResizeMouseUp);
-
-                        appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
-                        appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
-                        appState.genreModalX = parseInt(modalBox.style.left, 10);
-                        appState.genreModalY = parseInt(modalBox.style.top, 10);
-
-                        const newVal = input.value;
-                        if (newVal !== currentVal) {
-                            appState.items.forEach(otherItem => {
-                                if (otherItem.seriesName === item.seriesName) {
-                                    otherItem.genre = newVal;
-                                }
-                            });
-                            saveToLocalStorage();
-                        } else {
-                            // 値が変わっていなくてもサイズや位置を保存
-                            saveToLocalStorage();
-                        }
-
-                        if (document.body.contains(overlay)) {
-                            document.body.removeChild(overlay);
-                        }
-                        renderTable();
-                    };
-
-                    // 破棄終了（❌ または Escape）
-                    const discardChange = () => {
-                        if (isFinished) return;
-                        isFinished = true;
-
-                        document.removeEventListener('mousemove', handleMouseMove);
-                        document.removeEventListener('mouseup', handleMouseUpGlobal);
-                        document.removeEventListener('mouseup', handleResizeMouseUp);
-
-                        // 破棄時もコンテナのサイズと座標の変更は保存
-                        appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
-                        appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
-                        appState.genreModalX = parseInt(modalBox.style.left, 10);
-                        appState.genreModalY = parseInt(modalBox.style.top, 10);
-                        saveToLocalStorage();
-
-                        if (document.body.contains(overlay)) {
-                            document.body.removeChild(overlay);
-                        }
-                        renderTable();
-                    };
-
-                    // ボタンのクリックイベント紐付け
-                    okBtn.addEventListener('click', (ev) => {
-                        ev.stopPropagation();
-                        commitChange();
-                    });
-
-                    cancelBtn.addEventListener('click', (ev) => {
-                        ev.stopPropagation();
-                        discardChange();
-                    });
-
-                    input.addEventListener('keydown', (ev) => {
-                        if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
-                            commitChange();
-                        } else if (ev.key === 'Escape') {
-                            discardChange();
-                        }
-                    });
-
-                    // 背景クリックで確定終了する場合
-                    overlay.addEventListener('click', (ev) => {
-                        if (ev.target === overlay) {
-                            commitChange();
-                        }
-                    });
-                });
+            let textVal = '';
+            if (col.key === 'playlistStatus') {
+                textVal = getStatusIcon(item.playlistStatus, item);
+            } else if (col.key !== null) {
+                textVal = item[col.key] ?? '';
             }
 
-            // --- シリーズ列（index 4）：ダブルクリックでプレイヤー起動等 ---
-            if (i === 4) {
-                td.style.cursor = 'pointer';
-                td.addEventListener('dblclick', async (e) => {
-                    e.stopPropagation();
-                    handleRowSelection(item, tr);
-
-                    item.viewCount = (item.viewCount ?? 0) + 1;
-                    
-                    appState.items.forEach(otherItem => {
-                        if (otherItem.seriesName === item.seriesName) {
-                            otherItem.viewCount = item.viewCount;
-                        }
-                    });
-                    saveToLocalStorage();
-                    renderTable();
-
-                    if (!appState.playerAppPath) {
-                        if (item.folderPath) {
-                            await window.api.showInFolder(item.folderPath);
-                        }
-                        return;
-                    }
-            
-                    const result = await window.api.launchPlayer({
-                        appPath: appState.playerAppPath,
-                        targetPath: item.folderPath
-                    });
-                    if (result && !result.success && result.error) {
-                        showToast(result.error, 'error');
-                    }
-                });
+            if (!col.isCheckbox) {
+                td.textContent = textVal;
+                td.title = textVal;
             }
 
-            tr.appendChild(td);
-        }
-
-        // --- 6番目：保存対象（チェックボックス）列 ---
-        const saveTd = document.createElement('td');
-        saveTd.style.textAlign = 'center';
-        
-        const saveSymbol = thSymbols[6];
-        saveTd.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            closePopupMenu();
-
-            if (saveSymbol) {
-                const val = getFilterValue(saveSymbol, null, item);
-                insertFilterItem(saveSymbol, `${saveSymbol} ${val}, `);
-            }
-        });
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'save-checkbox';
-        checkbox.checked = item.isSave ?? false;
-        checkbox.dataset.index = index;
-
-        checkbox.addEventListener('change', (e) => {
-            item.isSave = e.target.checked;
-            saveToLocalStorage();
-            updateSelectAllCheckbox();
-        });
-        saveTd.appendChild(checkbox);
-        tr.appendChild(saveTd);
-
-        // --- 7番目以降の描画（TID以降） ---
-        for (let i = 7; i < fields.length; i++) {
-            const td = document.createElement('td');
-            const textVal = fields[i] ?? '';
-            td.textContent = textVal;
-            td.title = textVal;
-
-            const symbol = thSymbols[i];
-
-            // セルクリック時は行選択のみを実行
-            td.addEventListener('click', (e) => {
-                handleRowSelection(item, tr);
-            });
-
-            td.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                closePopupMenu();
-
-                if (symbol) {
-                    const val = getFilterValue(symbol, textVal, item);
-                    insertFilterItem(symbol, val);
-                }
-            });
-
-            // --- TID列（index 7）：ダブルクリックでブラウザ表示 ---
-            if (i === 7 && textVal && textVal !== '-') {
+            // TID列固有のスタイル
+            if (col.key === 'tid' && textVal && textVal !== '-') {
                 td.style.cursor = 'pointer';
                 td.style.color = '#4da6ff';
+            } else if (col.dblclick) {
+                td.style.cursor = 'pointer';
+            }
+
+            // セルクリック＆コンテキストメニュー共通設定
+            td.addEventListener('click', () => handleRowSelection(item, tr, tbody));
+            
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closePopupMenu();
+                if (col.symbol) {
+                    const val = getFilterValue(col.symbol, textVal, item);
+                    insertFilterItem(col.symbol, col.isCheckbox ? `${col.symbol} ${val}, ` : val);
+                }
+            });
+
+            // チェックボックス列の場合
+            if (col.isCheckbox) {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'save-checkbox';
+                checkbox.checked = item.isSave ?? false;
+                checkbox.dataset.index = index;
+                checkbox.addEventListener('change', (e) => {
+                    item.isSave = e.target.checked;
+                    saveToLocalStorage();
+                    updateSelectAllCheckbox();
+                });
+                td.appendChild(checkbox);
+            } else if (col.dblclick) {
+                // ダブルクリックイベントのバインド
                 td.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
-                    handleRowSelection(item, tr);
-
-                    const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
-                    window.api.openExternalUrl(tidUrl);
-                });
-            }
-
-            // --- タイトル列（index 11）：ダブルクリックで動画再生等 ---
-            if (i === 11) { 
-                td.style.cursor = 'pointer';
-                td.style.color = 'var(--text-color)';
-                td.addEventListener('dblclick', async (e) => {
-                    e.stopPropagation();
-                    handleRowSelection(item, tr);
-
-                    item.viewCount = (item.viewCount ?? 0) + 1;
-                    saveToLocalStorage();
-                    renderTable();
-
-                    if (!appState.playerAppPath) {
-                        if (item.filePath) {
-                            await window.api.showInFolder(item.filePath);
-                        }
-                        return;
-                    }
-            
-                    const result = await window.api.launchPlayer({
-                        appPath: appState.playerAppPath,
-                        targetPath: item.filePath
-                    });
-                    if (result && !result.success && result.error) {
-                        showToast(result.error, 'error');
-                    }
-                });
-            }
-
-            // --- 話数（12） / 状態（14）：ダブルクリックでメモ帳起動 ---
-            if (i === 12 || i === 14) {
-                td.style.textAlign = 'center';
-                td.style.cursor = 'pointer';
-                td.addEventListener('dblclick', async (e) => {
-                    e.stopPropagation();
-                    handleRowSelection(item, tr);
-
-                    const targetPlaylistPath = item.playlistPath || item.filePath;
+                    handleRowSelection(item, tr, tbody);
                     
-                    if (!targetPlaylistPath) {
-                        showToast('プレイリストのパスが見つかりません', 'error');
-                        return;
-                    }
-
-                    const notepadPath = 'C:\\WINDOWS\\notepad.exe';
-                    const result = await window.api.launchPlayer({
-                        appPath: notepadPath,
-                        targetPath: targetPlaylistPath
-                    });
-                    
-                    if (result && !result.success && result.error) {
-                        showToast(result.error, 'error');
+                    if (col.key === 'genre') {
+                        handleGenreDblClick(item, tr, td);
+                    } else if (col.key === 'tid') {
+                        handleTidDblClick(textVal);
+                    } else {
+                        col.dblclick(item, tr, td);
                     }
                 });
             }
 
-            // --- 視聴回数リセット列（index 13）：ダブルクリックで視聴回数リセット ---
-            if (i === 13) {
-                td.style.textAlign = 'center';
-                td.style.cursor = 'pointer';
-                td.addEventListener('dblclick', (e) => {
-                    e.stopPropagation();
-                    handleRowSelection(item, tr);
-
-                    item.viewCount = 0;
-                    saveToLocalStorage();
-                    renderTable();
-                });
-            }
-            
             tr.appendChild(td);
-        }
+        });
 
         tbody.appendChild(tr);
     });
 
     updateSelectAllCheckbox();
+}
+
+// 行選択＆ハイライト共通処理
+function handleRowSelection(item, tr, tbody) {
+    const targetPlaylistPath = item.playlistPath || item.filePath || '';
+    if (targetPlaylistPath) {
+        appState.selectedPlaylistPath = targetPlaylistPath;
+        saveToLocalStorage();
+    }
+    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+    tr.classList.add('selected-row');
+}
+
+// 列別ダブルクリックハンドラ群
+async function handleSeriesDblClick(item, tr) {
+    item.viewCount = (item.viewCount ?? 0) + 1;
+    appState.items.forEach(other => {
+        if (other.seriesName === item.seriesName) other.viewCount = item.viewCount;
+    });
+    saveToLocalStorage();
+    renderTable();
+
+    if (!appState.playerAppPath) {
+        if (item.folderPath) await window.api.showInFolder(item.folderPath);
+        return;
+    }
+    const result = await window.api.launchPlayer({ appPath: appState.playerAppPath, targetPath: item.folderPath });
+    if (result && !result.success && result.error) showToast(result.error, 'error');
+}
+
+// タイトル列ダブルクリックハンドラ
+async function handleTitleDblClick(item) {
+    item.viewCount = (item.viewCount ?? 0) + 1;
+    saveToLocalStorage();
+    renderTable();
+
+    if (!appState.playerAppPath) {
+        if (item.filePath) await window.api.showInFolder(item.filePath);
+        return;
+    }
+    const result = await window.api.launchPlayer({ appPath: appState.playerAppPath, targetPath: item.filePath });
+    if (result && !result.success && result.error) showToast(result.error, 'error');
+}
+
+// TID列ダブルクリックハンドラ
+function handleTidDblClick(textVal) {
+    if (textVal && textVal !== '-') {
+        const tidUrl = `https://cal.syoboi.jp/tid/${textVal}/subtitle`;
+        window.api.openExternalUrl(tidUrl);
+    }
+}
+
+// 話数列ダブルクリックハンドラ（メモ帳で開く）
+async function handleNotepadDblClick(item) {
+    const targetPath = item.playlistPath || item.filePath;
+    if (!targetPath) {
+        showToast('プレイリストのパスが見つかりません', 'error');
+        return;
+    }
+    const notepadPath = 'C:\\WINDOWS\\notepad.exe';
+    const result = await window.api.launchPlayer({ appPath: notepadPath, targetPath });
+    if (result && !result.success && result.error) showToast(result.error, 'error');
+}
+
+// 視聴回数列ダブルクリックハンドラ（視聴回数をリセット）
+function handleResetViewCount(item) {
+    item.viewCount = 0;
+    saveToLocalStorage();
+    renderTable();
+}
+
+// ジャンル列のダブルクリックハンドラ
+function handleGenreDblClick(item, tr, td) {
+    openGenreModal(item, tr, td, () => {
+        renderTable(); // 編集・確定後にテーブルを再描画
+    });
+}
+
+// ジャンル編集モーダルを開く独立関数（サイズ変更＆見切れ完全防止版）
+function openGenreModal(item, tr, td, onComplete) {
+    if (document.getElementById('genre-modal-overlay')) return;
+
+    // 既存の全アイテムから登録されている一意のジャンル一覧を抽出
+    const existingGenresSet = new Set();
+    appState.items.forEach(i => {
+        if (i.genre) {
+            i.genre.split(/,\s*|\n/).forEach(g => {
+                const trimmed = g.trim();
+                if (trimmed) existingGenresSet.add(trimmed);
+            });
+        }
+    });
+    const allGenres = Array.from(existingGenresSet).sort();
+
+    // 表示時に ", " を改行に変換
+    const currentVal = (item.genre ?? '').replace(/, /g, '\n');
+
+    // 背景のオーバーレイ（暗転幕）
+    const overlay = document.createElement('div');
+    overlay.id = 'genre-modal-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    overlay.style.zIndex = '9999';
+
+    // ポップアップ本体のコンテナ（overflow: hidden でリサイズを有効化）
+    const modalBox = document.createElement('div');
+    modalBox.style.position = 'absolute';
+    modalBox.style.backgroundColor = 'var(--panel-bg)';
+    modalBox.style.color = 'var(--text-color)';
+    modalBox.style.padding = '16px';
+    modalBox.style.borderRadius = '8px';
+    modalBox.style.boxShadow = '0 8px 16px rgba(0,0,0,0.3)';
+    modalBox.style.width = appState.genreModalWidth || '800px';
+    modalBox.style.height = appState.genreModalHeight || '250px';
+    modalBox.style.minWidth = '300px';
+    modalBox.style.minHeight = '180px';
+    modalBox.style.resize = 'both'; // リサイズ可能
+    modalBox.style.overflow = 'hidden'; // リサイズを効かせるため hidden
+    modalBox.style.boxSizing = 'border-box';
+    modalBox.style.display = 'flex';
+    modalBox.style.flexDirection = 'column';
+
+    overlay.appendChild(modalBox);
+    document.body.appendChild(overlay);
+
+    // 初期位置の設定
+    if (appState.genreModalX !== null && appState.genreModalY !== null) {
+        modalBox.style.left = appState.genreModalX + 'px';
+        modalBox.style.top = appState.genreModalY + 'px';
+    } else {
+        const rect = modalBox.getBoundingClientRect();
+        modalBox.style.left = Math.max(20, (window.innerWidth - rect.width) / 2) + 'px';
+        modalBox.style.top = Math.max(20, (window.innerHeight - rect.height) / 2) + 'px';
+    }
+
+    // タイトルバー
+    const titleEl = document.createElement('div');
+    titleEl.style.display = 'flex';
+    titleEl.style.justifyContent = 'space-between';
+    titleEl.style.alignItems = 'center';
+    titleEl.style.marginBottom = '8px';
+    titleEl.style.flexShrink = '0';
+    titleEl.style.cursor = 'move';
+
+    const titleText = document.createElement('span');
+    titleText.textContent = `シリーズ: ${item.seriesName || ''}`;
+    titleText.style.fontSize = '14px';
+    titleText.style.fontWeight = 'bold';
+    titleEl.appendChild(titleText);
+
+    // ボタンコンテナ
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex';
+    btnContainer.style.gap = '6px';
+
+    const createBtn = (text, title) => {
+        const btn = document.createElement('button');
+        btn.textContent = text;
+        btn.title = title;
+        btn.style.cursor = 'pointer';
+        btn.style.background = 'transparent';
+        btn.style.border = '1px solid var(--border-color)';
+        btn.style.borderRadius = '4px';
+        btn.style.padding = '2px 6px';
+        btn.style.fontSize = '12px';
+        btn.style.color = 'var(--text-color)';
+        return btn;
+    };
+
+    const okBtn = createBtn('✅', '確定して閉じる (Ctrl+Enter)');
+    const cancelBtn = createBtn('❌', '破棄して閉じる (Escape)');
+
+    btnContainer.appendChild(okBtn);
+    btnContainer.appendChild(cancelBtn);
+    titleEl.appendChild(btnContainer);
+    modalBox.appendChild(titleEl);
+
+    // --- ドラッグ＆ドロップ移動の処理 ---
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    titleEl.addEventListener('mousedown', (ev) => {
+        if (ev.target === okBtn || ev.target === cancelBtn) return;
+        isDragging = true;
+        const rect = modalBox.getBoundingClientRect();
+        dragOffsetX = ev.clientX - rect.left;
+        dragOffsetY = ev.clientY - rect.top;
+        ev.preventDefault();
+    });
+
+    const handleMouseMove = (ev) => {
+        if (!isDragging) return;
+        modalBox.style.left = (ev.clientX - dragOffsetX) + 'px';
+        modalBox.style.top = (ev.clientY - dragOffsetY) + 'px';
+        hideSuggestions(); // ドラッグ中はサジェストを非表示に追従
+    };
+
+    const handleMouseUpGlobal = () => {
+        if (isDragging) {
+            isDragging = false;
+            appState.genreModalX = parseInt(modalBox.style.left, 10);
+            appState.genreModalY = parseInt(modalBox.style.top, 10);
+            saveToLocalStorage();
+        }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUpGlobal);
+
+    // リサイズ操作のトラッキング
+    let isResized = false;
+    modalBox.addEventListener('mousedown', (e) => {
+        const rect = modalBox.getBoundingClientRect();
+        if (rect.right - e.clientX < 20 && rect.bottom - e.clientY < 20) {
+            isResized = true;
+        }
+    });
+
+    const handleResizeMouseUp = () => {
+        if (isResized) {
+            appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
+            appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
+            saveToLocalStorage();
+            isResized = false;
+            hideSuggestions();
+        }
+    };
+    document.addEventListener('mouseup', handleResizeMouseUp);
+
+    // --- テキストエリア（入力フィールド） ---
+    const input = document.createElement('textarea');
+    input.value = currentVal;
+    input.style.width = '100%';
+    input.style.flex = '1';
+    input.style.minHeight = '60px';
+    input.style.resize = 'none';
+    input.style.boxSizing = 'border-box';
+    input.style.backgroundColor = 'var(--panel-bg)';
+    input.style.color = 'var(--text-color)';
+    input.style.border = '1px solid var(--accent-color)';
+    input.style.padding = '8px';
+    input.style.fontSize = '14px';
+    input.style.borderRadius = '4px';
+    input.style.fontFamily = 'inherit';
+    modalBox.appendChild(input);
+
+    // サジェスト候補リストボックス（【変更】モーダル外＝overlay直下に配置して完全に見切れを防止）
+    const suggestBox = document.createElement('div');
+    suggestBox.style.position = 'fixed'; // 画面全体を基準に絶対配置
+    suggestBox.style.maxHeight = '130px';
+    suggestBox.style.overflowY = 'auto';
+    suggestBox.style.backgroundColor = 'var(--panel-bg)';
+    suggestBox.style.border = '1px solid var(--accent-color)';
+    suggestBox.style.borderRadius = '4px';
+    suggestBox.style.boxShadow = '0 6px 16px rgba(0,0,0,0.5)';
+    suggestBox.style.zIndex = '10000';
+    suggestBox.style.display = 'none';
+    overlay.appendChild(suggestBox); // modalBoxではなくoverlay直下に追加
+
+    input.focus();
+    input.select();
+
+    let selectedIndex = -1;
+
+    const hideSuggestions = () => {
+        suggestBox.style.display = 'none';
+    };
+
+    // サジェスト位置をテキストエリアの直下に正確に追従させる関数
+    const updateSuggestPosition = () => {
+        const inputRect = input.getBoundingClientRect();
+        suggestBox.style.top = (inputRect.bottom + 2) + 'px';
+        suggestBox.style.left = inputRect.left + 'px';
+        suggestBox.style.width = inputRect.width + 'px';
+    };
+
+    // 現在カーソル位置の行を取得してサジェスト更新
+    const updateSuggestions = () => {
+        const cursorPosition = input.selectionStart;
+        const textBeforeCursor = input.value.substring(0, cursorPosition);
+        const lines = textBeforeCursor.split('\n');
+        const currentLine = lines[lines.length - 1].trim();
+
+        suggestBox.innerHTML = '';
+        selectedIndex = -1;
+
+        if (!currentLine) {
+            hideSuggestions();
+            return;
+        }
+
+        const lowerLine = currentLine.toLowerCase();
+        const startsWithMatches = allGenres.filter(g => g.toLowerCase().startsWith(lowerLine) && g !== currentLine);
+        const includesMatches = allGenres.filter(g => g.toLowerCase().includes(lowerLine) && !g.toLowerCase().startsWith(lowerLine) && g !== currentLine);
+        const matched = [...startsWithMatches, ...includesMatches];
+
+        if (matched.length === 0) {
+            hideSuggestions();
+            return;
+        }
+
+        matched.forEach((genre, idx) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.textContent = genre;
+            itemDiv.style.padding = '6px 10px';
+            itemDiv.style.cursor = 'pointer';
+            itemDiv.style.fontSize = '13px';
+            itemDiv.style.borderBottom = '1px solid var(--border-color)';
+
+            itemDiv.addEventListener('mouseover', () => {
+                selectedIndex = idx;
+                highlightSuggestion();
+            });
+
+            itemDiv.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                applySuggestion(genre);
+            });
+
+            suggestBox.appendChild(itemDiv);
+        });
+
+        updateSuggestPosition();
+        suggestBox.style.display = 'block';
+    };
+
+    const highlightSuggestion = () => {
+        const children = suggestBox.children;
+        for (let i = 0; i < children.length; i++) {
+            if (i === selectedIndex) {
+                children[i].style.backgroundColor = 'var(--accent-color)';
+                children[i].style.color = '#fff';
+            } else {
+                children[i].style.backgroundColor = 'transparent';
+                children[i].style.color = 'var(--text-color)';
+            }
+        }
+    };
+
+    const applySuggestion = (genre) => {
+        const cursorPosition = input.selectionStart;
+        const textBeforeCursor = input.value.substring(0, cursorPosition);
+        const textAfterCursor = input.value.substring(cursorPosition);
+
+        const lines = textBeforeCursor.split('\n');
+        lines[lines.length - 1] = genre;
+
+        const newTextBefore = lines.join('\n');
+        input.value = newTextBefore + '\n' + textAfterCursor;
+        
+        const newCursorPos = newTextBefore.length + 1;
+        input.setSelectionRange(newCursorPos, newCursorPos);
+
+        hideSuggestions();
+        input.focus();
+    };
+
+    input.addEventListener('input', updateSuggestions);
+    input.addEventListener('scroll', updateSuggestPosition);
+    window.addEventListener('resize', updateSuggestPosition);
+
+    input.addEventListener('keydown', (ev) => {
+        const isSuggestVisible = suggestBox.style.display === 'block';
+
+        if (ev.key === 'ArrowUp' && isSuggestVisible) {
+            ev.preventDefault();
+            if (selectedIndex > 0) selectedIndex--;
+            else selectedIndex = suggestBox.children.length - 1;
+            highlightSuggestion();
+            return;
+        }
+        if (ev.key === 'ArrowDown' && isSuggestVisible) {
+            ev.preventDefault();
+            if (selectedIndex < suggestBox.children.length - 1) selectedIndex++;
+            else selectedIndex = 0;
+            highlightSuggestion();
+            return;
+        }
+        if ((ev.key === 'Enter' || ev.key === 'Tab') && isSuggestVisible && selectedIndex >= 0) {
+            ev.preventDefault();
+            const selectedDiv = suggestBox.children[selectedIndex];
+            if (selectedDiv) {
+                applySuggestion(selectedDiv.textContent);
+                return;
+            }
+        }
+
+        if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+            ev.preventDefault();
+            commitChange();
+        } else if (ev.key === 'Escape') {
+            if (isSuggestVisible) {
+                hideSuggestions();
+                ev.stopPropagation();
+            } else {
+                discardChange();
+            }
+        }
+    });
+
+    let isFinished = false;
+
+    const cleanup = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUpGlobal);
+        document.removeEventListener('mouseup', handleResizeMouseUp);
+        window.removeEventListener('resize', updateSuggestPosition);
+
+        appState.genreModalWidth = modalBox.style.width || modalBox.offsetWidth + 'px';
+        appState.genreModalHeight = modalBox.style.height || modalBox.offsetHeight + 'px';
+        appState.genreModalX = parseInt(modalBox.style.left, 10);
+        appState.genreModalY = parseInt(modalBox.style.top, 10);
+
+        if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+        }
+    };
+
+    const commitChange = () => {
+        if (isFinished) return;
+        isFinished = true;
+        cleanup();
+
+        const newVal = input.value.replace(/\r\n|\r|\n/g, ', ');
+        const rawCurrentVal = item.genre ?? '';
+
+        if (newVal !== rawCurrentVal) {
+            appState.items.forEach(otherItem => {
+                if (otherItem.seriesName === item.seriesName) {
+                    otherItem.genre = newVal;
+                }
+            });
+            saveToLocalStorage();
+        } else {
+            saveToLocalStorage();
+        }
+
+        if (typeof onComplete === 'function') onComplete();
+    };
+
+    const discardChange = () => {
+        if (isFinished) return;
+        isFinished = true;
+        cleanup();
+        saveToLocalStorage();
+
+        if (typeof onComplete === 'function') onComplete();
+    };
+
+    okBtn.addEventListener('click', (ev) => { ev.stopPropagation(); commitChange(); });
+    cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); discardChange(); });
+
+    overlay.addEventListener('click', (ev) => {
+        if (ev.target === overlay) commitChange();
+    });
+}
+
+// ソート処理（複数条件対応）
+function sortItems(items) {
+    return items.sort((a, b) => {
+        for (const config of SORT_CONFIG) {
+            const valA = a[config.key] ?? config.defaultVal;
+            const valB = b[config.key] ?? config.defaultVal;
+            if (valA !== valB) {
+                return valA.localeCompare(valB, 'ja');
+            }
+        }
+        return 0;
+    });
 }
 
 // 初回保持（もし未定義なら現在のitemsを保持）
