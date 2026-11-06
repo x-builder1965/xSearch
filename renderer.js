@@ -664,31 +664,12 @@ function openGenreModal(item, tr, td, onComplete) {
     // 背景のオーバーレイ（暗転幕）
     const overlay = document.createElement('div');
     overlay.id = 'genre-modal-overlay';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100vw';
-    overlay.style.height = '100vh';
-    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    overlay.style.zIndex = '9999';
 
-    // ポップアップ本体のコンテナ（overflow: hidden でリサイズを有効化）
+    // ポップアップ本体のコンテナ
     const modalBox = document.createElement('div');
-    modalBox.style.position = 'absolute';
-    modalBox.style.backgroundColor = 'var(--panel-bg)';
-    modalBox.style.color = 'var(--text-color)';
-    modalBox.style.padding = '16px';
-    modalBox.style.borderRadius = '8px';
-    modalBox.style.boxShadow = '0 8px 16px rgba(0,0,0,0.3)';
-    modalBox.style.width = appState.genreModalWidth || '800px';
-    modalBox.style.height = appState.genreModalHeight || '250px';
-    modalBox.style.minWidth = '300px';
-    modalBox.style.minHeight = '180px';
-    modalBox.style.resize = 'both'; // リサイズ可能
-    modalBox.style.overflow = 'hidden'; // リサイズを効かせるため hidden
-    modalBox.style.boxSizing = 'border-box';
-    modalBox.style.display = 'flex';
-    modalBox.style.flexDirection = 'column';
+    modalBox.className = 'genre-modal-box';
+    if (appState.genreModalWidth) modalBox.style.width = appState.genreModalWidth;
+    if (appState.genreModalHeight) modalBox.style.height = appState.genreModalHeight;
 
     overlay.appendChild(modalBox);
     document.body.appendChild(overlay);
@@ -705,35 +686,22 @@ function openGenreModal(item, tr, td, onComplete) {
 
     // タイトルバー
     const titleEl = document.createElement('div');
-    titleEl.style.display = 'flex';
-    titleEl.style.justifyContent = 'space-between';
-    titleEl.style.alignItems = 'center';
-    titleEl.style.marginBottom = '8px';
-    titleEl.style.flexShrink = '0';
-    titleEl.style.cursor = 'move';
+    titleEl.className = 'genre-modal-header';
 
     const titleText = document.createElement('span');
+    titleText.className = 'genre-modal-title';
     titleText.textContent = `シリーズ: ${item.seriesName || ''}`;
-    titleText.style.fontSize = '14px';
-    titleText.style.fontWeight = 'bold';
     titleEl.appendChild(titleText);
 
     // ボタンコンテナ
     const btnContainer = document.createElement('div');
-    btnContainer.style.display = 'flex';
-    btnContainer.style.gap = '6px';
+    btnContainer.className = 'genre-modal-actions';
 
     const createBtn = (text, title) => {
         const btn = document.createElement('button');
+        btn.className = 'genre-modal-btn';
         btn.textContent = text;
         btn.title = title;
-        btn.style.cursor = 'pointer';
-        btn.style.background = 'transparent';
-        btn.style.border = '1px solid var(--border-color)';
-        btn.style.borderRadius = '4px';
-        btn.style.padding = '2px 6px';
-        btn.style.fontSize = '12px';
-        btn.style.color = 'var(--text-color)';
         return btn;
     };
 
@@ -763,7 +731,7 @@ function openGenreModal(item, tr, td, onComplete) {
         if (!isDragging) return;
         modalBox.style.left = (ev.clientX - dragOffsetX) + 'px';
         modalBox.style.top = (ev.clientY - dragOffsetY) + 'px';
-        hideSuggestions(); // ドラッグ中はサジェストを非表示に追従
+        hideSuggestions();
     };
 
     const handleMouseUpGlobal = () => {
@@ -800,33 +768,14 @@ function openGenreModal(item, tr, td, onComplete) {
 
     // --- テキストエリア（入力フィールド） ---
     const input = document.createElement('textarea');
+    input.className = 'genre-modal-textarea';
     input.value = currentVal;
-    input.style.width = '100%';
-    input.style.flex = '1';
-    input.style.minHeight = '60px';
-    input.style.resize = 'none';
-    input.style.boxSizing = 'border-box';
-    input.style.backgroundColor = 'var(--panel-bg)';
-    input.style.color = 'var(--text-color)';
-    input.style.border = '1px solid var(--accent-color)';
-    input.style.padding = '8px';
-    input.style.fontSize = '14px';
-    input.style.borderRadius = '4px';
-    input.style.fontFamily = 'inherit';
     modalBox.appendChild(input);
 
-    // サジェスト候補リストボックス（【変更】モーダル外＝overlay直下に配置して完全に見切れを防止）
+    // サジェスト候補リストボックス
     const suggestBox = document.createElement('div');
-    suggestBox.style.position = 'fixed'; // 画面全体を基準に絶対配置
-    suggestBox.style.maxHeight = '130px';
-    suggestBox.style.overflowY = 'auto';
-    suggestBox.style.backgroundColor = 'var(--panel-bg)';
-    suggestBox.style.border = '1px solid var(--accent-color)';
-    suggestBox.style.borderRadius = '4px';
-    suggestBox.style.boxShadow = '0 6px 16px rgba(0,0,0,0.5)';
-    suggestBox.style.zIndex = '10000';
-    suggestBox.style.display = 'none';
-    overlay.appendChild(suggestBox); // modalBoxではなくoverlay直下に追加
+    suggestBox.className = 'genre-suggest-box';
+    overlay.appendChild(suggestBox);
 
     input.focus();
     input.select();
@@ -837,7 +786,6 @@ function openGenreModal(item, tr, td, onComplete) {
         suggestBox.style.display = 'none';
     };
 
-    // サジェスト位置をテキストエリアの直下に正確に追従させる関数
     const updateSuggestPosition = () => {
         const inputRect = input.getBoundingClientRect();
         suggestBox.style.top = (inputRect.bottom + 2) + 'px';
@@ -845,7 +793,6 @@ function openGenreModal(item, tr, td, onComplete) {
         suggestBox.style.width = inputRect.width + 'px';
     };
 
-    // 現在カーソル位置の行を取得してサジェスト更新
     const updateSuggestions = () => {
         const cursorPosition = input.selectionStart;
         const textBeforeCursor = input.value.substring(0, cursorPosition);
@@ -872,11 +819,8 @@ function openGenreModal(item, tr, td, onComplete) {
 
         matched.forEach((genre, idx) => {
             const itemDiv = document.createElement('div');
+            itemDiv.className = 'genre-suggest-item';
             itemDiv.textContent = genre;
-            itemDiv.style.padding = '6px 10px';
-            itemDiv.style.cursor = 'pointer';
-            itemDiv.style.fontSize = '13px';
-            itemDiv.style.borderBottom = '1px solid var(--border-color)';
 
             itemDiv.addEventListener('mouseover', () => {
                 selectedIndex = idx;
@@ -899,11 +843,9 @@ function openGenreModal(item, tr, td, onComplete) {
         const children = suggestBox.children;
         for (let i = 0; i < children.length; i++) {
             if (i === selectedIndex) {
-                children[i].style.backgroundColor = 'var(--accent-color)';
-                children[i].style.color = '#fff';
+                children[i].classList.add('is-selected');
             } else {
-                children[i].style.backgroundColor = 'transparent';
-                children[i].style.color = 'var(--text-color)';
+                children[i].classList.remove('is-selected');
             }
         }
     };

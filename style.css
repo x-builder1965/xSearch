@@ -488,14 +488,14 @@ th {
     width: 8px;
 }
 .menu-style::-webkit-scrollbar-track {
-    background: #121212;
+    background: var(--scrollbar-track);
 }
 .menu-style::-webkit-scrollbar-thumb {
-    background: #999;
+    background: var(--scrollbar-thumb);
     border-radius: 4px;
 }
 .menu-style::-webkit-scrollbar-thumb:hover {
-    background: #777;
+    background: var(--scrollbar-thumb-hover);
 }
 .menu-item {
     padding: clamp(5px, 0.6em, 8px) clamp(10px, 1em, 16px);
@@ -504,6 +504,131 @@ th {
 }
 .menu-item:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+/* ジャンル編集ポップアップ */
+/* モーダルオーバーレイ（背景の暗転幕） */
+#genre-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+/* ポップアップ本体のコンテナ */
+.genre-modal-box {
+  position: absolute;
+  background-color: var(--panel-bg);
+  color: var(--text-color);
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  width: 800px;
+  height: 250px;
+  min-width: 300px;
+  min-height: 180px;
+  resize: both;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+/* タイトルバー */
+.genre-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+  cursor: move;
+}
+.genre-modal-title {
+  font-size: 14px;
+  font-weight: bold;
+}
+/* ボタンコンテナ */
+.genre-modal-actions {
+  display: flex;
+  gap: 6px;
+}
+/* 確定・キャンセルボタン */
+.genre-modal-btn {
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: var(--text-color);
+}
+.genre-modal-btn:hover {
+  background-color: var(--border-color);
+}
+/* テキストエリア・サジェストスクロールバー設定 */
+.genre-modal-textarea::-webkit-scrollbar,
+.genre-suggest-box::-webkit-scrollbar {
+    width: 8px;
+}
+.genre-modal-textarea::-webkit-scrollbar-track,
+.genre-suggest-box::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+.genre-modal-textarea::-webkit-scrollbar-thumb,
+.genre-suggest-box::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+}
+.genre-modal-textarea::-webkit-scrollbar-thumb:hover,
+.genre-suggest-box::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefoxなどの標準プロパティ対応 */
+.genre-modal-textarea,
+.genre-suggest-box {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+/* テキストエリア */
+.genre-modal-textarea {
+  width: 100%;
+  flex: 1;
+  min-height: 60px;
+  resize: none;
+  box-sizing: border-box;
+  background-color: var(--panel-bg);
+  color: var(--text-color);
+  border: 1px solid var(--accent-color);
+  padding: 8px;
+  font-size: 14px;
+  border-radius: 4px;
+  font-family: inherit;
+}
+/* サジェスト候補リストボックス */
+.genre-suggest-box {
+  position: fixed;
+  max-height: 130px;
+  overflow-y: auto;
+  background-color: var(--panel-bg);
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: none;
+}
+/* サジェストの各項目 */
+.genre-suggest-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-color);
+}
+.genre-suggest-item:hover,
+.genre-suggest-item.is-selected {
+  background-color: var(--accent-color);
+  color: #fff;
 }
 
 /* 🔲メイン：ステータスパネル🔲 */
