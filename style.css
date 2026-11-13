@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-';
- * version   = 'Ver1.52.2';
+ * version   = 'Ver1.60.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -279,7 +279,7 @@ button.secondary {
     outline: none;
     font-size: clamp(0.95rem, 0.9vw, 1.25rem);
 }
-#save-btn,
+#play-btn,
 #player-config-btn {
     margin-right: 10px;
 }

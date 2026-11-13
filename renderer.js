@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.59.1';
+// version   = 'Ver1.60.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -129,6 +129,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     registerFastSearchBtnClick();
     // 💾保存ボタンイベントのリスナー登録
     registerSaveBtnClick();
+    // 📽️まとめて再生ボタンイベントのリスナー登録
+    registerPlayBtnClick();
     // ⚙️ボタンクリックベントのリスナー登録
     registerPlayerConfigBtnClick();
     // 📤エクスポートボタンクリックベントのリスナー登録
@@ -1169,7 +1171,7 @@ function registerFastSearchBtnClick() {
     });
 }
 
-// 💾保存ボタンイベントのリスナー登録
+// 💾まとめて保存ボタンイベントのリスナー登録
 function registerSaveBtnClick() {
     document.getElementById('save-btn')?.addEventListener('click', async () => {
         // 1. 保存対象（isSave === true）が存在するか事前チェック
@@ -1186,6 +1188,43 @@ function registerSaveBtnClick() {
             showToast(`プレイリストを保存しました:\n${result.filePath}`);
         } else if (!result.canceled) {
             showToast(`保存に失敗しました:\n${result.message || '不明なエラー'}`, 'error');
+        }
+    });
+}
+
+// 📽️まとめて再生イベントのリスナー登録
+function registerPlayBtnClick() {
+    document.getElementById('play-btn')?.addEventListener('click', async () => {
+        const selectedItems = appState.items.filter(item => item.isSave);
+        if (selectedItems.length === 0) {
+            showToast('再生対象の項目にチェックを入れてください。', 'warning');
+            return;
+        }
+
+        const playlistPaths = selectedItems
+            .map(item => item.playlistPath || item.filePath)
+            .filter(Boolean);
+        if (playlistPaths.length === 0) {
+            showToast('プレイリストのパスが見つかりません', 'error');
+            return;
+        }
+
+        try {
+            if (appState.playerAppPath) {
+                const result = await window.api.playSelectedPlaylists({
+                    appPath: appState.playerAppPath,
+                    filePaths: playlistPaths
+                });
+                if (!result.success) showToast(result.error || '再生に失敗しました。', 'error');
+                return;
+            }
+
+            const results = await Promise.all(playlistPaths.map(filePath => window.api.showInFolder(filePath)));
+            const failedResult = results.find(result => !result.success);
+            if (failedResult) showToast(failedResult.error || 'エクスプローラで開けませんでした。', 'error');
+        } catch (error) {
+            console.error('【エラー】プレイリスト再生に失敗:', error);
+            showToast(`再生に失敗しました:\n${error.message || '不明なエラー'}`, 'error');
         }
     });
 }

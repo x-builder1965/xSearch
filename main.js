@@ -2,13 +2,14 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.55.1';
+// version   = 'Ver1.60.1';
 // ---------------------------------------------------------------------
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const gotTheLock = app.requestSingleInstanceLock();     // 🔧 単一インスタンスロックの取得（重複起動の判定）
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
+const { randomUUID } = require('crypto');
 const Store = require('electron-store');
 
 // AniList의 英語ジャンル名から日本語への対応辞書
@@ -1502,6 +1503,50 @@ ipcMain.handle('app:launchPlayer', async (event, { appPath, targetPath }) => {
         return { success: true };
     } catch (error) {
         console.error('【エラー】プレイヤーアプリ起動に失敗:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// 選択されたプレイリストを統合してプレイヤーアプリで再生
+ipcMain.handle('app:playSelectedPlaylists', async (event, { appPath, filePaths }) => {
+    try {
+        if (typeof appPath !== 'string' || !appPath || !Array.isArray(filePaths) || filePaths.length === 0) {
+            return { success: false, error: 'プレイヤーアプリまたはプレイリストが指定されていません。' };
+        }
+
+        await fs.access(appPath);
+
+        const combinedLines = [];
+        for (const filePath of filePaths) {
+            if (typeof filePath !== 'string' || !filePath) {
+                return { success: false, error: 'プレイリストのパスが不正です。' };
+            }
+            const content = await fs.readFile(filePath, 'utf-8');
+            combinedLines.push(...content.split(/\r?\n/).filter(line => line.trim() !== ''));
+        }
+
+        const uniqueLines = [...new Set(combinedLines)];
+        if (uniqueLines.length === 0) {
+            return { success: false, error: '選択されたプレイリストに再生できる項目がありません。' };
+        }
+
+        const targetPath = path.join(app.getPath('temp'), `xSearch-playback-${randomUUID()}.amppl`);
+        await fs.writeFile(targetPath, uniqueLines.join('\n'), 'utf-8');
+
+        const child = spawn(appPath, [targetPath], {
+            cwd: path.dirname(targetPath),
+            detached: true,
+            stdio: 'ignore'
+        });
+
+        await new Promise((resolve, reject) => {
+            child.once('error', reject);
+            child.once('spawn', resolve);
+        });
+        child.unref();
+        return { success: true };
+    } catch (error) {
+        console.error('【エラー】選択プレイリストの再生に失敗:', error);
         return { success: false, error: error.message };
     }
 });
