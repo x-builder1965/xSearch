@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.58.1';
+// version   = 'Ver1.61.1';
 // ---------------------------------------------------------------------
 
 // 定数定義
@@ -127,6 +127,20 @@ function updateDashboardTimestamp() {
     }
 }
 
+// サマリーヘッダーのフィルタ条件更新
+function updateDashboardFilterCondition() {
+    const filterEl = document.getElementById('summary-filter-condition');
+    if (!filterEl) return;
+
+    const filterInput = document.getElementById('filter-input');
+    const condition = filterInput
+        ? filterInput.value.trim()
+        : (localStorage.getItem('filterCondition') || '').trim();
+
+    filterEl.textContent = condition ? `フィルタ条件：${condition}` : 'フィルタ条件：なし';
+    filterEl.title = condition ? `フィルタ条件：${condition}` : 'フィルタ条件：なし';
+}
+
 // イベントリスナー登録
 function setupDashboardEventListeners() {
     const graphShapeSelect = document.getElementById('graph-shape-select');
@@ -201,6 +215,8 @@ function setupDashboardEventListeners() {
 
 // 全体更新
 function refreshDashboard() {
+    updateDashboardTimestamp();
+    updateDashboardFilterCondition();
     renderSummaryTable();
     renderCategoryChart();
     renderPeriodDonutCharts();

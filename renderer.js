@@ -2,7 +2,7 @@
 // copyright = 'Copyright © 2026- @x-builder, Japan';
 // email     = 'x-builder@gmail.com';
 // appName   = 'xSearch -プレイリスト検索-';
-// version   = 'Ver1.60.1';
+// version   = 'Ver1.61.1';
 // ---------------------------------------------------------------------
 // 🔲イミディエイト定義🔲
 // 項目指定記号と内部プロパティのマッピング定義
@@ -375,6 +375,11 @@ function loadFromLocalStorage() {
                 }
             }
 
+            // フィルタ条件の復元
+            const savedFilterCondition = localStorage.getItem('filterCondition');
+            if (savedFilterCondition !== null) {
+                document.getElementById('filter-input').value = savedFilterCondition;
+            }
         } catch (e) {
             console.error('Failed to load localStorage:', e);
         }
@@ -1215,18 +1220,44 @@ function registerPlayBtnClick() {
                     appPath: appState.playerAppPath,
                     filePaths: playlistPaths
                 });
-                if (!result.success) showToast(result.error || '再生に失敗しました。', 'error');
+                if (!result.success) {
+                    showToast(result.error || '再生に失敗しました。', 'error');
+                    return;
+                }
+                incrementViewCounts(selectedItems);
                 return;
             }
 
             const results = await Promise.all(playlistPaths.map(filePath => window.api.showInFolder(filePath)));
             const failedResult = results.find(result => !result.success);
             if (failedResult) showToast(failedResult.error || 'エクスプローラで開けませんでした。', 'error');
+            else incrementViewCounts(selectedItems);
         } catch (error) {
             console.error('【エラー】プレイリスト再生に失敗:', error);
             showToast(`再生に失敗しました:\n${error.message || '不明なエラー'}`, 'error');
         }
     });
+}
+
+function incrementViewCounts(items) {
+    items.forEach(item => {
+        item.viewCount = (item.viewCount ?? 0) + 1;
+
+        if (Array.isArray(appState.rawItems)) {
+            appState.rawItems.forEach(rawItem => {
+                if (rawItem.id === item.id ||
+                    (rawItem.playlistPath || rawItem.filePath) === (item.playlistPath || item.filePath)) {
+                    rawItem.viewCount = item.viewCount;
+                }
+            });
+        }
+    });
+
+    saveToLocalStorage();
+    renderTable();
+    if (typeof refreshDashboard === 'function') {
+        refreshDashboard();
+    }
 }
 
 // ⚙️ボタンクリックベントのリスナー登録
@@ -1393,6 +1424,7 @@ function registerDocumentMousedown() {
 function registerFilterInputInput() {
     const filterInput = document.getElementById('filter-input');
     filterInput.addEventListener('input', () => {
+        saveFilterCondition();
         // 既存のタイマーをクリアして再設定（入力が終わってから3秒後）
         if (filterTimer) {
             clearTimeout(filterTimer);
@@ -2089,6 +2121,7 @@ function splitByOr(query) {
 function applyFilter() {
     const inputElem = document.getElementById('filter-input');
     const query = inputElem.value;
+    saveFilterCondition();
     
     // 全データ（appState.rawItems または元のリスト）からフィルタリング
     const sourceItems = appState.rawItems || appState.items;
@@ -2123,6 +2156,14 @@ function applyFilter() {
     const totalCount = sourceItems.length;
     const filteredCount = filteredItems.length;
     countElem.textContent = `${filteredCount} / ${totalCount}`;
+
+    if (typeof updateDashboardFilterCondition === 'function') {
+        updateDashboardFilterCondition();
+    }
+}
+
+function saveFilterCondition() {
+    localStorage.setItem('filterCondition', document.getElementById('filter-input').value);
 }
 
 // キャンセル実行処理

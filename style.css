@@ -2,7 +2,7 @@
  * copyright = 'Copyright © 2026- @x-builder, Japan';
  * email     = 'x-builder@gmail.com';
  * appName   = 'xSearch -プレイリスト検索-';
- * version   = 'Ver1.60.1';
+ * version   = 'Ver1.61.1';
  * --------------------------------------------------------------------- */
 /* 🔲カラー設定🔲 */
 /* ダークモード（デフォルト） */
@@ -886,8 +886,19 @@ caption {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     margin-bottom: 8px;
     flex-shrink: 0;
+}
+.summary-filter-condition {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-size: clamp(0.9em, 1.1em, 1.3em);
+    color: var(--text-color);
 }
 .summary-timestamp {
     font-size: clamp(0.75em, 0.9em, 1em);
